@@ -1,6 +1,6 @@
 import type { MonthRecord } from '@/types/finance'
 
-export const SEED_DATA: MonthRecord[] = [
+const HISTORICAL: MonthRecord[] = [
   {m:'Jul',y:2021,rec:6272.05,fix:565.70,emp:646.06,cart:4416.43},
   {m:'Ago',y:2021,rec:5714.10,fix:1293.42,emp:1539.23,cart:4428.57},
   {m:'Set',y:2021,rec:8101.17,fix:2375.67,emp:1299.30,cart:5588.32},
@@ -67,3 +67,61 @@ export const SEED_DATA: MonthRecord[] = [
   cards: raw.cart,
   source: 'seed' as const,
 }))
+
+export const SEED_DATA: MonthRecord[] = [...HISTORICAL, ...[
+  // ── Abril 2026 — importado do dashboard anterior ──────────────────────────
+  {
+    month: 'Abr' as MonthRecord['month'],
+    year: 2026,
+    revenue: 8900,
+    fixedCosts: 5884.70,
+    loans: 5585.46,
+    cards: 15718.30,
+    source: 'manual' as const,
+    items: [
+      // Receitas
+      { id: 'abr26-r1', description: 'Salário Alan Bruning',       value: 4500,    category: 'revenue'    as const, isPaid: false },
+      { id: 'abr26-r2', description: 'Salário Dani Unimed',        value: 4300,    category: 'revenue'    as const, isPaid: false },
+      { id: 'abr26-r3', description: 'Aluguel Garagem',            value: 100,     category: 'revenue'    as const, isPaid: false },
+      // Custos Fixos
+      { id: 'abr26-f1',  description: 'Energia Elétrica Celesc Mês Março (Atrasado)', value: 292.89,  category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f2',  description: 'Energia Elétrica Celesc Abril',                value: 340.28,  category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f3',  description: 'Condominio Mês Março (Atrasado)',               value: 507.54,  category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f4',  description: 'Condomínio Mês Abril',                         value: 400,     category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f5',  description: 'Escola Beatriz - ETCT',                        value: 840.39,  category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f6',  description: 'Plano Celular Claro',                          value: 75.12,   category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f7',  description: 'Van Escolar Bia',                              value: 300,     category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f8',  description: 'Financiamento AP',                             value: 1022.36, category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f9',  description: 'Internet Claro',                               value: 61.40,   category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f10', description: 'Financiamento AP Fevereiro Atrasado',          value: 1022.36, category: 'fixedCosts' as const, isPaid: false },
+      { id: 'abr26-f11', description: 'Financiamento AP Janeiro Atrasado',            value: 1022.36, category: 'fixedCosts' as const, isPaid: false },
+      // Empréstimos
+      { id: 'abr26-e1',  description: 'Empréstimo em folha Santander Alan (03/36)',   value: 634.01,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e2',  description: 'Empréstimo em folha Santander Dani (05/24)',   value: 1500,    category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e3',  description: 'Empréstimo Pan Pessoal (03/18)',               value: 657.92,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e4',  description: 'Empréstimo Pan Pessoal (02/18) Atrasado',      value: 657.92,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e5',  description: 'Empréstimo Pan 2 (03/18)',                     value: 375.44,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e6',  description: 'Empréstimo Pan 2 (02/18) Atrasado',            value: 375.44,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e7',  description: 'Mounjaro (3/5) Matheus',                      value: 200,     category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e8',  description: 'Mounjaro segunda leva (02/05) Matheus',        value: 390,     category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e9',  description: 'Tenis (02/04) Matheus',                       value: 240,     category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e10', description: 'Empréstimo Nubank Março Atrasado',             value: 287.99,  category: 'loans'      as const, isPaid: false },
+      { id: 'abr26-e11', description: 'Empréstimo Nubank Abril',                      value: 266.74,  category: 'loans'      as const, isPaid: false },
+      // Cartões
+      { id: 'abr26-c1',  description: 'Cartão Nubank Ultra Alan',                    value: 2087.59, category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c2',  description: 'Cartão Caixa Alan',                           value: 1293.49, category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c3',  description: 'Cartão Sicoob Alan',                          value: 983.51,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c4',  description: 'Cartão Amex Alan',                            value: 4393.68, category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c5',  description: 'Cartão Renner Março Atrasado',                value: 244.64,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c6',  description: 'Cartão Renner Abril',                         value: 233.19,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c7',  description: 'Cartão Santander Dani',                       value: 4000,    category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c8',  description: 'Cartão Havan Março Atrasado',                 value: 466.68,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c9',  description: 'Cartão Havan Abril',                          value: 327.71,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c10', description: 'Cartão Nubank PJ',                            value: 485.01,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c11', description: 'Cartão Mercado Pago',                         value: 290.67,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c12', description: 'Cartão Tricard',                              value: 328.52,  category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c13', description: 'Cartão Pan Alan',                             value: 100,     category: 'cards'      as const, isPaid: false },
+      { id: 'abr26-c14', description: 'Cartão Santander Alan',                       value: 483.61,  category: 'cards'      as const, isPaid: false },
+    ],
+  },
+]]
