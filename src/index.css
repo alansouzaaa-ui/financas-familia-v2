@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background-color: #F7F6F3;
+    color: #1A1917;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #E8E6E0; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #6B6860; }
+  *:focus-visible {
+    outline: 2px solid #185FA5;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .val { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6B6860;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #E8E6E0;
+    border-radius: 14px;
+    padding: 1.25rem;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #E8E6E0;
+    background: transparent;
+    color: #6B6860;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+  .pill:hover { border-color: #1A1917; color: #1A1917; }
+  .pill.active { background: #1A1917; color: #fff; border-color: #1A1917; }
+}
+
+@layer utilities {
+  .pos { color: #0F6E56; }
+  .neg { color: #993C1D; }
+  .text-muted { color: #6B6860; }
+  .font-mono { font-family: 'DM Mono', monospace; }
+  /* Safe area padding for mobile bottom nav */
+  .pb-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
