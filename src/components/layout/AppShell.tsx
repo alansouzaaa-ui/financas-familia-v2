@@ -45,6 +45,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/investimentos',
+    label: 'Invest.',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 13L7.5 8l3 3L17 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14 4h3v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 17h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/lancar',
     label: 'Lançar',
     icon: (

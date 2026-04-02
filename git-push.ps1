@@ -3,25 +3,16 @@ Set-Location $PSScriptRoot
 
 $git = "git"
 
-Write-Host "Configurando identidade git..." -ForegroundColor Cyan
-& $git config --global user.email "a.souzaaa@gmail.com"
-& $git config --global user.name "Alan Souza"
-
-Write-Host "Inicializando repositorio git..." -ForegroundColor Cyan
-& $git init
-& $git branch -M main
-
-Write-Host "Adicionando arquivos..." -ForegroundColor Cyan
-& $git add .
-
-Write-Host "Criando commit inicial..." -ForegroundColor Cyan
-& $git commit -m "feat: dashboard financeiro v2 - React + TypeScript + Tailwind + Recharts"
+Write-Host "Removendo remote antigo se existir..." -ForegroundColor Yellow
+& $git remote remove origin 2>$null
 
 Write-Host "Conectando ao GitHub..." -ForegroundColor Cyan
 & $git remote add origin https://github.com/alansouzaaa-ui/financas-familia-v2.git
 
-Write-Host "Enviando para o GitHub..." -ForegroundColor Yellow
+Write-Host "Enviando para o GitHub (pode pedir login)..." -ForegroundColor Yellow
 & $git push -u origin main
 
-Write-Host "Concluido! Acesse:" -ForegroundColor Green
-Write-Host "https://github.com/alansouzaaa-ui/financas-familia-v2" -ForegroundColor Green
+Write-Host ""
+Write-Host "Concluido!" -ForegroundColor Green
+Write-Host "Repositorio: https://github.com/alansouzaaa-ui/financas-familia-v2" -ForegroundColor Green
+Write-Host "Site (apos ~2min): https://alansouzaaa-ui.github.io/financas-familia-v2/" -ForegroundColor Green

@@ -6,6 +6,7 @@ import AnnualPage from '@/pages/Annual'
 import GoalsPage from '@/pages/Goals'
 import RecurringPage from '@/pages/Recurring'
 import LaunchPage from '@/pages/Launch'
+import InvestmentsPage from '@/pages/Investments'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="metas" element={<GoalsPage />} />
           <Route path="recorrentes" element={<RecurringPage />} />
           <Route path="lancar" element={<LaunchPage />} />
+          <Route path="investimentos" element={<InvestmentsPage />} />
         </Route>
       </Routes>
     </HashRouter>
