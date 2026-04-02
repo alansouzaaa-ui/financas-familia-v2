@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
@@ -51,6 +51,26 @@ export default function LaunchPage() {
     makeItem('fixedCosts', false),
   ])
   const [saved, setSaved] = useState(false)
+
+  // Carrega itens quando o mês/ano selecionado já tem dados
+  useEffect(() => {
+    const existing = allMonths.find(
+      m => m.month === selectedMonth && m.year === parseInt(selectedYear)
+    )
+    if (existing?.items && existing.items.length > 0) {
+      setFormItems(
+        existing.items.map(i => ({
+          id: i.id,
+          description: i.description,
+          value: String(i.value),
+          category: i.category,
+          isPaid: i.isPaid,
+        }))
+      )
+    } else {
+      setFormItems([makeItem('revenue', true), makeItem('fixedCosts', false)])
+    }
+  }, [selectedMonth, selectedYear, allMonths])
 
   const updateItem = useCallback((id: string, field: keyof FormItem, val: string | boolean) => {
     setFormItems(prev => prev.map(i => i.id === id ? { ...i, [field]: val } : i))
@@ -274,21 +294,42 @@ export default function LaunchPage() {
               <div className="text-[12px] text-[#6B6860]">Nenhum mês lançado ainda.</div>
             ) : (
               <div className="flex flex-col divide-y divide-[#E8E6E0]">
-                {manualMonths.slice(0, 8).map(m => (
-                  <div key={`${m.year}-${m.month}`} className="py-2.5 first:pt-0 last:pb-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-[13px]">{m.month}/{m.year}</span>
-                      <span className={`font-mono text-[12px] font-semibold ${m.balance >= 0 ? 'pos' : 'neg'}`}>
-                        {fmtSigned(m.balance)}
-                      </span>
-                    </div>
-                    {m.items && (
-                      <div className="text-[11px] text-[#6B6860] mt-0.5">
-                        {m.items.filter(i => i.isPaid).length}/{m.items.length} itens pagos
+                {manualMonths.slice(0, 8).map(m => {
+                  const isEditing = m.month === selectedMonth && m.year === parseInt(selectedYear)
+                  return (
+                    <div key={`${m.year}-${m.month}`} className={`py-2.5 first:pt-0 last:pb-0 ${isEditing ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-[13px]">{m.month}/{m.year}</span>
+                          {isEditing && (
+                            <span className="text-[10px] text-[#6B6860] bg-[#F7F6F3] px-1.5 py-0.5 rounded">editando</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono text-[12px] font-semibold ${m.balance >= 0 ? 'pos' : 'neg'}`}>
+                            {fmtSigned(m.balance)}
+                          </span>
+                          {!isEditing && (
+                            <button
+                              onClick={() => {
+                                setSelectedMonth(m.month)
+                                setSelectedYear(String(m.year))
+                              }}
+                              className="text-[11px] text-[#6B6860] hover:text-[#1A1917] border border-[#E8E6E0] hover:border-[#1A1917] rounded-[6px] px-2 py-0.5 transition-colors"
+                            >
+                              Editar
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {m.items && (
+                        <div className="text-[11px] text-[#6B6860] mt-0.5">
+                          {m.items.filter(i => i.isPaid).length}/{m.items.length} itens pagos
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </Card>
