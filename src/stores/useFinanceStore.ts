@@ -97,7 +97,20 @@ export const useFinanceStore = create<FinanceStore>()(
     }),
     {
       name: 'finance-store',
-      partialize: (s) => ({ periodFilter: s.periodFilter, selectedYear: s.selectedYear }),
+      partialize: (s) => ({
+        periodFilter: s.periodFilter,
+        selectedYear: s.selectedYear,
+        manualMonths: s.allMonths.filter(m => m.source === 'manual'),
+      }),
+      merge: (persisted: unknown, current) => {
+        const p = persisted as { periodFilter?: typeof current.periodFilter; selectedYear?: typeof current.selectedYear; manualMonths?: MonthRecord[] }
+        return {
+          ...current,
+          periodFilter: p.periodFilter ?? current.periodFilter,
+          selectedYear: p.selectedYear ?? current.selectedYear,
+          allMonths: sortMonths(mergeRecords(SEED_DATA, p.manualMonths ?? [])),
+        }
+      },
     }
   )
 )
