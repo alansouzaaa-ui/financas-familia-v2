@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
@@ -52,10 +52,9 @@ export default function LaunchPage() {
   ])
   const [saved, setSaved] = useState(false)
 
-  // Carrega itens quando o mês/ano selecionado já tem dados
-  useEffect(() => {
+  function loadMonthIntoForm(month: string, year: string) {
     const existing = allMonths.find(
-      m => m.month === selectedMonth && m.year === parseInt(selectedYear)
+      m => m.month === month && m.year === parseInt(year)
     )
     if (existing?.items && existing.items.length > 0) {
       setFormItems(
@@ -70,7 +69,7 @@ export default function LaunchPage() {
     } else {
       setFormItems([makeItem('revenue', true), makeItem('fixedCosts', false)])
     }
-  }, [selectedMonth, selectedYear, allMonths])
+  }
 
   const updateItem = useCallback((id: string, field: keyof FormItem, val: string | boolean) => {
     setFormItems(prev => prev.map(i => i.id === id ? { ...i, [field]: val } : i))
@@ -174,10 +173,10 @@ export default function LaunchPage() {
           <Card>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-[140px]">
-                <Select label="Mês" options={MONTHS_LIST} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+                <Select label="Mês" options={MONTHS_LIST} value={selectedMonth} onChange={e => { setSelectedMonth(e.target.value); loadMonthIntoForm(e.target.value, selectedYear) }} />
               </div>
               <div className="w-24">
-                <Select label="Ano" options={YEAR_OPTIONS} value={selectedYear} onChange={e => setSelectedYear(e.target.value)} />
+                <Select label="Ano" options={YEAR_OPTIONS} value={selectedYear} onChange={e => { setSelectedYear(e.target.value); loadMonthIntoForm(selectedMonth, e.target.value) }} />
               </div>
               <div className="flex items-end gap-2">
                 <Button variant="ghost" size="sm" onClick={copyPreviousMonth}>
@@ -314,6 +313,7 @@ export default function LaunchPage() {
                               onClick={() => {
                                 setSelectedMonth(m.month)
                                 setSelectedYear(String(m.year))
+                                loadMonthIntoForm(m.month, String(m.year))
                               }}
                               className="text-[11px] text-[#6B6860] hover:text-[#1A1917] border border-[#E8E6E0] hover:border-[#1A1917] rounded-[6px] px-2 py-0.5 transition-colors"
                             >
