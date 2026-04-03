@@ -75,9 +75,9 @@ export default function MonthlyPage() {
         {monthsForYear.length > 0 ? (
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B6860', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6B6860', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} tickFormatter={fmtK} width={52} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} tickFormatter={fmtK} width={52} />
               <Tooltip content={<ChartTooltip />} />
               <Line
                 type="monotone"
@@ -105,7 +105,7 @@ export default function MonthlyPage() {
               <thead>
                 <tr>
                   {['Mês', 'Receitas', 'Fixos', 'Empréstimos', 'Cartões', 'Balanço'].map(h => (
-                    <th key={h} className="label px-5 py-2.5 text-left border-b border-[#E8E6E0] first:pl-5">{h}</th>
+                    <th key={h} className="label px-5 py-2.5 text-left border-b border-[var(--color-border)] first:pl-5">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -117,10 +117,10 @@ export default function MonthlyPage() {
                     <>
                       <tr
                         key={key}
-                        className="hover:bg-[#F7F6F3] cursor-pointer transition-colors"
+                        className="hover:bg-[var(--color-surface-2)] cursor-pointer transition-colors"
                         onClick={() => setExpandedMonth(isExpanded ? null : key)}
                       >
-                        <td className="px-5 py-3 font-medium border-b border-[#E8E6E0]">
+                        <td className="px-5 py-3 font-medium border-b border-[var(--color-border)]">
                           <div className="flex items-center gap-2">
                             <span>{m.month}</span>
                             {m.source === 'manual' && <Badge variant="manual" size="sm">manual</Badge>}
@@ -134,17 +134,17 @@ export default function MonthlyPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] pos">{fmt(m.revenue)}</td>
-                        <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] text-[#6B6860]">{fmt(m.fixedCosts)}</td>
-                        <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] text-[#6B6860]">{fmt(m.loans)}</td>
-                        <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] neg">{fmt(m.cards)}</td>
-                        <td className={`px-5 py-3 font-mono font-semibold border-b border-[#E8E6E0] ${m.balance >= 0 ? 'pos' : 'neg'}`}>
+                        <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] pos">{fmt(m.revenue)}</td>
+                        <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] text-[var(--color-text-muted)]">{fmt(m.fixedCosts)}</td>
+                        <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] text-[var(--color-text-muted)]">{fmt(m.loans)}</td>
+                        <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] neg">{fmt(m.cards)}</td>
+                        <td className={`px-5 py-3 font-mono font-semibold border-b border-[var(--color-border)] ${m.balance >= 0 ? 'pos' : 'neg'}`}>
                           {fmtSigned(m.balance)}
                         </td>
                       </tr>
                       {isExpanded && m.items && m.items.length > 0 && (
                         <tr key={`${key}-detail`}>
-                          <td colSpan={6} className="border-b border-[#E8E6E0] bg-[#F7F6F3]">
+                          <td colSpan={6} className="border-b border-[var(--color-border)] bg-[var(--color-surface-2)]">
                             <div className="px-5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {(['revenue', 'fixedCosts', 'loans', 'cards'] as CategoryKey[]).map(cat => {
                                 const items = m.items!.filter(i => i.category === cat)
@@ -157,14 +157,14 @@ export default function MonthlyPage() {
                                     {items.map(item => (
                                       <div key={item.id} className="flex items-center justify-between py-1 text-[12px]">
                                         <div className="flex items-center gap-2">
-                                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${item.isPaid ? 'bg-[#0F6E56]' : 'bg-[#E8E6E0]'}`} />
-                                          <span className="text-[#1A1917]">{item.description}</span>
+                                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${item.isPaid ? 'bg-[var(--color-pos)]' : 'bg-[var(--color-border)]'}`} />
+                                          <span className="text-[var(--color-text-primary)]">{item.description}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                           <Badge variant={item.isPaid ? 'green' : 'gray'} size="sm">
                                             {item.isPaid ? 'pago' : 'pend.'}
                                           </Badge>
-                                          <span className="font-mono text-[#1A1917]">{fmt(item.value)}</span>
+                                          <span className="font-mono text-[var(--color-text-primary)]">{fmt(item.value)}</span>
                                         </div>
                                       </div>
                                     ))}
@@ -180,11 +180,11 @@ export default function MonthlyPage() {
                 })}
               </tbody>
               <tfoot>
-                <tr className="font-semibold bg-[#F7F6F3]">
-                  <td className="px-5 py-3 text-[12px] text-[#6B6860]">Total {currentYear}</td>
+                <tr className="font-semibold bg-[var(--color-surface-2)]">
+                  <td className="px-5 py-3 text-[12px] text-[var(--color-text-muted)]">Total {currentYear}</td>
                   <td className="px-5 py-3 font-mono pos">{fmt(monthsForYear.reduce((s,m)=>s+m.revenue,0))}</td>
-                  <td className="px-5 py-3 font-mono text-[#6B6860]">{fmt(monthsForYear.reduce((s,m)=>s+m.fixedCosts,0))}</td>
-                  <td className="px-5 py-3 font-mono text-[#6B6860]">{fmt(monthsForYear.reduce((s,m)=>s+m.loans,0))}</td>
+                  <td className="px-5 py-3 font-mono text-[var(--color-text-muted)]">{fmt(monthsForYear.reduce((s,m)=>s+m.fixedCosts,0))}</td>
+                  <td className="px-5 py-3 font-mono text-[var(--color-text-muted)]">{fmt(monthsForYear.reduce((s,m)=>s+m.loans,0))}</td>
                   <td className="px-5 py-3 font-mono neg">{fmt(monthsForYear.reduce((s,m)=>s+m.cards,0))}</td>
                   <td className={`px-5 py-3 font-mono ${monthsForYear.reduce((s,m)=>s+m.balance,0)>=0?'pos':'neg'}`}>
                     {fmtSigned(monthsForYear.reduce((s,m)=>s+m.balance,0))}

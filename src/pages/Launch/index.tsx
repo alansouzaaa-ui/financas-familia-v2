@@ -211,7 +211,7 @@ export default function LaunchPage() {
                   <Button variant="ghost" size="sm" onClick={() => addItem(cat)}>+ Adicionar</Button>
                 </div>
                 {items.length === 0 ? (
-                  <div className="text-[12px] text-[#6B6860] py-2">Nenhum item. Clique em + Adicionar.</div>
+                  <div className="text-[12px] text-[var(--color-text-muted)] py-2">Nenhum item. Clique em + Adicionar.</div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {items.map(item => (
@@ -220,7 +220,7 @@ export default function LaunchPage() {
                         <button
                           onClick={() => updateItem(item.id, 'isPaid', !item.isPaid)}
                           className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                            item.isPaid ? 'bg-[#0F6E56] border-[#0F6E56]' : 'border-[#E8E6E0] bg-white'
+                            item.isPaid ? 'bg-[var(--color-pos)] border-[var(--color-pos)]' : 'border-[var(--color-border)] bg-[var(--color-surface)]'
                           }`}
                           title={item.isPaid ? 'Marcar como pendente' : 'Marcar como pago'}
                         >
@@ -236,7 +236,7 @@ export default function LaunchPage() {
                           placeholder="Descrição"
                           value={item.description}
                           onChange={e => updateItem(item.id, 'description', e.target.value)}
-                          className="flex-1 min-w-0 px-2.5 py-1.5 text-[13px] bg-[#F7F6F3] border border-[#E8E6E0] rounded-[8px] outline-none focus:border-[#1A1917]"
+                          className="flex-1 min-w-0 px-2.5 py-1.5 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)]"
                         />
                         {/* Value */}
                         <input
@@ -244,11 +244,11 @@ export default function LaunchPage() {
                           placeholder="0,00"
                           value={item.value}
                           onChange={e => updateItem(item.id, 'value', e.target.value)}
-                          className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[#F7F6F3] border border-[#E8E6E0] rounded-[8px] outline-none focus:border-[#1A1917] text-right"
+                          className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
                         />
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-[#6B6860] hover:text-[#993C1D] transition-colors p-1"
+                          className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1"
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                             <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -278,16 +278,16 @@ export default function LaunchPage() {
                 { label: 'Cartões',       value: totals.cards,      cls: 'neg' },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center">
-                  <span className="text-[#6B6860]">{item.label}</span>
+                  <span className="text-[var(--color-text-muted)]">{item.label}</span>
                   <span className={`font-mono font-medium ${item.cls}`}>{fmt(item.value)}</span>
                 </div>
               ))}
-              <div className="border-t border-[#E8E6E0] pt-2 mt-1">
+              <div className="border-t border-[var(--color-border)] pt-2 mt-1">
                 <div className="flex justify-between font-semibold">
                   <span>Balanço projetado</span>
                   <span className={`font-mono ${totals.balance >= 0 ? 'pos' : 'neg'}`}>{fmtSigned(totals.balance)}</span>
                 </div>
-                <div className="flex justify-between text-[12px] text-[#6B6860] mt-1">
+                <div className="flex justify-between text-[12px] text-[var(--color-text-muted)] mt-1">
                   <span>Consolidado (pagos)</span>
                   <span className={`font-mono ${totals.consolidatedBalance >= 0 ? 'pos' : 'neg'}`}>
                     {fmtSigned(totals.consolidatedBalance)}
@@ -300,9 +300,9 @@ export default function LaunchPage() {
           {/* Launched months list */}
           <Card title="Meses lançados">
             {manualMonths.length === 0 ? (
-              <div className="text-[12px] text-[#6B6860]">Nenhum mês lançado ainda.</div>
+              <div className="text-[12px] text-[var(--color-text-muted)]">Nenhum mês lançado ainda.</div>
             ) : (
-              <div className="flex flex-col divide-y divide-[#E8E6E0]">
+              <div className="flex flex-col divide-y divide-[var(--color-border)]">
                 {manualMonths.slice(0, 8).map(m => {
                   const isEditing = m.month === selectedMonth && m.year === parseInt(selectedYear)
                   return (
@@ -311,7 +311,7 @@ export default function LaunchPage() {
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-[13px]">{m.month}/{m.year}</span>
                           {isEditing && (
-                            <span className="text-[10px] text-[#6B6860] bg-[#F7F6F3] px-1.5 py-0.5 rounded">editando</span>
+                            <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">editando</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -325,7 +325,7 @@ export default function LaunchPage() {
                                 setSelectedYear(String(m.year))
                                 loadMonthIntoForm(m.month, String(m.year))
                               }}
-                              className="text-[11px] text-[#6B6860] hover:text-[#1A1917] border border-[#E8E6E0] hover:border-[#1A1917] rounded-[6px] px-2 py-0.5 transition-colors"
+                              className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] hover:border-[var(--color-text-primary)] rounded-[6px] px-2 py-0.5 transition-colors"
                             >
                               Editar
                             </button>
@@ -333,7 +333,7 @@ export default function LaunchPage() {
                         </div>
                       </div>
                       {m.items && (
-                        <div className="text-[11px] text-[#6B6860] mt-0.5">
+                        <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
                           {m.items.filter(i => i.isPaid).length}/{m.items.length} itens pagos
                         </div>
                       )}

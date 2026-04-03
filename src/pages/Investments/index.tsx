@@ -4,6 +4,7 @@ import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { fetchQuotes, fetchIbov } from '@/lib/brapiService'
 import { fmtFull, fmtPct } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition } from '@/types/investment'
@@ -40,9 +41,9 @@ function pct(value: number) {
 }
 
 function trendClass(value: number) {
-  if (value > 0) return 'text-[#1D9E75]'
-  if (value < 0) return 'text-[#D85A30]'
-  return 'text-[#6B6860]'
+  if (value > 0) return 'pos'
+  if (value < 0) return 'neg'
+  return 'text-[var(--color-text-muted)]'
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
@@ -61,17 +62,17 @@ function SummaryCard({
   loading?: boolean
 }) {
   return (
-    <div className="bg-white rounded-2xl p-4 border border-[#E8E6E0]">
-      <div className="text-[11px] font-medium text-[#6B6860] uppercase tracking-wider mb-1">
+    <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)]">
+      <div className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
         {label}
       </div>
       {loading ? (
-        <div className="h-7 w-24 bg-[#F7F6F3] rounded animate-pulse mt-1" />
+        <div className="h-7 w-24 bg-[var(--color-surface-2)] rounded animate-pulse mt-1" />
       ) : (
         <>
-          <div className="text-[20px] font-semibold text-[#1A1917] leading-tight">{main}</div>
+          <div className="text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight">{main}</div>
           {sub && (
-            <div className={`text-[12px] font-medium mt-0.5 ${subTrend !== undefined ? trendClass(subTrend) : 'text-[#6B6860]'}`}>
+            <div className={`text-[12px] font-medium mt-0.5 ${subTrend !== undefined ? trendClass(subTrend) : 'text-[var(--color-text-muted)]'}`}>
               {sub}
             </div>
           )}
@@ -92,11 +93,11 @@ function PositionCard({
 }) {
   const hasQuote = pos.quote !== null
   return (
-    <div className="bg-white rounded-2xl border border-[#E8E6E0] p-4">
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-[15px] text-[#1A1917] font-mono">{pos.ticker}</span>
+            <span className="font-semibold text-[15px] text-[var(--color-text-primary)] font-mono">{pos.ticker}</span>
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
@@ -108,7 +109,7 @@ function PositionCard({
             </span>
           </div>
           {pos.quote?.shortName && (
-            <div className="text-[11px] text-[#6B6860] mt-0.5 truncate max-w-[200px]">
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 truncate max-w-[200px]">
               {pos.quote.shortName}
             </div>
           )}
@@ -116,7 +117,7 @@ function PositionCard({
         <div className="flex gap-1.5">
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-lg text-[#6B6860] hover:text-[#1A1917] hover:bg-[#F7F6F3] transition-colors"
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
@@ -124,7 +125,7 @@ function PositionCard({
           </button>
           <button
             onClick={onRemove}
-            className="p-1.5 rounded-lg text-[#6B6860] hover:text-[#D85A30] hover:bg-[#FFF1EC] transition-colors"
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-neg)] hover:bg-[var(--color-neg)]/10 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5.5 6v4.5M8.5 6v4.5M3 3.5l.75 8h6.5L11 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -135,44 +136,44 @@ function PositionCard({
 
       <div className="grid grid-cols-3 gap-3 text-[12px]">
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Qtd</div>
-          <div className="font-medium text-[#1A1917]">{pos.quantity.toLocaleString('pt-BR')}</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Qtd</div>
+          <div className="font-medium text-[var(--color-text-primary)]">{pos.quantity.toLocaleString('pt-BR')}</div>
         </div>
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Preço Médio</div>
-          <div className="font-medium text-[#1A1917]">{fmtFull(pos.avgPrice)}</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Preço Médio</div>
+          <div className="font-medium text-[var(--color-text-primary)]">{fmtFull(pos.avgPrice)}</div>
         </div>
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Preço Atual</div>
-          <div className="font-medium text-[#1A1917]">
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Preço Atual</div>
+          <div className="font-medium text-[var(--color-text-primary)]">
             {hasQuote ? fmtFull(pos.quote!.regularMarketPrice) : '—'}
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Investido</div>
-          <div className="font-medium text-[#1A1917]">{fmtFull(pos.totalInvested)}</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Investido</div>
+          <div className="font-medium text-[var(--color-text-primary)]">{fmtFull(pos.totalInvested)}</div>
         </div>
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Atual</div>
-          <div className="font-medium text-[#1A1917]">
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Atual</div>
+          <div className="font-medium text-[var(--color-text-primary)]">
             {hasQuote ? fmtFull(pos.currentValue) : '—'}
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-[#6B6860] mb-0.5">Rentab.</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Rentab.</div>
           {hasQuote ? (
             <div className={`font-semibold ${trendClass(pos.pnl)}`}>
               {pct(pos.pnlPercent)}
             </div>
           ) : (
-            <div className="text-[#6B6860]">—</div>
+            <div className="text-[var(--color-text-muted)]">—</div>
           )}
         </div>
       </div>
 
       {hasQuote && pos.quote && (
-        <div className="mt-3 pt-3 border-t border-[#F0EFE9] flex items-center justify-between">
-          <span className="text-[11px] text-[#6B6860]">Hoje</span>
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+          <span className="text-[11px] text-[var(--color-text-muted)]">Hoje</span>
           <span className={`text-[12px] font-medium ${trendClass(pos.quote.regularMarketChange)}`}>
             {pos.quote.regularMarketChange >= 0 ? '+' : ''}
             {fmtFull(pos.quote.regularMarketChange)} ({pct(pos.quote.regularMarketChangePercent)})
@@ -352,9 +353,9 @@ export default function InvestmentsPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold text-[#1A1917]">Carteira</h1>
+          <h1 className="text-[22px] font-semibold text-[var(--color-text-primary)]">Carteira</h1>
           {lastUpdated && (
-            <div className="text-[11px] text-[#6B6860] mt-0.5 font-mono">
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 font-mono">
               Atualizado às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
@@ -386,15 +387,15 @@ export default function InvestmentsPage() {
 
       {/* ── Error ── */}
       {quotesError && (
-        <div className="bg-[#FFF1EC] border border-[#F4C4B0] rounded-xl px-4 py-3 text-[13px] text-[#993C1D]">
+        <div className="bg-[#FFF1EC] dark:bg-[#993C1D]/20 border border-[#F4C4B0] dark:border-[#993C1D]/40 rounded-xl px-4 py-3 text-[13px] neg">
           {quotesError}
         </div>
       )}
 
       {/* ── Add / Edit Form ── */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-[#E8E6E0] p-5">
-          <div className="text-[14px] font-semibold text-[#1A1917] mb-4">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5">
+          <div className="text-[14px] font-semibold text-[var(--color-text-primary)] mb-4">
             {editingId ? 'Editar posição' : 'Nova posição'}
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -460,17 +461,17 @@ export default function InvestmentsPage() {
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
-        <div className="bg-white rounded-2xl border border-[#E8E6E0] py-16 flex flex-col items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#F7F6F3] flex items-center justify-center">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] py-16 flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface-2)] flex items-center justify-center">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M4 20L10 13l4 4 4-5 6 8" stroke="#6B6860" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="22" cy="8" r="4" stroke="#1D9E75" strokeWidth="1.8"/>
-              <path d="M22 6v4M20 8h4" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M4 20L10 13l4 4 4-5 6 8" stroke="var(--color-text-muted)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="22" cy="8" r="4" stroke="var(--color-chart-green)" strokeWidth="1.8"/>
+              <path d="M22 6v4M20 8h4" stroke="var(--color-chart-green)" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
           <div className="text-center">
-            <div className="font-semibold text-[#1A1917] mb-1">Nenhuma posição ainda</div>
-            <div className="text-[13px] text-[#6B6860]">
+            <div className="font-semibold text-[var(--color-text-primary)] mb-1">Nenhuma posição ainda</div>
+            <div className="text-[13px] text-[var(--color-text-muted)]">
               Adicione suas ações, FIIs, ETFs e outros investimentos
             </div>
           </div>
@@ -525,7 +526,7 @@ export default function InvestmentsPage() {
 
           {/* Positions list */}
           <div className="space-y-3">
-            <div className="text-[13px] font-semibold text-[#6B6860] uppercase tracking-wider">
+            <div className="text-[13px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Posições ({positions.length})
             </div>
             {enriched.map((pos) => (
@@ -540,8 +541,8 @@ export default function InvestmentsPage() {
 
           {/* Allocation chart */}
           {allocationData.length > 0 && (
-            <div className="bg-white rounded-2xl border border-[#E8E6E0] p-5">
-              <div className="text-[13px] font-semibold text-[#6B6860] uppercase tracking-wider mb-4">
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5">
+              <div className="text-[13px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-4">
                 Alocação
               </div>
               <ResponsiveContainer width="100%" height={200}>
@@ -559,15 +560,7 @@ export default function InvestmentsPage() {
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(value) => [fmtFull(Number(value)), 'Valor']}
-                    contentStyle={{
-                      background: '#fff',
-                      border: '1px solid #E8E6E0',
-                      borderRadius: '10px',
-                      fontSize: '12px',
-                    }}
-                  />
+                  <Tooltip content={<ChartTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
 
@@ -585,11 +578,11 @@ export default function InvestmentsPage() {
                           className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
                           style={{ background: entry.color }}
                         />
-                        <span className="text-[#1A1917]">{entry.name}</span>
+                        <span className="text-[var(--color-text-primary)]">{entry.name}</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-medium text-[#1A1917]">{fmtPct(share, 1)}</span>
-                        <span className="text-[#6B6860] ml-1.5">{fmtFull(entry.value)}</span>
+                        <span className="font-medium text-[var(--color-text-primary)]">{fmtPct(share, 1)}</span>
+                        <span className="text-[var(--color-text-muted)] ml-1.5">{fmtFull(entry.value)}</span>
                       </div>
                     </div>
                   )

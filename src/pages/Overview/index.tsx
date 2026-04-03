@@ -52,8 +52,8 @@ export default function OverviewPage() {
               key={alert.id}
               className={`flex items-start gap-3 px-4 py-3 rounded-[10px] text-[13px] ${
                 alert.type === 'danger'
-                  ? 'bg-[#FAECE7] text-[#993C1D]'
-                  : 'bg-[#FDF3E0] text-[#BA7517]'
+                  ? 'bg-[#FAECE7] text-[#993C1D] dark:bg-[#993C1D]/20 dark:text-[#F07050]'
+                  : 'bg-[#FDF3E0] text-[#BA7517] dark:bg-[#BA7517]/20 dark:text-[#FBBF24]'
               }`}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 mt-0.5">
@@ -111,15 +111,15 @@ export default function OverviewPage() {
       <Card title="Receitas vs Despesas" className="mb-4">
         {months.length > 0
           ? <RevenueExpenseChart data={months} />
-          : <div className="py-12 text-center text-[13px] text-[#6B6860]">Sem dados para o período selecionado</div>
+          : <div className="py-12 text-center text-[13px] text-[var(--color-text-muted)]">Sem dados para o período selecionado</div>
         }
         <div className="flex flex-wrap gap-3 mt-3">
           {[
-            { label: 'Receitas', color: '#1D9E75' },
-            { label: 'Despesas', color: '#D85A30' },
-            { label: 'Balanço',  color: '#378ADD' },
+            { label: 'Receitas', color: 'var(--color-chart-green)' },
+            { label: 'Despesas', color: 'var(--color-chart-red)' },
+            { label: 'Balanço',  color: 'var(--color-chart-blue)' },
           ].map(l => (
-            <div key={l.label} className="flex items-center gap-1.5 text-[12px] text-[#6B6860]">
+            <div key={l.label} className="flex items-center gap-1.5 text-[12px] text-[var(--color-text-muted)]">
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: l.color }} />
               {l.label}
             </div>
@@ -139,7 +139,7 @@ export default function OverviewPage() {
 
       {/* Last month summary */}
       {lastMonth && (
-        <div className="mt-4 card bg-[#F7F6F3] border-0">
+        <div className="mt-4 card bg-[var(--color-surface-2)] border-0">
           <div className="label mb-2">Último mês lançado — {lastMonth.label}</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[13px]">
             {[
@@ -149,12 +149,12 @@ export default function OverviewPage() {
               { label: 'Cartões',      value: lastMonth.cards,       cls: 'neg' },
             ].map(item => (
               <div key={item.label}>
-                <div className="text-[11px] text-[#6B6860]">{item.label}</div>
+                <div className="text-[11px] text-[var(--color-text-muted)]">{item.label}</div>
                 <div className={`font-mono font-semibold text-[14px] mt-0.5 ${item.cls}`}>{fmt(item.value)}</div>
               </div>
             ))}
           </div>
-          <div className="mt-3 pt-3 border-t border-[#E8E6E0] flex items-center justify-between">
+          <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
             <span className="text-[13px] font-medium">Balanço</span>
             <span className={`font-mono font-semibold text-[15px] ${lastMonth.balance >= 0 ? 'pos' : 'neg'}`}>
               {fmtSigned(lastMonth.balance)}

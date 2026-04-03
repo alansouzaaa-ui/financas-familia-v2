@@ -1,20 +1,21 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        background: '#F7F6F3',
+        background: 'var(--color-bg)',
         surface: {
-          DEFAULT: '#FFFFFF',
-          2: '#F7F6F3',
-          3: '#F0EEE9',
+          DEFAULT: 'var(--color-surface)',
+          2: 'var(--color-surface-2)',
+          3: 'var(--color-surface-3)',
         },
-        border: '#E8E6E0',
+        border: 'var(--color-border)',
         text: {
-          primary: '#1A1917',
-          muted: '#6B6860',
+          primary: 'var(--color-text-primary)',
+          muted: 'var(--color-text-muted)',
         },
         brand: {
           green: '#0F6E56',

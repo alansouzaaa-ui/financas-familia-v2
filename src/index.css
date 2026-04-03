@@ -5,19 +5,59 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Tokens de cor — light ─────────────────────────────── */
+  :root {
+    --color-bg:           #F7F6F3;
+    --color-surface:      #FFFFFF;
+    --color-surface-2:    #F7F6F3;
+    --color-surface-3:    #F0EEE9;
+    --color-border:       #E8E6E0;
+    --color-text-primary: #1A1917;
+    --color-text-muted:   #6B6860;
+    --color-pos:          #0F6E56;
+    --color-neg:          #993C1D;
+    --color-chart-green:  #1D9E75;
+    --color-chart-red:    #D85A30;
+    --color-chart-blue:   #378ADD;
+    --color-chart-amber:  #EF9F27;
+    --scrollbar-thumb:    #E8E6E0;
+  }
+
+  /* ── Tokens de cor — dark ──────────────────────────────── */
+  .dark {
+    --color-bg:           #0F1117;
+    --color-surface:      #1A1D24;
+    --color-surface-2:    #1F2330;
+    --color-surface-3:    #252836;
+    --color-border:       #2E3344;
+    --color-text-primary: #F0EEE9;
+    --color-text-muted:   #8A8880;
+    --color-pos:          #2DD4A0;
+    --color-neg:          #F07050;
+    --color-chart-green:  #2DD4A0;
+    --color-chart-red:    #F07050;
+    --color-chart-blue:   #60A5FA;
+    --color-chart-amber:  #FBBF24;
+    --scrollbar-thumb:    #2E3344;
+  }
+
   *, *::before, *::after { box-sizing: border-box; }
   html { -webkit-tap-highlight-color: transparent; }
+
   body {
     font-family: 'DM Sans', system-ui, sans-serif;
-    background-color: #F7F6F3;
-    color: #1A1917;
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
+
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #E8E6E0; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #6B6860; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
   *:focus-visible {
     outline: 2px solid #185FA5;
     outline-offset: 2px;
@@ -26,44 +66,55 @@
 }
 
 @layer components {
-  .val { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .val   { font-family: 'DM Mono', monospace; font-weight: 500; }
+
   .label {
     font-size: 11px;
     font-weight: 600;
-    color: #6B6860;
+    color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+
   .card {
-    background: #FFFFFF;
-    border: 1px solid #E8E6E0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 14px;
     padding: 1.25rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
+
   .pill {
     display: inline-flex;
     align-items: center;
     font-size: 12px;
     padding: 4px 12px;
     border-radius: 20px;
-    border: 1px solid #E8E6E0;
+    border: 1px solid var(--color-border);
     background: transparent;
-    color: #6B6860;
+    color: var(--color-text-muted);
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     transition: all 0.15s;
     white-space: nowrap;
     line-height: 1.4;
   }
-  .pill:hover { border-color: #1A1917; color: #1A1917; }
-  .pill.active { background: #1A1917; color: #fff; border-color: #1A1917; }
+  .pill:hover {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+  }
+  .pill.active {
+    background: var(--color-text-primary);
+    color: var(--color-surface);
+    border-color: var(--color-text-primary);
+  }
 }
 
 @layer utilities {
-  .pos { color: #0F6E56; }
-  .neg { color: #993C1D; }
-  .text-muted { color: #6B6860; }
-  .font-mono { font-family: 'DM Mono', monospace; }
+  .pos        { color: var(--color-pos); }
+  .neg        { color: var(--color-neg); }
+  .text-muted { color: var(--color-text-muted); }
+  .font-mono  { font-family: 'DM Mono', monospace; }
   /* Safe area padding for mobile bottom nav */
   .pb-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }

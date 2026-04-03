@@ -12,9 +12,9 @@ export default function Select({ label, options, className = '', ...props }: Sel
       <select
         className={`
           w-full px-3 py-2 text-[13px] font-sans
-          bg-[#F7F6F3] border border-[#E8E6E0] rounded-[10px]
-          text-[#1A1917] outline-none transition-colors
-          focus:border-[#1A1917] cursor-pointer
+          bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px]
+          text-[var(--color-text-primary)] outline-none transition-colors
+          focus:border-[var(--color-text-primary)] cursor-pointer
           ${className}
         `}
         {...props}

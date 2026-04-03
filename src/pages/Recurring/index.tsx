@@ -46,7 +46,7 @@ export default function RecurringPage() {
   return (
     <div>
       <h1 className="text-[20px] font-semibold mb-5">Itens Recorrentes</h1>
-      <p className="text-[13px] text-[#6B6860] mb-5">
+      <p className="text-[13px] text-[var(--color-text-muted)] mb-5">
         Cadastre itens que se repetem todo mês. Ao lançar um novo mês, clique em "↻ Recorrentes" para preenchê-los automaticamente.
       </p>
 
@@ -109,13 +109,13 @@ export default function RecurringPage() {
         {items.length === 0 ? (
           <EmptyState message="Nenhum item recorrente" hint="Adicione itens como financiamento, salário, assinaturas..." />
         ) : (
-          <div className="flex flex-col divide-y divide-[#E8E6E0]">
+          <div className="flex flex-col divide-y divide-[var(--color-border)]">
             {items.map(item => (
               <div key={item.id} className={`flex items-center gap-3 py-3 first:pt-0 last:pb-0 transition-opacity ${item.isActive ? 'opacity-100' : 'opacity-40'}`}>
                 <button
                   onClick={() => toggleActive(item.id)}
                   className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                    item.isActive ? 'bg-[#0F6E56] border-[#0F6E56]' : 'border-[#E8E6E0] bg-white'
+                    item.isActive ? 'bg-[var(--color-pos)] border-[var(--color-pos)]' : 'border-[var(--color-border)] bg-[var(--color-surface)]'
                   }`}
                 />
                 <div className="flex-1 min-w-0">
@@ -125,7 +125,7 @@ export default function RecurringPage() {
                 <div className="font-mono font-semibold text-[13px]">{fmt(item.value)}</div>
                 <button
                   onClick={() => deleteItem(item.id)}
-                  className="text-[#6B6860] hover:text-[#993C1D] transition-colors p-1"
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M2 4h10M5 4V3h4v1M6 6v5M8 6v5M3 4l.5 8h7l.5-8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>

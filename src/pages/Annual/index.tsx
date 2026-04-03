@@ -18,16 +18,16 @@ export default function AnnualPage() {
         {summary.map(s => (
           <div key={s.year} className="card">
             <div className="flex items-center justify-between mb-2">
-              <div className="font-semibold text-[13px] text-[#6B6860]">{s.year}</div>
-              <div className="text-[11px] text-[#6B6860] font-mono">{s.monthCount} meses</div>
+              <div className="font-semibold text-[13px] text-[var(--color-text-muted)]">{s.year}</div>
+              <div className="text-[11px] text-[var(--color-text-muted)] font-mono">{s.monthCount} meses</div>
             </div>
             <div className={`font-mono font-semibold text-[17px] ${s.balance >= 0 ? 'pos' : 'neg'}`}>
               {fmtSigned(s.balance)}
             </div>
-            <div className="mt-2 pt-2 border-t border-[#E8E6E0] grid grid-cols-2 gap-y-1 text-[11px]">
-              <span className="text-[#6B6860]">Receita</span>
+            <div className="mt-2 pt-2 border-t border-[var(--color-border)] grid grid-cols-2 gap-y-1 text-[11px]">
+              <span className="text-[var(--color-text-muted)]">Receita</span>
               <span className="font-mono text-right pos">{fmt(s.revenue)}</span>
-              <span className="text-[#6B6860]">Despesas</span>
+              <span className="text-[var(--color-text-muted)]">Despesas</span>
               <span className="font-mono text-right neg">{fmt(s.totalExpenses)}</span>
             </div>
           </div>
@@ -46,22 +46,22 @@ export default function AnnualPage() {
             <thead>
               <tr>
                 {['Ano', 'Receitas', 'Custos Fixos', 'Empréstimos', 'Cartões', 'Balanço', 'Média/mês'].map(h => (
-                  <th key={h} className="label px-5 py-2.5 text-left border-b border-[#E8E6E0]">{h}</th>
+                  <th key={h} className="label px-5 py-2.5 text-left border-b border-[var(--color-border)]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {summary.map(s => (
-                <tr key={s.year} className="hover:bg-[#F7F6F3] transition-colors">
-                  <td className="px-5 py-3 font-semibold border-b border-[#E8E6E0]">{s.year}</td>
-                  <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] pos">{fmt(s.revenue)}</td>
-                  <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] text-[#6B6860]">{fmt(s.fixedCosts)}</td>
-                  <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] text-[#6B6860]">{fmt(s.loans)}</td>
-                  <td className="px-5 py-3 font-mono border-b border-[#E8E6E0] neg">{fmt(s.cards)}</td>
-                  <td className={`px-5 py-3 font-mono font-semibold border-b border-[#E8E6E0] ${s.balance >= 0 ? 'pos' : 'neg'}`}>
+                <tr key={s.year} className="hover:bg-[var(--color-surface-2)] transition-colors">
+                  <td className="px-5 py-3 font-semibold border-b border-[var(--color-border)]">{s.year}</td>
+                  <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] pos">{fmt(s.revenue)}</td>
+                  <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] text-[var(--color-text-muted)]">{fmt(s.fixedCosts)}</td>
+                  <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] text-[var(--color-text-muted)]">{fmt(s.loans)}</td>
+                  <td className="px-5 py-3 font-mono border-b border-[var(--color-border)] neg">{fmt(s.cards)}</td>
+                  <td className={`px-5 py-3 font-mono font-semibold border-b border-[var(--color-border)] ${s.balance >= 0 ? 'pos' : 'neg'}`}>
                     {fmtSigned(s.balance)}
                   </td>
-                  <td className={`px-5 py-3 font-mono border-b border-[#E8E6E0] ${s.avgBalance >= 0 ? 'pos' : 'neg'}`}>
+                  <td className={`px-5 py-3 font-mono border-b border-[var(--color-border)] ${s.avgBalance >= 0 ? 'pos' : 'neg'}`}>
                     {fmtSigned(s.avgBalance)}
                   </td>
                 </tr>

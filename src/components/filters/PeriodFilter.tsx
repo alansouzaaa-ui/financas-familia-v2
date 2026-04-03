@@ -35,7 +35,7 @@ export default function PeriodFilterBar({ filter, onChange }: Props) {
             <span className="label">De</span>
             <input
               type="month"
-              className="px-2 py-1.5 text-[12px] font-mono bg-[#F7F6F3] border border-[#E8E6E0] rounded-[8px] outline-none focus:border-[#1A1917]"
+              className="px-2 py-1.5 text-[12px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)]"
               value={filter.customRange?.from ?? ''}
               onChange={e => onChange({ preset: 'custom', customRange: { from: e.target.value, to: filter.customRange?.to ?? '' } })}
             />
@@ -44,7 +44,7 @@ export default function PeriodFilterBar({ filter, onChange }: Props) {
             <span className="label">Até</span>
             <input
               type="month"
-              className="px-2 py-1.5 text-[12px] font-mono bg-[#F7F6F3] border border-[#E8E6E0] rounded-[8px] outline-none focus:border-[#1A1917]"
+              className="px-2 py-1.5 text-[12px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)]"
               value={filter.customRange?.to ?? ''}
               onChange={e => onChange({ preset: 'custom', customRange: { from: filter.customRange?.from ?? '', to: e.target.value } })}
             />

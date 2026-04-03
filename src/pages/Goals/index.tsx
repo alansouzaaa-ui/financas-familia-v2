@@ -64,14 +64,14 @@ export default function GoalsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           { label: 'Média Receita', value: avgRevenue, cls: 'pos' },
-          { label: 'Média Fixos',   value: avgFixedCosts, cls: 'text-[#6B6860]' },
-          { label: 'Média Emp.',    value: avgLoans, cls: 'text-[#6B6860]' },
+          { label: 'Média Fixos',   value: avgFixedCosts, cls: 'text-[var(--color-text-muted)]' },
+          { label: 'Média Emp.',    value: avgLoans, cls: 'text-[var(--color-text-muted)]' },
           { label: 'Média Cartões', value: avgCards, cls: 'neg' },
         ].map(item => (
           <div key={item.label} className="card">
             <div className="label mb-1.5">{item.label}</div>
             <div className={`font-mono font-semibold text-[16px] ${item.cls}`}>{fmt(item.value)}</div>
-            <div className="text-[11px] text-[#6B6860] mt-0.5">últimos 12 meses</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">últimos 12 meses</div>
           </div>
         ))}
       </div>
@@ -107,7 +107,7 @@ export default function GoalsPage() {
         {goals.length === 0 ? (
           <EmptyState message="Nenhuma meta definida" hint="Defina metas acima para acompanhar o progresso" />
         ) : (
-          <div className="flex flex-col divide-y divide-[#E8E6E0]">
+          <div className="flex flex-col divide-y divide-[var(--color-border)]">
             {goals.map(goal => {
               const current = lastMonth ? lastMonth[goal.category] as number : 0
               const pct = goal.targetValue > 0 ? (current / goal.targetValue) * 100 : 0
@@ -117,18 +117,18 @@ export default function GoalsPage() {
                 <div key={goal.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-[130px] font-medium text-[13px]">{CATEGORY_LABELS[goal.category]}</div>
                   <div className="flex-1">
-                    <div className="h-1.5 bg-[#F0EEE9] rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[var(--color-surface-2)] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${Math.min(100, pct)}%`,
-                          background: isOver ? '#993C1D' : CATEGORY_COLORS[goal.category],
+                          background: isOver ? 'var(--color-neg)' : CATEGORY_COLORS[goal.category],
                         }}
                       />
                     </div>
                   </div>
                   <div className="flex items-center gap-2 min-w-[160px] justify-end">
-                    <span className="text-[12px] font-mono text-[#6B6860]">
+                    <span className="text-[12px] font-mono text-[var(--color-text-muted)]">
                       {fmt(current)} / {fmt(goal.targetValue)}
                     </span>
                     <Badge variant={isOver ? 'red' : 'green'} size="sm">
@@ -136,7 +136,7 @@ export default function GoalsPage() {
                     </Badge>
                     <button
                       onClick={() => deleteGoal(goal.id)}
-                      className="text-[11px] text-[#6B6860] hover:text-[#993C1D] transition-colors"
+                      className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors"
                     >
                       ✕
                     </button>
@@ -150,7 +150,7 @@ export default function GoalsPage() {
 
       {/* Streamings */}
       <Card title="Streamings mensais">
-        <div className="flex flex-col divide-y divide-[#E8E6E0]">
+        <div className="flex flex-col divide-y divide-[var(--color-border)]">
           {STREAMINGS.map(s => (
             <div key={s.name} className="flex justify-between py-2.5 first:pt-0 text-[13px]">
               <span>{s.name}</span>
@@ -161,7 +161,7 @@ export default function GoalsPage() {
             <span>Total mensal</span>
             <span className="font-mono neg">{fmt(totalStreamings)}</span>
           </div>
-          <div className="flex justify-between py-2.5 text-[13px] text-[#6B6860]">
+          <div className="flex justify-between py-2.5 text-[13px] text-[var(--color-text-muted)]">
             <span>Total anual</span>
             <span className="font-mono neg">{fmt(totalStreamings * 12)}</span>
           </div>

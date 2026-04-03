@@ -108,24 +108,24 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const lockState = isLocked()
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1A1917] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-text-primary)] mb-4">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
               <path d="M4 19L9 12l4.5 4.5L20 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M17 6h3v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className="text-[22px] font-semibold text-[#1A1917]">Finanças</h1>
-          <p className="text-[13px] text-[#6B6860] mt-1">Acesso restrito</p>
+          <h1 className="text-[22px] font-semibold text-[var(--color-text-primary)]">Finanças</h1>
+          <p className="text-[13px] text-[var(--color-text-muted)] mt-1">Acesso restrito</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E8E6E0] p-6 shadow-sm">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[12px] font-medium text-[#6B6860] uppercase tracking-wider">Usuário</label>
+              <label className="text-[12px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Usuário</label>
               <input
                 type="text"
                 autoComplete="username"
@@ -135,12 +135,12 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
                 placeholder="seu usuário"
                 required
                 disabled={lockState.locked}
-                className="w-full px-3 py-2.5 text-[14px] font-sans bg-[#F7F6F3] border border-[#E8E6E0] rounded-[10px] text-[#1A1917] placeholder:text-[#BDBBB5] outline-none transition-colors focus:border-[#1A1917] disabled:opacity-50"
+                className="w-full px-3 py-2.5 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-text-primary)] disabled:opacity-50"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[12px] font-medium text-[#6B6860] uppercase tracking-wider">Senha</label>
+              <label className="text-[12px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Senha</label>
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
@@ -150,13 +150,13 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
                   placeholder="••••••••"
                   required
                   disabled={lockState.locked}
-                  className="w-full px-3 py-2.5 pr-10 text-[14px] font-sans bg-[#F7F6F3] border border-[#E8E6E0] rounded-[10px] text-[#1A1917] placeholder:text-[#BDBBB5] outline-none transition-colors focus:border-[#1A1917] disabled:opacity-50"
+                  className="w-full px-3 py-2.5 pr-10 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-text-primary)] disabled:opacity-50"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPass(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6860] hover:text-[#1A1917] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
                 >
                   {showPass ? (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -173,7 +173,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             </div>
 
             {error && (
-              <div className="text-[13px] text-[#993C1D] bg-[#FFF1EC] border border-[#F4C4B0] rounded-[10px] px-3 py-2.5">
+              <div className="text-[13px] neg bg-[#FFF1EC] dark:bg-[#993C1D]/20 border border-[#F4C4B0] dark:border-[#993C1D]/40 rounded-[10px] px-3 py-2.5">
                 {error}
               </div>
             )}
@@ -181,14 +181,14 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             <button
               type="submit"
               disabled={loading || lockState.locked}
-              className="w-full bg-[#1A1917] text-white text-[14px] font-medium py-2.5 rounded-[10px] transition-opacity hover:opacity-85 disabled:opacity-50 mt-1"
+              className="w-full bg-[var(--color-text-primary)] text-[var(--color-surface)] text-[14px] font-medium py-2.5 rounded-[10px] transition-opacity hover:opacity-85 disabled:opacity-50 mt-1"
             >
               {loading ? 'Verificando...' : lockState.locked ? `Bloqueado (${lockState.remaining}s)` : 'Entrar'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-[#BDBBB5] mt-6">
+        <p className="text-center text-[11px] text-[var(--color-text-muted)] mt-6">
           Sessão válida por {SESSION_DAYS} dias
         </p>
       </div>

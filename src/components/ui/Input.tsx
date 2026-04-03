@@ -12,16 +12,16 @@ export default function Input({ label, error, className = '', ...props }: InputP
       <input
         className={`
           w-full px-3 py-2 text-[13px] font-sans
-          bg-[#F7F6F3] border border-[#E8E6E0] rounded-[10px]
-          text-[#1A1917] placeholder:text-[#6B6860]
+          bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px]
+          text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]
           outline-none transition-colors
-          focus:border-[#1A1917]
-          ${error ? 'border-[#993C1D]' : ''}
+          focus:border-[var(--color-text-primary)]
+          ${error ? 'border-[var(--color-neg)]' : ''}
           ${className}
         `}
         {...props}
       />
-      {error && <span className="text-[11px] text-[#993C1D]">{error}</span>}
+      {error && <span className="text-[11px] neg">{error}</span>}
     </div>
   )
 }
