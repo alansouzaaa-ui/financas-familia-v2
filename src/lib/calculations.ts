@@ -138,7 +138,75 @@ export function calcAlerts(months: MonthPoint[], goals: FinancialGoal[]): Alert[
     }
   }
 
-  return alerts.sort((a, b) => b.deviation - a.deviation).slice(0, 4)
+  // Consecutive negative balances
+  if (months.length >= 2) {
+    let negStreak = 0
+    for (let i = months.length - 1; i >= 0; i--) {
+      if (months[i].balance < 0) negStreak++
+      else break
+    }
+    if (negStreak >= 2) {
+      alerts.push({
+        id: 'consecutive-negative',
+        type: negStreak >= 3 ? 'danger' : 'warning',
+        category: 'balance',
+        message: `Balanço negativo por ${negStreak} ${negStreak === 1 ? 'mês' : 'meses'} consecutivos`,
+        deviation: negStreak * 20,
+      })
+    }
+  }
+
+  // Loan growth trend (3 consecutive months rising)
+  if (months.length >= 3) {
+    const [l1, l2, l3] = months.slice(-3).map(m => m.loans)
+    if (l1 > 0 && l3 > l2 && l2 > l1) {
+      const growth = ((l3 - l1) / l1) * 100
+      if (growth > 5) {
+        alerts.push({
+          id: 'loan-trend',
+          type: growth > 20 ? 'danger' : 'warning',
+          category: 'loans',
+          message: `Empréstimos crescendo há 3 meses consecutivos (+${growth.toFixed(0)}%)`,
+          deviation: growth,
+        })
+      }
+    }
+  }
+
+  // Card growth trend (3 consecutive months rising)
+  if (months.length >= 3) {
+    const [c1, c2, c3] = months.slice(-3).map(m => m.cards)
+    if (c1 > 0 && c3 > c2 && c2 > c1) {
+      const growth = ((c3 - c1) / c1) * 100
+      if (growth > 10) {
+        alerts.push({
+          id: 'cards-trend',
+          type: growth > 30 ? 'danger' : 'warning',
+          category: 'cards',
+          message: `Cartões crescendo há 3 meses consecutivos (+${growth.toFixed(0)}%)`,
+          deviation: growth,
+        })
+      }
+    }
+  }
+
+  // Low savings rate (average last 3 months)
+  if (months.length >= 3) {
+    const last3 = months.slice(-3)
+    const avgSavings = last3.reduce((s, m) => s + (m.revenue > 0 ? (m.balance / m.revenue) * 100 : -100), 0) / 3
+    const alreadyHasNegAlert = alerts.some(a => a.id === 'consecutive-negative')
+    if (!alreadyHasNegAlert && avgSavings < 5) {
+      alerts.push({
+        id: 'low-savings',
+        type: avgSavings < 0 ? 'danger' : 'warning',
+        category: 'balance',
+        message: `Taxa de poupança média dos últimos 3 meses: ${avgSavings.toFixed(1)}%`,
+        deviation: Math.abs(avgSavings - 10),
+      })
+    }
+  }
+
+  return alerts.sort((a, b) => b.deviation - a.deviation).slice(0, 5)
 }
 
 export function filterByPeriod(months: MonthPoint[], preset: string, customRange?: { from: string; to: string }): MonthPoint[] {

@@ -7,11 +7,15 @@ import { exportToCSV } from '@/lib/csvExport'
 import Card from '@/components/ui/Card'
 import MetricCard from '@/components/metrics/MetricCard'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
+import NetWorthCard from '@/components/metrics/NetWorthCard'
+import MonthForecastCard from '@/components/metrics/MonthForecastCard'
 import RevenueExpenseChart from '@/components/charts/RevenueExpenseChart'
 import ExpenseDonut from '@/components/charts/ExpenseDonut'
 import BalanceChart from '@/components/charts/BalanceChart'
 import PeriodFilterBar from '@/components/filters/PeriodFilter'
 import Button from '@/components/ui/Button'
+
+const MONTHS_ABR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] as const
 
 export default function OverviewPage() {
   const { allMonths, periodFilter, setPeriodFilter, filteredMonths } = useFinanceStore()
@@ -31,6 +35,16 @@ export default function OverviewPage() {
 
   const prevMonth = allMonths[allMonths.length - 2]
   const lastMonth = allMonths[allMonths.length - 1]
+
+  // Current calendar month for Forecast card
+  const now = new Date()
+  const curMonthAbbr = MONTHS_ABR[now.getMonth()]
+  const curYear = now.getFullYear()
+  const currentMonthData = useMemo(
+    () => allMonths.find(m => m.month === curMonthAbbr && m.year === curYear) ?? null,
+    [allMonths, curMonthAbbr, curYear]
+  )
+  const forecastLabel = `${curMonthAbbr}/${String(curYear).slice(2)}`
 
   return (
     <div>
@@ -60,7 +74,14 @@ export default function OverviewPage() {
                 <path d="M8 1L15 14H1L8 1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
                 <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
               </svg>
-              {alert.message}
+              <span className="flex-1">{alert.message}</span>
+              <span className="text-[10px] font-medium uppercase tracking-wide opacity-70 mt-0.5">
+                {alert.category === 'balance' ? 'balanço'
+                  : alert.category === 'cards' ? 'cartões'
+                  : alert.category === 'loans' ? 'empréstimos'
+                  : alert.category === 'fixedCosts' ? 'fixos'
+                  : 'receita'}
+              </span>
             </div>
           ))}
         </div>
@@ -76,6 +97,12 @@ export default function OverviewPage() {
             <PeriodFilterBar filter={periodFilter} onChange={setPeriodFilter} />
           </Card>
         </div>
+      </div>
+
+      {/* Net Worth + Forecast */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <NetWorthCard months={allMonths} />
+        <MonthForecastCard currentMonth={currentMonthData} label={forecastLabel} />
       </div>
 
       {/* KPI Cards */}
