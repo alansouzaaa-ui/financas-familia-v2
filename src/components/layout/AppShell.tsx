@@ -1,4 +1,5 @@
 import { Outlet, useLocation, NavLink } from 'react-router-dom'
+import { clearSession } from '@/pages/Login'
 
 const NAV_ITEMS = [
   {
@@ -67,14 +68,14 @@ const NAV_ITEMS = [
   },
 ]
 
-function SidebarNav() {
+function SidebarNav({ onLogout }: { onLogout: () => void }) {
   return (
     <aside className="hidden md:flex flex-col w-52 min-h-screen bg-white border-r border-[#E8E6E0] px-3 py-5 flex-shrink-0">
       <div className="px-2 mb-6">
         <div className="font-semibold text-[15px] text-[#1A1917]">Finanças</div>
         <div className="text-[11px] text-[#6B6860] font-mono mt-0.5">Jul/2021 – hoje</div>
       </div>
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex flex-col gap-0.5 flex-1">
         {NAV_ITEMS.map(item => (
           <NavLink
             key={item.to}
@@ -92,6 +93,17 @@ function SidebarNav() {
           </NavLink>
         ))}
       </nav>
+      <button
+        onClick={onLogout}
+        className="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px] text-[#6B6860] hover:bg-[#FFF1EC] hover:text-[#993C1D] transition-all duration-150 mt-2"
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          <path d="M12 12l3-3-3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M15 9H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+        Sair
+      </button>
     </aside>
   )
 }
@@ -126,19 +138,35 @@ function BottomNav() {
   )
 }
 
-export default function AppShell() {
+export default function AppShell({ onLogout }: { onLogout: () => void }) {
   const location = useLocation()
   const currentPage = NAV_ITEMS.find(i =>
     i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)
   )
 
+  function handleLogout() {
+    clearSession()
+    onLogout()
+  }
+
   return (
     <div className="flex min-h-screen bg-[#F7F6F3]">
-      <SidebarNav />
+      <SidebarNav onLogout={handleLogout} />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-40 bg-white border-b border-[#E8E6E0] px-4 h-12 flex items-center">
+        <header className="md:hidden sticky top-0 z-40 bg-white border-b border-[#E8E6E0] px-4 h-12 flex items-center justify-between">
           <span className="font-semibold text-[15px]">{currentPage?.label ?? 'Dashboard'}</span>
+          <button
+            onClick={handleLogout}
+            className="p-1.5 rounded-lg text-[#6B6860] hover:text-[#993C1D] transition-colors"
+            title="Sair"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M12 12l3-3-3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15 9H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </button>
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-nav md:pb-6 max-w-5xl w-full mx-auto">
           <Outlet />
