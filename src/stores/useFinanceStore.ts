@@ -69,8 +69,11 @@ export const useFinanceStore = create<FinanceStore>()(
       },
 
       updateMonth: (id, partial) => {
+        // id aqui é a chave composta "year-month"
         set(s => ({
-          allMonths: sortMonths(s.allMonths.map(m => m.id === id ? { ...m, ...partial } : m))
+          allMonths: sortMonths(
+            s.allMonths.map(m => `${m.year}-${m.month}` === id ? { ...m, ...partial } : m)
+          )
         }))
       },
 

@@ -185,16 +185,20 @@ function PositionCard({
 
 // ─── helpers used in JSX ─────────────────────────────────────────────────────
 
+function safe(n: number): number {
+  return isFinite(n) ? n : 0
+}
+
 function enrichPositions(
   positions: InvestmentPosition[],
   quotes: Record<string, BrapiQuote>
 ) {
   return positions.map((p) => {
     const quote = quotes[p.ticker] ?? null
-    const totalInvested = p.quantity * p.avgPrice
-    const currentValue = quote ? p.quantity * quote.regularMarketPrice : totalInvested
-    const pnl = currentValue - totalInvested
-    const pnlPercent = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0
+    const totalInvested = safe(p.quantity * p.avgPrice)
+    const currentValue  = quote ? safe(p.quantity * quote.regularMarketPrice) : totalInvested
+    const pnl           = safe(currentValue - totalInvested)
+    const pnlPercent    = totalInvested > 0 ? safe((pnl / totalInvested) * 100) : 0
     return { ...p, quote, totalInvested, currentValue, pnl, pnlPercent }
   })
 }
@@ -306,13 +310,20 @@ export default function InvestmentsPage() {
     const ticker = form.ticker.trim().toUpperCase()
     if (!ticker || !form.quantity || !form.avgPrice) return
 
+    const quantity = Number(form.quantity)
+    const avgPrice = Number(form.avgPrice.replace(',', '.'))
+
+    if (!isFinite(quantity) || quantity <= 0 || quantity > 1_000_000_000) return
+    if (!isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 1_000_000_000) return
+    if (!/^[A-Z0-9^]{1,12}$/.test(ticker)) return
+
     const data = {
       ticker,
-      quantity: Number(form.quantity),
-      avgPrice: Number(form.avgPrice.replace(',', '.')),
+      quantity: Math.round(quantity * 1000) / 1000,
+      avgPrice: Math.round(avgPrice * 100) / 100,
       buyDate: form.buyDate,
       assetType: form.assetType,
-      notes: form.notes.trim() || undefined,
+      notes: form.notes.trim().slice(0, 200) || undefined,
     }
 
     if (editingId) {

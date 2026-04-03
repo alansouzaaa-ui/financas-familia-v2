@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import AppShell from '@/components/layout/AppShell'
 import OverviewPage from '@/pages/Overview'
@@ -12,6 +12,15 @@ import LoginPage, { isAuthenticated } from '@/pages/Login'
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(isAuthenticated)
+
+  // Verificação periódica — expira a sessão se o token vencer enquanto o app está aberto
+  useEffect(() => {
+    if (!authed) return
+    const id = setInterval(() => {
+      if (!isAuthenticated()) setAuthed(false)
+    }, 60_000) // verifica a cada 1 minuto
+    return () => clearInterval(id)
+  }, [authed])
 
   if (!authed) {
     return <LoginPage onLogin={() => setAuthed(true)} />

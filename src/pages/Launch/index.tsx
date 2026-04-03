@@ -118,15 +118,25 @@ export default function LaunchPage() {
   }
 
   function handleSave() {
+    if (saved) return // previne double submit
+
     const validItems: MonthItem[] = formItems
-      .filter(i => i.description.trim() && parseFloat(i.value) > 0)
+      .filter(i => {
+        const v = parseFloat(i.value)
+        return i.description.trim().length >= 1 &&
+               i.description.trim().length <= 120 &&
+               isFinite(v) && v > 0
+      })
       .map(i => ({
         id: i.id,
-        description: i.description.trim(),
-        value: parseFloat(i.value),
+        description: i.description.trim().slice(0, 120),
+        value: Math.round(parseFloat(i.value) * 100) / 100,
         category: i.category as MonthItem['category'],
         isPaid: i.isPaid,
       }))
+
+    const year = parseInt(selectedYear)
+    if (!isFinite(year) || year < 2000 || year > 2100) return
 
     const revenue    = validItems.filter(i => i.category === 'revenue').reduce((s, i) => s + i.value, 0)
     const fixedCosts = validItems.filter(i => i.category === 'fixedCosts').reduce((s, i) => s + i.value, 0)
@@ -135,7 +145,7 @@ export default function LaunchPage() {
 
     addMonth({
       month: selectedMonth as MonthAbbr,
-      year: parseInt(selectedYear),
+      year,
       revenue, fixedCosts, loans, cards,
       source: 'manual',
       items: validItems,

@@ -23,17 +23,20 @@ export default function MonthlyPage() {
   const [trendCategory, setTrendCategory] = useState<CategoryKey>('revenue')
 
   const yearList = years()
-  const currentYear = selectedYear === 'all' ? yearList[yearList.length - 1] : selectedYear
+  const currentYear = selectedYear === 'all'
+    ? (yearList.length > 0 ? yearList[yearList.length - 1] : new Date().getFullYear())
+    : selectedYear
 
   const monthsForYear = useMemo(
     () => allMonths.filter(m => m.year === currentYear),
     [allMonths, currentYear]
   )
 
-  const trendData = monthsForYear.map(m => ({
-    name: m.label,
-    value: Math.round(m[trendCategory] as number),
-  }))
+  const trendData = monthsForYear.map(m => {
+    const raw = m[trendCategory] as number
+    const value = isFinite(raw) ? Math.round(raw) : 0
+    return { name: m.label, value }
+  })
 
   return (
     <div>

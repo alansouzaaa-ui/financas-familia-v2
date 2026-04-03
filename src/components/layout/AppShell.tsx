@@ -146,6 +146,10 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
 
   function handleLogout() {
     clearSession()
+    // Limpa dados em cache do browser para não vazar para próximo usuário
+    ;['finance-store', 'investment-store', 'goals-store', 'recurring-store'].forEach(k =>
+      localStorage.removeItem(k)
+    )
     onLogout()
   }
 
