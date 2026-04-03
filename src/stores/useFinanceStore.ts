@@ -104,11 +104,15 @@ export const useFinanceStore = create<FinanceStore>()(
       }),
       merge: (persisted: unknown, current) => {
         const p = persisted as { periodFilter?: typeof current.periodFilter; selectedYear?: typeof current.selectedYear; manualMonths?: MonthRecord[] }
+        // Meses já presentes no SEED_DATA não devem vir do localStorage
+        // (evita sobrescrever dados do seed com versões antigas/corrompidas)
+        const seedKeys = new Set(SEED_DATA.map(r => `${r.year}-${r.month}`))
+        const safeManual = (p.manualMonths ?? []).filter(m => !seedKeys.has(`${m.year}-${m.month}`))
         return {
           ...current,
           periodFilter: p.periodFilter ?? current.periodFilter,
           selectedYear: p.selectedYear ?? current.selectedYear,
-          allMonths: sortMonths(mergeRecords(SEED_DATA, p.manualMonths ?? [])),
+          allMonths: sortMonths(mergeRecords(SEED_DATA, safeManual)),
         }
       },
     }
