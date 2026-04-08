@@ -7,6 +7,7 @@ interface InvestmentStore {
   addPosition: (p: Omit<InvestmentPosition, 'id'>) => void
   updatePosition: (id: string, updates: Partial<Omit<InvestmentPosition, 'id'>>) => void
   removePosition: (id: string) => void
+  setPositions: (positions: InvestmentPosition[]) => void
 }
 
 export const useInvestmentStore = create<InvestmentStore>()(
@@ -28,6 +29,8 @@ export const useInvestmentStore = create<InvestmentStore>()(
         set((s) => ({
           positions: s.positions.filter((p) => p.id !== id),
         })),
+
+      setPositions: (positions) => set({ positions }),
     }),
     { name: 'investment-store' }
   )

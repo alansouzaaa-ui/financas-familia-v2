@@ -1,6 +1,8 @@
 import { Outlet, useLocation, NavLink } from 'react-router-dom'
 import { clearSession } from '@/pages/Login'
 import { useDarkMode } from '@/hooks/useDarkMode'
+import { useSyncManager, type SyncStatus } from '@/hooks/useSyncManager'
+import { isSupabaseConfigured } from '@/config/supabase'
 
 const NAV_ITEMS = [
   {
@@ -69,6 +71,35 @@ const NAV_ITEMS = [
   },
 ]
 
+function SyncIndicator({ status, lastSync, onPull }: { status: SyncStatus; lastSync: Date | null; onPull: () => void }) {
+  if (!isSupabaseConfigured) return null
+
+  const color =
+    status === 'synced'  ? 'text-[var(--color-pos)]' :
+    status === 'syncing' ? 'text-blue-500 animate-pulse' :
+    status === 'error'   ? 'text-[var(--color-neg)]' :
+    'text-[var(--color-text-muted)]'
+
+  const title =
+    status === 'synced'  ? `Sincronizado${lastSync ? ` às ${lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}` :
+    status === 'syncing' ? 'Sincronizando...' :
+    status === 'error'   ? 'Erro de sincronização — clique para tentar novamente' :
+    'Aguardando sincronização'
+
+  return (
+    <button
+      onClick={onPull}
+      title={title}
+      className={`p-1.5 rounded-lg transition-colors hover:bg-[var(--color-surface-2)] ${color}`}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M13 8A5 5 0 1 1 3 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        <path d="M13 5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </button>
+  )
+}
+
 function SunIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -86,7 +117,7 @@ function MoonIcon() {
   )
 }
 
-function SidebarNav({ onLogout }: { onLogout: () => void }) {
+function SidebarNav({ onLogout, syncStatus, lastSync, onPull }: { onLogout: () => void; syncStatus: SyncStatus; lastSync: Date | null; onPull: () => void }) {
   const { isDark, toggle } = useDarkMode()
 
   return (
@@ -96,13 +127,16 @@ function SidebarNav({ onLogout }: { onLogout: () => void }) {
           <div className="font-semibold text-[15px] text-[var(--color-text-primary)]">Finanças</div>
           <div className="text-[11px] text-[var(--color-text-muted)] font-mono mt-0.5">Jul/2021 – hoje</div>
         </div>
-        <button
-          onClick={toggle}
-          title={isDark ? 'Modo claro' : 'Modo escuro'}
-          className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
-        >
-          {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <div className="flex items-center gap-0.5">
+          <SyncIndicator status={syncStatus} lastSync={lastSync} onPull={onPull} />
+          <button
+            onClick={toggle}
+            title={isDark ? 'Modo claro' : 'Modo escuro'}
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
+          >
+            {isDark ? <SunIcon /> : <MoonIcon />}
+          </button>
+        </div>
       </div>
 
       <nav className="flex flex-col gap-0.5 flex-1">
@@ -174,6 +208,7 @@ function BottomNav() {
 export default function AppShell({ onLogout }: { onLogout: () => void }) {
   const location = useLocation()
   const { isDark, toggle } = useDarkMode()
+  const { status: syncStatus, lastSync, pull: syncPull } = useSyncManager()
   const currentPage = NAV_ITEMS.find(i =>
     i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)
   )
@@ -188,7 +223,7 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="flex min-h-screen bg-[var(--color-bg)] transition-colors duration-200">
-      <SidebarNav onLogout={handleLogout} />
+      <SidebarNav onLogout={handleLogout} syncStatus={syncStatus} lastSync={lastSync} onPull={syncPull} />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         <header className="md:hidden sticky top-0 z-40 bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 h-12 flex items-center justify-between transition-colors duration-200">
@@ -196,6 +231,7 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
             {currentPage?.label ?? 'Dashboard'}
           </span>
           <div className="flex items-center gap-1">
+            <SyncIndicator status={syncStatus} lastSync={lastSync} onPull={syncPull} />
             <button
               onClick={toggle}
               className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
