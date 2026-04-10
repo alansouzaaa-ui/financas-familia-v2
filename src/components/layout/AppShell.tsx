@@ -3,6 +3,8 @@ import { clearSession } from '@/pages/Login'
 import { useDarkMode } from '@/hooks/useDarkMode'
 import { useSyncManager, type SyncStatus } from '@/hooks/useSyncManager'
 import { isSupabaseConfigured } from '@/config/supabase'
+import MarketBar from '@/components/layout/MarketBar'
+import AIAssistant from '@/components/layout/AIAssistant'
 
 const NAV_ITEMS = [
   {
@@ -252,11 +254,13 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
             </button>
           </div>
         </header>
+        <MarketBar />
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-nav md:pb-6 max-w-5xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
       <BottomNav />
+      <AIAssistant />
     </div>
   )
 }

@@ -65,6 +65,7 @@ const HISTORICAL: MonthRecord[] = [
   fixedCosts: raw.fix,
   loans: raw.emp,
   cards: raw.cart,
+  variableCosts: 0,
   source: 'seed' as const,
 }))
 
@@ -77,6 +78,7 @@ export const SEED_DATA: MonthRecord[] = [...HISTORICAL, ...[
     fixedCosts: 5884.70,
     loans: 5585.46,
     cards: 15718.30,
+    variableCosts: 0,
     source: 'manual' as const,
     items: [
       // Receitas

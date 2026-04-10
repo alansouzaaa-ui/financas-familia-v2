@@ -2,7 +2,8 @@ import type { MonthRecord, MonthPoint, AnnualSummary, HealthScore, Alert, Financ
 import { monthLabel } from './formatters'
 
 export function toMonthPoint(r: MonthRecord): MonthPoint {
-  const totalExpenses = r.fixedCosts + r.loans + r.cards
+  const variableCosts = r.variableCosts ?? 0
+  const totalExpenses = r.fixedCosts + r.loans + r.cards + variableCosts
   const balance = r.revenue - totalExpenses
 
   // Consolidated = only paid items
@@ -17,6 +18,7 @@ export function toMonthPoint(r: MonthRecord): MonthPoint {
 
   return {
     ...r,
+    variableCosts,
     totalExpenses,
     balance,
     consolidatedRevenue,
@@ -36,16 +38,17 @@ export function buildAnnualSummary(months: MonthPoint[]): AnnualSummary[] {
   return Array.from(byYear.entries())
     .sort(([a], [b]) => a - b)
     .map(([year, ms]) => {
-      const revenue     = ms.reduce((s, m) => s + m.revenue, 0)
-      const fixedCosts  = ms.reduce((s, m) => s + m.fixedCosts, 0)
-      const loans       = ms.reduce((s, m) => s + m.loans, 0)
-      const cards       = ms.reduce((s, m) => s + m.cards, 0)
-      const totalExpenses = fixedCosts + loans + cards
+      const revenue       = ms.reduce((s, m) => s + m.revenue, 0)
+      const fixedCosts    = ms.reduce((s, m) => s + m.fixedCosts, 0)
+      const loans         = ms.reduce((s, m) => s + m.loans, 0)
+      const cards         = ms.reduce((s, m) => s + m.cards, 0)
+      const variableCosts = ms.reduce((s, m) => s + (m.variableCosts ?? 0), 0)
+      const totalExpenses = fixedCosts + loans + cards + variableCosts
       const balance = revenue - totalExpenses
       return {
         year,
         monthCount: ms.length,
-        revenue, fixedCosts, loans, cards,
+        revenue, fixedCosts, loans, cards, variableCosts,
         totalExpenses,
         balance,
         avgBalance: balance / ms.length,
@@ -90,17 +93,19 @@ export function calcAlerts(months: MonthPoint[], goals: FinancialGoal[]): Alert[
   if (prev.length === 0) return []
 
   const avg = {
-    revenue:    prev.reduce((s, m) => s + m.revenue, 0) / prev.length,
-    fixedCosts: prev.reduce((s, m) => s + m.fixedCosts, 0) / prev.length,
-    loans:      prev.reduce((s, m) => s + m.loans, 0) / prev.length,
-    cards:      prev.reduce((s, m) => s + m.cards, 0) / prev.length,
+    revenue:       prev.reduce((s, m) => s + m.revenue, 0) / prev.length,
+    fixedCosts:    prev.reduce((s, m) => s + m.fixedCosts, 0) / prev.length,
+    loans:         prev.reduce((s, m) => s + m.loans, 0) / prev.length,
+    cards:         prev.reduce((s, m) => s + m.cards, 0) / prev.length,
+    variableCosts: prev.reduce((s, m) => s + (m.variableCosts ?? 0), 0) / prev.length,
   }
 
   const checks: Array<{ key: keyof typeof avg; label: string; higherIsBad: boolean }> = [
-    { key: 'cards',      label: 'Cartões',       higherIsBad: true },
-    { key: 'loans',      label: 'Empréstimos',   higherIsBad: true },
-    { key: 'fixedCosts', label: 'Custos fixos',  higherIsBad: true },
-    { key: 'revenue',    label: 'Receita',        higherIsBad: false },
+    { key: 'cards',         label: 'Cartões',          higherIsBad: true },
+    { key: 'loans',         label: 'Empréstimos',      higherIsBad: true },
+    { key: 'fixedCosts',    label: 'Custos fixos',     higherIsBad: true },
+    { key: 'variableCosts', label: 'Custos variáveis', higherIsBad: true },
+    { key: 'revenue',       label: 'Receita',          higherIsBad: false },
   ]
 
   for (const { key, label, higherIsBad } of checks) {

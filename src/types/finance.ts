@@ -15,6 +15,7 @@ export interface MonthRecord {
   fixedCosts: number     // custos fixos
   loans: number          // empréstimos
   cards: number          // cartões
+  variableCosts: number  // custos variáveis
   source: 'seed' | 'manual'
   items?: MonthItem[]    // lançamentos por item (meses manuais)
 }
@@ -23,7 +24,7 @@ export interface MonthItem {
   id: string
   description: string
   value: number
-  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards'
+  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'
   isPaid: boolean
 }
 
@@ -43,6 +44,7 @@ export interface AnnualSummary {
   fixedCosts: number
   loans: number
   cards: number
+  variableCosts: number
   totalExpenses: number
   balance: number
   avgBalance: number
@@ -50,7 +52,7 @@ export interface AnnualSummary {
 
 export interface FinancialGoal {
   id: string
-  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards'
+  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'
   targetValue: number
 }
 
@@ -75,7 +77,7 @@ export interface HealthScore {
 export interface Alert {
   id: string
   type: 'warning' | 'danger'
-  category: 'cards' | 'loans' | 'fixedCosts' | 'balance' | 'revenue'
+  category: 'cards' | 'loans' | 'fixedCosts' | 'variableCosts' | 'balance' | 'revenue'
   message: string
   deviation: number
 }
@@ -97,6 +99,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   fixedCosts: 'Custos Fixos',
   loans: 'Empréstimos',
   cards: 'Cartões',
+  variableCosts: 'Custos Variáveis',
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -104,4 +107,5 @@ export const CATEGORY_COLORS: Record<string, string> = {
   fixedCosts: '#378ADD',
   loans: '#EF9F27',
   cards: '#D85A30',
+  variableCosts: '#8B5CF6',
 }

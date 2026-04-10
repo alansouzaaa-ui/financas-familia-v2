@@ -9,6 +9,7 @@ import MetricCard from '@/components/metrics/MetricCard'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
 import MonthForecastCard from '@/components/metrics/MonthForecastCard'
+import InvestmentSummaryBlock from '@/components/metrics/InvestmentSummaryBlock'
 import RevenueExpenseChart from '@/components/charts/RevenueExpenseChart'
 import ExpenseDonut from '@/components/charts/ExpenseDonut'
 import BalanceChart from '@/components/charts/BalanceChart'
@@ -104,6 +105,9 @@ export default function OverviewPage() {
         <NetWorthCard months={allMonths} />
         <MonthForecastCard currentMonth={currentMonthData} label={forecastLabel} />
       </div>
+
+      {/* Investments */}
+      <InvestmentSummaryBlock />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
