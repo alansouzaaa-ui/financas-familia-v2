@@ -58,7 +58,18 @@ export default function InvestmentSummaryBlock() {
       .finally(() => setLoading(false))
   }, [positions])
 
-  if (!positions.length) return null
+  if (!positions.length) {
+    return (
+      <Card title="Investimentos" className="mb-4">
+        <div className="py-6 text-center text-[13px] text-[var(--color-text-muted)]">
+          Nenhuma posição cadastrada.
+          <span className="block text-[12px] mt-1 opacity-70">
+            Acesse a aba <strong>Invest.</strong> para adicionar seus ativos.
+          </span>
+        </div>
+      </Card>
+    )
+  }
 
   // Build enriched positions
   const enriched = positions.map(p => {
@@ -101,8 +112,10 @@ export default function InvestmentSummaryBlock() {
           <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">Buscando cotações...</span>
         ) : lastUpdate ? (
           <span className="text-[11px] text-[var(--color-text-muted)]">
-            Atualizado {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
+        ) : quotes.length === 0 ? (
+          <span className="text-[11px] text-[var(--color-text-muted)] opacity-60">preço de custo</span>
         ) : null
       }
     >
