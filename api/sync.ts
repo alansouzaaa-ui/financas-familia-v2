@@ -1,4 +1,9 @@
-import { kv } from '@vercel/kv'
+import { Redis } from '@upstash/redis'
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
 
 const SYNC_KEY = 'dashboard_sync:familia'
 
@@ -11,10 +16,10 @@ const CORS = {
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
-  // GET — pull dados do KV
+  // GET — pull dados do Redis
   if (req.method === 'GET') {
     try {
-      const data = await kv.get(SYNC_KEY)
+      const data = await redis.get(SYNC_KEY)
       if (!data) return new Response(JSON.stringify(null), { headers: CORS })
       return new Response(JSON.stringify(data), { headers: CORS })
     } catch (err) {
@@ -23,11 +28,11 @@ export default async function handler(req: Request): Promise<Response> {
     }
   }
 
-  // POST — push dados para o KV
+  // POST — push dados para o Redis
   if (req.method === 'POST') {
     try {
       const body = await req.json()
-      await kv.set(SYNC_KEY, { ...body, updated_at: new Date().toISOString() })
+      await redis.set(SYNC_KEY, { ...body, updated_at: new Date().toISOString() })
       return new Response(JSON.stringify({ ok: true }), { headers: CORS })
     } catch (err) {
       console.error('[sync] push error:', err)
