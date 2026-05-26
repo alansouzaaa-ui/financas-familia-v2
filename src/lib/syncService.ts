@@ -16,14 +16,15 @@ function stripComputed(p: MonthPoint): MonthRecord {
   return record as MonthRecord
 }
 
-export async function pullSync(): Promise<SyncPayload | null> {
+// null = sem dados ainda | false = erro de rede/API
+export async function pullSync(): Promise<SyncPayload | null | false> {
   try {
     const res = await fetch('/api/sync', { method: 'GET' })
-    if (!res.ok) return null
+    if (!res.ok) return false
     const data = await res.json() as SyncPayload | null
     return data ?? null
   } catch {
-    return null
+    return false
   }
 }
 

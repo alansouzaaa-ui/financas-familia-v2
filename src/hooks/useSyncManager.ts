@@ -26,7 +26,16 @@ export function useSyncManager() {
     isPulling.current = true
     setStatus('syncing')
     const remote = await pullSync()
-    if (!remote) {
+    // null = sem dados ainda (primeiro uso) → não é erro, continua para push
+    if (remote === null) {
+      setStatus('synced')
+      setLastSync(new Date())
+      isPulling.current = false
+      hasPulled.current = true
+      return
+    }
+    // false = erro de rede/API
+    if (remote === false) {
       setStatus('error')
       isPulling.current = false
       hasPulled.current = true
