@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 
-const EDGE_URL = 'https://wmisuthjiwrojjsbtlbm.supabase.co/functions/v1/analyze-finances'
+const EDGE_URL = '/api/analyze-finances'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

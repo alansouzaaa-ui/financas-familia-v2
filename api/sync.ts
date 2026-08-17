@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' }
 
-const SYNC_KEY = 'dashboard_sync:familia'
+const GIST_FILE = 'financas-sync.json'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -8,42 +8,50 @@ const CORS = {
   'Content-Type': 'application/json',
 }
 
-async function redisGet(url: string, token: string, key: string) {
-  const res = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+async function gistGet(token: string, gistId: string) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+    },
   })
-  if (!res.ok) throw new Error(`Redis GET ${res.status}`)
-  const json = await res.json() as { result: string | null }
-  if (!json.result) return null
-  return JSON.parse(json.result)
+  if (!res.ok) throw new Error(`Gist GET ${res.status}`)
+  const json = await res.json() as { files: Record<string, { content: string }> }
+  const content = json.files[GIST_FILE]?.content
+  if (!content || content === 'null') return null
+  return JSON.parse(content)
 }
 
-async function redisSet(url: string, token: string, key: string, value: unknown) {
-  const res = await fetch(`${url}/set/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(JSON.stringify(value)), // Upstash REST espera a string do valor
+async function gistSet(token: string, gistId: string, value: unknown) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      files: { [GIST_FILE]: { content: JSON.stringify(value) } },
+    }),
   })
-  if (!res.ok) throw new Error(`Redis SET ${res.status}`)
+  if (!res.ok) throw new Error(`Gist PATCH ${res.status}`)
 }
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
-  const url   = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const token  = process.env.GITHUB_GIST_TOKEN
+  const gistId = process.env.GITHUB_GIST_ID
 
-  if (!url || !token) {
-    console.error('[sync] env vars ausentes: UPSTASH_REDIS_REST_URL ou UPSTASH_REDIS_REST_TOKEN')
+  if (!token || !gistId) {
     return new Response(JSON.stringify({ error: 'env_missing' }), { status: 500, headers: CORS })
   }
 
   if (req.method === 'GET') {
     try {
-      const data = await redisGet(url, token, SYNC_KEY)
+      const data = await gistGet(token, gistId)
       return new Response(JSON.stringify(data), { headers: CORS })
     } catch (err) {
-      console.error('[sync] pull error:', err)
       return new Response(JSON.stringify({ error: 'pull_failed', detail: String(err) }), { status: 500, headers: CORS })
     }
   }
@@ -51,10 +59,9 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'POST') {
     try {
       const body = await req.json()
-      await redisSet(url, token, SYNC_KEY, { ...body, updated_at: new Date().toISOString() })
+      await gistSet(token, gistId, { ...body, updated_at: new Date().toISOString() })
       return new Response(JSON.stringify({ ok: true }), { headers: CORS })
     } catch (err) {
-      console.error('[sync] push error:', err)
       return new Response(JSON.stringify({ error: 'push_failed', detail: String(err) }), { status: 500, headers: CORS })
     }
   }
