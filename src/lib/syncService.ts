@@ -16,10 +16,11 @@ function stripComputed(p: MonthPoint): MonthRecord {
   return record as MonthRecord
 }
 
-// null = sem dados ainda | false = erro de rede/API
-export async function pullSync(): Promise<SyncPayload | null | false> {
+// null = sem dados ainda | false = erro de rede/API | 'unauthorized' = sem sessão válida
+export async function pullSync(): Promise<SyncPayload | null | false | 'unauthorized'> {
   try {
-    const res = await fetch('/api/sync', { method: 'GET' })
+    const res = await fetch('/api/sync', { method: 'GET', credentials: 'same-origin' })
+    if (res.status === 401) return 'unauthorized'
     if (!res.ok) return false
     const data = await res.json() as SyncPayload | null
     return data ?? null
@@ -34,6 +35,7 @@ export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ manual_months, ...payload }),
     })
     return res.ok

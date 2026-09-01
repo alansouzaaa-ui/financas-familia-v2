@@ -1,41 +1,10 @@
 import { useState } from 'react'
 
-const APP_USER = import.meta.env.VITE_APP_USER || 'alan'
-const APP_PASS = import.meta.env.VITE_APP_PASS || 'familia@2026'
-const AUTH_KEY = 'ff_auth_v1'
 const SESSION_DAYS = 7
 const MAX_ATTEMPTS = 5
 const LOCKOUT_MS = 5 * 60 * 1000 // 5 minutos
 
-// ─── token assinado ──────────────────────────────────────────────────────────
-// Inclui o hash da senha no token — bypass via localStorage requer conhecer a senha
-function makeToken(expiry: number): string {
-  const payload = `${expiry}|${APP_PASS.split('').reverse().join('')}|ff-dash-v1`
-  return btoa(unescape(encodeURIComponent(payload)))
-}
-
-export function isAuthenticated(): boolean {
-  try {
-    const raw = localStorage.getItem(AUTH_KEY)
-    if (!raw) return false
-    const { expiry, token } = JSON.parse(raw)
-    if (typeof expiry !== 'number' || Date.now() >= expiry) return false
-    return token === makeToken(expiry) // token deve bater com a senha atual
-  } catch {
-    return false
-  }
-}
-
-export function saveSession() {
-  const expiry = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000
-  localStorage.setItem(AUTH_KEY, JSON.stringify({ expiry, token: makeToken(expiry) }))
-}
-
-export function clearSession() {
-  localStorage.removeItem(AUTH_KEY)
-}
-
-// ─── rate limiting ────────────────────────────────────────────────────────────
+// ─── rate limiting (UX only — actual auth is server-side) ─────────────────────
 const ATTEMPT_KEY = 'ff_attempts'
 
 function getAttemptState(): { count: number; lockedUntil: number } {
@@ -64,6 +33,25 @@ function isLocked(): { locked: boolean; remaining: number } {
   return { locked: true, remaining: Math.ceil((lockedUntil - Date.now()) / 1000) }
 }
 
+// ─── session helpers ─────────────────────────────────────────────────────────
+
+export async function clearSession(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+  } catch { /* ignore */ }
+}
+
+export async function checkSession(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/session', { method: 'GET', credentials: 'same-origin' })
+    if (!res.ok) return false
+    const data = await res.json() as { authenticated: boolean }
+    return data.authenticated === true
+  } catch {
+    return false
+  }
+}
+
 // ─── componente ───────────────────────────────────────────────────────────────
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [user, setUser]       = useState('')
@@ -72,7 +60,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
@@ -84,13 +72,16 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
 
     setLoading(true)
 
-    setTimeout(() => {
-      if (
-        user.trim().toLowerCase() === APP_USER.toLowerCase() &&
-        pass === APP_PASS
-      ) {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ user, pass }),
+      })
+
+      if (res.ok) {
         clearAttempts()
-        saveSession()
         onLogin()
       } else {
         const { count } = recordFailedAttempt()
@@ -102,7 +93,10 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         }
         setLoading(false)
       }
-    }, 800)
+    } catch {
+      setError('Erro de conexão. Tente novamente.')
+      setLoading(false)
+    }
   }
 
   const lockState = isLocked()

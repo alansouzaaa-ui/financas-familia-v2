@@ -8,19 +8,29 @@ import GoalsPage from '@/pages/Goals'
 import RecurringPage from '@/pages/Recurring'
 import LaunchPage from '@/pages/Launch'
 import InvestmentsPage from '@/pages/Investments'
-import LoginPage, { isAuthenticated } from '@/pages/Login'
+import LoginPage, { checkSession, clearSession } from '@/pages/Login'
 
 export default function App() {
-  const [authed, setAuthed] = useState<boolean>(isAuthenticated)
+  // null = loading, true = authenticated, false = not authenticated
+  const [authed, setAuthed] = useState<boolean | null>(null)
 
-  // Verificação periódica — expira a sessão se o token vencer enquanto o app está aberto
   useEffect(() => {
-    if (!authed) return
-    const id = setInterval(() => {
-      if (!isAuthenticated()) setAuthed(false)
-    }, 60_000) // verifica a cada 1 minuto
-    return () => clearInterval(id)
-  }, [authed])
+    checkSession().then(ok => setAuthed(ok))
+  }, [])
+
+  async function handleLogout() {
+    await clearSession()
+    setAuthed(false)
+  }
+
+  if (authed === null) {
+    // Loading state while checking session
+    return (
+      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-[var(--color-text-muted)] border-t-transparent animate-spin" />
+      </div>
+    )
+  }
 
   if (!authed) {
     return <LoginPage onLogin={() => setAuthed(true)} />
@@ -29,7 +39,7 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<AppShell onLogout={() => setAuthed(false)} />}>
+        <Route path="/" element={<AppShell onLogout={handleLogout} />}>
           <Route index element={<OverviewPage />} />
           <Route path="mensal" element={<MonthlyPage />} />
           <Route path="anual" element={<AnnualPage />} />
