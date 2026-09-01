@@ -163,6 +163,31 @@ describe('POST /api/telegram — text message parsing', () => {
   })
 })
 
+describe('POST /api/telegram — callback sender allowlist', () => {
+  it('silently ignores callback_query from disallowed sender → 200, no editMessageText', async () => {
+    const { default: telegram } = await import('../../api/telegram.ts')
+    // Build a callback from an unauthorized from.id (not in ALLOWED_CHAT)
+    const update = {
+      update_id: 3,
+      callback_query: {
+        id: 'cb-disallowed',
+        from: { id: 888888888 }, // not in allowedChats
+        message: {
+          message_id: 10,
+          chat: { id: parseInt(ALLOWED_CHAT, 10) },
+          text: 'some preview `token`',
+        },
+        data: '{"a":"c"}',
+      },
+    }
+    const res = await telegram(buildRequest(update))
+    expect(res.status).toBe(200)
+    const fetchMock = vi.mocked(fetch)
+    const calls = fetchMock.mock.calls.map(([url]) => String(url))
+    expect(calls.every(u => !u.includes('editMessageText'))).toBe(true)
+  })
+})
+
 describe('POST /api/telegram — callback cancel', () => {
   it('answers callback and edits message on cancel', async () => {
     const { default: telegram } = await import('../../api/telegram.ts')

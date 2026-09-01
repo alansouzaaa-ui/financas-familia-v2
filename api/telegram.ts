@@ -201,11 +201,23 @@ export default async function handler(req: Request): Promise<Response> {
   // ---- Callback query ----
   if (update.callback_query) {
     const cb = update.callback_query
+
+    // Silently drop callbacks from disallowed senders (same pattern as message handler)
+    const fromId = String(cb.from.id)
+    if (!allowedChats.includes(fromId)) {
+      return new Response('OK', { status: 200 })
+    }
+
     const msgChatId = cb.message?.chat.id
     const msgId = cb.message?.message_id
 
     // Always answer callback — even on error paths below
     await tgPost(botToken, 'answerCallbackQuery', { callback_query_id: cb.id })
+
+    // Guard: Telegram may deliver a callback_query without a message (e.g. inline mode)
+    if (!msgChatId) {
+      return new Response('OK', { status: 200 })
+    }
 
     let action: { a: string }
     try {
