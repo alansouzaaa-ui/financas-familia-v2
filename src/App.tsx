@@ -8,14 +8,15 @@ import GoalsPage from '@/pages/Goals'
 import RecurringPage from '@/pages/Recurring'
 import LaunchPage from '@/pages/Launch'
 import InvestmentsPage from '@/pages/Investments'
-import LoginPage, { checkSession, clearSession } from '@/pages/Login'
+import LoginPage from '@/pages/Login'
+import { checkSession, clearSession } from '@/pages/Login/auth'
 
 export default function App() {
   // null = loading, true = authenticated, false = not authenticated
   const [authed, setAuthed] = useState<boolean | null>(null)
 
   useEffect(() => {
-    checkSession().then(ok => setAuthed(ok))
+    checkSession().then((ok: boolean) => setAuthed(ok))
   }, [])
 
   async function handleLogout() {

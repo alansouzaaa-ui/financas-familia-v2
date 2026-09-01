@@ -1,5 +1,5 @@
 import { Outlet, useLocation, NavLink } from 'react-router-dom'
-import { clearSession } from '@/pages/Login'
+import { clearSession } from '@/pages/Login/auth'
 import { useDarkMode } from '@/hooks/useDarkMode'
 import { useSyncManager, type SyncStatus } from '@/hooks/useSyncManager'
 import { isSupabaseConfigured } from '@/config/supabase'

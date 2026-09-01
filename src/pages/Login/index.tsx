@@ -33,25 +33,6 @@ function isLocked(): { locked: boolean; remaining: number } {
   return { locked: true, remaining: Math.ceil((lockedUntil - Date.now()) / 1000) }
 }
 
-// ─── session helpers ─────────────────────────────────────────────────────────
-
-export async function clearSession(): Promise<void> {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
-  } catch { /* ignore */ }
-}
-
-export async function checkSession(): Promise<boolean> {
-  try {
-    const res = await fetch('/api/auth/session', { method: 'GET', credentials: 'same-origin' })
-    if (!res.ok) return false
-    const data = await res.json() as { authenticated: boolean }
-    return data.authenticated === true
-  } catch {
-    return false
-  }
-}
-
 // ─── componente ───────────────────────────────────────────────────────────────
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [user, setUser]       = useState('')

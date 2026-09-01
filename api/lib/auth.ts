@@ -74,7 +74,7 @@ export async function verifySession(token: string, secret: string, now: number):
   }
 }
 
-export function getSessionCookie(token: string, _now: number): string {
+export function getSessionCookie(token: string): string {
   return `ff_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`
 }
 

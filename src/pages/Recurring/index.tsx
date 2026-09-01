@@ -39,7 +39,6 @@ export default function RecurringPage() {
   }
 
   const activeItems = items.filter(i => i.isActive)
-  const totalActive = activeItems.reduce((s, i) => s + i.value, 0)
   const totalRevenue = activeItems.filter(i => i.category === 'revenue').reduce((s, i) => s + i.value, 0)
   const totalExpenses = activeItems.filter(i => i.category !== 'revenue').reduce((s, i) => s + i.value, 0)
 

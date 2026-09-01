@@ -40,22 +40,28 @@ export default function InvestmentSummaryBlock() {
 
     if (!tickers.length) return
 
-    const cached = getCachedQuotes()
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      setQuotes(cached.quotes)
-      setLastUpdate(new Date(cached.ts))
-      return
-    }
+    async function loadQuotes() {
+      const cached = getCachedQuotes()
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        setQuotes(cached.quotes)
+        setLastUpdate(new Date(cached.ts))
+        return
+      }
 
-    setLoading(true)
-    fetchQuotes(tickers)
-      .then(q => {
+      setLoading(true)
+      try {
+        const q = await fetchQuotes(tickers)
         setQuotes(q)
         setCachedQuotes(q)
         setLastUpdate(new Date())
-      })
-      .catch(() => { /* silent fallback */ })
-      .finally(() => setLoading(false))
+      } catch {
+        // silent fallback
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadQuotes()
   }, [positions])
 
   if (!positions.length) {

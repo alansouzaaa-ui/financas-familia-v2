@@ -41,6 +41,13 @@ export function useSyncManager() {
       hasPulled.current = true
       return
     }
+    // 'unauthorized' = sem sessão válida
+    if (remote === 'unauthorized') {
+      setStatus('error')
+      isPulling.current = false
+      hasPulled.current = true
+      return
+    }
     if (remote.manual_months?.length) {
       useFinanceStore.getState().setMonths(remote.manual_months)
     }
@@ -77,8 +84,8 @@ export function useSyncManager() {
 
   // Pull once on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     doPull()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Debounced auto-push whenever store data changes
@@ -87,7 +94,6 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(doPush, 2500)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allMonths, goals, recurringItems, positions])
 
   return { status, lastSync, pull: doPull, push: doPush }

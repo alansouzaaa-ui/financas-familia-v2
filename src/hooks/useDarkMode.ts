@@ -25,7 +25,9 @@ export function useDarkMode() {
     }
     try {
       localStorage.setItem(STORAGE_KEY, isDark ? 'dark' : 'light')
-    } catch {}
+    } catch {
+      // localStorage may not be available in some contexts
+    }
   }, [isDark])
 
   const toggle = () => setIsDark(v => !v)

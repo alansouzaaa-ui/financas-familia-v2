@@ -27,8 +27,10 @@ export default function MonthlyPage() {
     ? (yearList.length > 0 ? yearList[yearList.length - 1] : new Date().getFullYear())
     : selectedYear
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const monthsForYear = useMemo(
     () => allMonths.filter(m => m.year === currentYear),
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     [allMonths, currentYear]
   )
 
