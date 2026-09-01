@@ -26,6 +26,9 @@ export interface MonthItem {
   value: number
   category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'
   isPaid: boolean
+  source?: 'manual' | 'telegram'
+  occurredAt?: string   // ISO 8601
+  externalId?: string   // 'telegram:<chatId>:<updateId>'
 }
 
 export interface MonthPoint extends MonthRecord {

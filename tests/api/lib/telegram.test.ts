@@ -1,0 +1,95 @@
+import { describe, it, expect } from 'vitest'
+import { parseTransaction, appendTelegramTransaction } from '../../../api/lib/telegram.ts'
+import type { SyncPayload } from '../../../src/lib/syncService.ts'
+
+const emptyPayload: SyncPayload = {
+  manual_months: [],
+  goals: [],
+  recurring_items: [],
+  investment_positions: [],
+}
+
+describe('parseTransaction', () => {
+  it('parses a Brazilian decimal expense as variable cost', () => {
+    const result = parseTransaction('mercado 185,40', '123', 1)
+    expect(result).toMatchObject({
+      description: 'mercado',
+      value: 185.4,
+      category: 'variableCosts',
+      chatId: '123',
+      updateId: 1,
+      externalId: 'telegram:123:1',
+    })
+  })
+
+  it('classifies salario as revenue', () => {
+    const result = parseTransaction('salario 5000', '123', 2)
+    expect(result).toMatchObject({ category: 'revenue', value: 5000 })
+  })
+
+  it('returns null when no number found', () => {
+    expect(parseTransaction('sem numero', '123', 3)).toBeNull()
+  })
+
+  it('returns null for zero value', () => {
+    expect(parseTransaction('zero 0', '123', 4)).toBeNull()
+  })
+
+  it('returns null for value above 1_000_000', () => {
+    expect(parseTransaction('fraude 2000000', '123', 5)).toBeNull()
+  })
+
+  it('classifies cartao correctly', () => {
+    const result = parseTransaction('cartao 300', '123', 6)
+    expect(result).toMatchObject({ category: 'cards' })
+  })
+
+  it('classifies emprestimo correctly', () => {
+    const result = parseTransaction('empréstimo 1200', '123', 7)
+    expect(result).toMatchObject({ category: 'loans' })
+  })
+
+  it('classifies fixo correctly', () => {
+    const result = parseTransaction('aluguel fixo 800', '123', 8)
+    expect(result).toMatchObject({ category: 'fixedCosts' })
+  })
+})
+
+describe('appendTelegramTransaction', () => {
+  it('inserts a transaction into an empty payload and returns inserted: true', () => {
+    const tx = parseTransaction('mercado 185,40', '123', 1)!
+    const { payload, inserted } = appendTelegramTransaction(emptyPayload, tx)
+    expect(inserted).toBe(true)
+    expect(payload.manual_months).toHaveLength(1)
+    expect(payload.manual_months[0].variableCosts).toBeCloseTo(185.4)
+    expect(payload.manual_months[0].items).toHaveLength(1)
+  })
+
+  it('does not insert a duplicate externalId (idempotency)', () => {
+    const tx = parseTransaction('mercado 185,40', '123', 1)!
+    const once = appendTelegramTransaction(emptyPayload, tx)
+    const twice = appendTelegramTransaction(once.payload, tx)
+    expect(once.inserted).toBe(true)
+    expect(twice.inserted).toBe(false)
+    expect(twice.payload.manual_months[0].items).toHaveLength(1)
+  })
+
+  it('accumulates totals when multiple items are added to the same month', () => {
+    const tx1 = parseTransaction('mercado 100', '123', 10)!
+    const tx2 = parseTransaction('farmacia 50', '123', 11)!
+    // Force same occurredAt month
+    tx2.occurredAt = tx1.occurredAt
+    const r1 = appendTelegramTransaction(emptyPayload, tx1)
+    const r2 = appendTelegramTransaction(r1.payload, tx2)
+    expect(r2.payload.manual_months[0].variableCosts).toBeCloseTo(150)
+  })
+
+  it('creates month record with correct month/year derived from occurredAt', () => {
+    const tx = parseTransaction('salario 3000', '42', 99)!
+    tx.occurredAt = '2026-09-01T12:00:00.000Z'
+    const { payload } = appendTelegramTransaction(emptyPayload, tx)
+    const record = payload.manual_months[0]
+    expect(record.month).toBe('Set')
+    expect(record.year).toBe(2026)
+  })
+})
