@@ -177,16 +177,16 @@ export default async function handler(req: Request): Promise<Response> {
     const token = await signPayload(compact, authSecret)
 
     const label = CATEGORY_LABELS[parsed.category]
+    // Plain text — no parse_mode so user description cannot inject Markdown
     const messageText =
-      `💰 *${parsed.description}* — R$ ${fmtBRL(parsed.value)}\n` +
+      `💰 ${parsed.description} — R$ ${fmtBRL(parsed.value)}\n` +
       `Categoria: ${label}\n\n` +
       `Confirmar este lançamento?\n` +
-      `\`${token}\``
+      token
 
     await tgPost(botToken, 'sendMessage', {
       chat_id: msg.chat.id,
       text: messageText,
-      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [[
           { text: '✅ Confirmar', callback_data: '{"a":"c"}' },
@@ -236,10 +236,11 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     if (action.a === 'c') {
-      // Extract token embedded in the original message text (last backtick span)
+      // Extract token from the last line of the message (sent as plain text)
       const msgText = cb.message?.text ?? ''
-      const tokenMatch = msgText.match(/`([^`\n]+)`\s*$/)
-      const rawToken = tokenMatch ? tokenMatch[1] : null
+      const lines = msgText.split('\n')
+      const lastLine = lines[lines.length - 1].trim()
+      const rawToken = lastLine || null
 
       if (!rawToken) {
         await tgPost(botToken, 'editMessageText', {
@@ -273,7 +274,18 @@ export default async function handler(req: Request): Promise<Response> {
         updateId: parseInt(updateIdStr ?? '0', 10),
       }
 
-      const raw = await getGistPayload()
+      let raw: Awaited<ReturnType<typeof getGistPayload>>
+      try {
+        raw = await getGistPayload()
+      } catch {
+        await tgPost(botToken, 'editMessageText', {
+          chat_id: msgChatId,
+          message_id: msgId,
+          text: '⚠️ Erro ao salvar. Tente novamente.',
+        })
+        return new Response('OK', { status: 200 })
+      }
+
       const gistPayload = raw ?? {
         manual_months: [],
         goals: [],
@@ -293,7 +305,16 @@ export default async function handler(req: Request): Promise<Response> {
         return new Response('OK', { status: 200 })
       }
 
-      await setGistPayload(updated)
+      try {
+        await setGistPayload(updated)
+      } catch {
+        await tgPost(botToken, 'editMessageText', {
+          chat_id: msgChatId,
+          message_id: msgId,
+          text: '⚠️ Erro ao salvar. Tente novamente.',
+        })
+        return new Response('OK', { status: 200 })
+      }
 
       await tgPost(botToken, 'editMessageText', {
         chat_id: msgChatId,

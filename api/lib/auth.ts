@@ -35,7 +35,7 @@ async function sign(payloadB64: string, secret: string): Promise<string> {
 async function verify(payloadB64: string, sigB64: string, secret: string): Promise<boolean> {
   const key = await importKey(secret)
   try {
-    return await crypto.subtle.verify('HMAC', key, fromBase64url(sigB64), enc.encode(payloadB64))
+    return await crypto.subtle.verify('HMAC', key, fromBase64url(sigB64) as BufferSource, enc.encode(payloadB64))
   } catch {
     return false
   }
@@ -74,7 +74,7 @@ export async function verifySession(token: string, secret: string, now: number):
   }
 }
 
-export function getSessionCookie(token: string): string {
+export function getSessionCookie(token: string, _now?: number): string {
   return `ff_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`
 }
 

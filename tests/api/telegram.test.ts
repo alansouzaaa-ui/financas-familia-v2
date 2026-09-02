@@ -215,7 +215,7 @@ describe('POST /api/telegram — callback confirm', () => {
       at: new Date().toISOString(),
     }
     const token = await signPayload(compact, AUTH_SECRET)
-    const msgText = `💰 *mercado* — R$ 150,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n\`${token}\``
+    const msgText = `💰 mercado — R$ 150,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n${token}`
 
     const { default: telegram } = await import('../../api/telegram.ts')
     const { getGistPayload, setGistPayload } = await import('../../api/lib/gist.ts')
@@ -276,7 +276,7 @@ describe('POST /api/telegram — callback confirm', () => {
       at: new Date().toISOString(),
     }
     const token = await signPayload(compact, AUTH_SECRET)
-    const msgText = `💰 *mercado* — R$ 200,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n\`${token}\``
+    const msgText = `💰 mercado — R$ 200,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n${token}`
 
     const { default: telegram } = await import('../../api/telegram.ts')
     const update = callbackUpdate('{"a":"c"}', msgText, 99, ALLOWED_CHAT)
@@ -291,7 +291,7 @@ describe('POST /api/telegram — callback confirm', () => {
 
   it('edits to invalid token message when signature is bad', async () => {
     const badToken = 'this.is.invalid'
-    const msgText = `some message\n\`${badToken}\``
+    const msgText = `some message\n${badToken}`
 
     const { default: telegram } = await import('../../api/telegram.ts')
     const update = callbackUpdate('{"a":"c"}', msgText, 11, ALLOWED_CHAT)
