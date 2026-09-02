@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
+import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import type { MonthAbbr, MonthItem } from '@/types/finance'
@@ -36,6 +37,7 @@ interface FormItem {
   value: string
   category: string
   isPaid: boolean
+  cardId?: string
 }
 
 function makeItem(category: string, isPaid = false): FormItem {
@@ -45,6 +47,8 @@ function makeItem(category: string, isPaid = false): FormItem {
 export default function LaunchPage() {
   const { allMonths, addMonth } = useFinanceStore()
   const { items: recurring } = useRecurringStore()
+  const cardAccounts = useCardsStore(s => s.accounts)
+  const addCardAccount = useCardsStore(s => s.addAccount)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState<string>('Jan')
@@ -69,6 +73,7 @@ export default function LaunchPage() {
           value: String(i.value),
           category: i.category,
           isPaid: i.isPaid,
+          cardId: i.cardId,
         }))
       )
     } else {
@@ -90,6 +95,20 @@ export default function LaunchPage() {
     dirtyRef.current = true
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
   }, [])
+
+  // Seletor de cartão (só para itens da categoria 'cards').
+  // '__new__' abre um prompt para cadastrar um cartão novo na hora.
+  const handleCardSelect = useCallback((itemId: string, value: string) => {
+    dirtyRef.current = true
+    if (value === '__new__') {
+      const name = window.prompt('Nome do novo cartão (ex: Cartão Pai):')?.trim()
+      if (!name) return
+      const account = addCardAccount(name)
+      setFormItems(prev => prev.map(i => i.id === itemId ? { ...i, cardId: account.id } : i))
+      return
+    }
+    setFormItems(prev => prev.map(i => i.id === itemId ? { ...i, cardId: value || undefined } : i))
+  }, [addCardAccount])
 
   function applyRecurring() {
     dirtyRef.current = true
@@ -137,6 +156,7 @@ export default function LaunchPage() {
         value: Math.round(parseFloat(i.value) * 100) / 100,
         category: i.category as MonthItem['category'],
         isPaid: i.isPaid,
+        ...(i.category === 'cards' && i.cardId ? { cardId: i.cardId } : {}),
       }))
 
     const year = parseInt(selectedYear)
@@ -258,7 +278,8 @@ export default function LaunchPage() {
                   ) : (
                     <div className="flex flex-col gap-2 pb-3">
                       {items.map(item => (
-                        <div key={item.id} className="flex items-center gap-2">
+                        <div key={item.id} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
                           {/* Paid toggle */}
                           <button
                             onClick={() => updateItem(item.id, 'isPaid', !item.isPaid)}
@@ -300,6 +321,24 @@ export default function LaunchPage() {
                               <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                             </svg>
                           </button>
+                        </div>
+                        {/* Card selector — só para itens de cartão */}
+                        {cat === 'cards' && (
+                          <div className="flex items-center gap-2 pl-7">
+                            <span className="text-[11px] text-[var(--color-text-muted)]">Cartão:</span>
+                            <select
+                              value={item.cardId ?? ''}
+                              onChange={e => handleCardSelect(item.id, e.target.value)}
+                              className="text-[12px] px-2 py-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)]"
+                            >
+                              <option value="">Sem cartão</option>
+                              {cardAccounts.map(a => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                              ))}
+                              <option value="__new__">➕ Novo cartão…</option>
+                            </select>
+                          </div>
+                        )}
                         </div>
                       ))}
                     </div>

@@ -29,6 +29,14 @@ export interface MonthItem {
   source?: 'manual' | 'telegram'
   occurredAt?: string   // ISO 8601
   externalId?: string   // 'telegram:<chatId>:<updateId>'
+  cardId?: string       // qual cartão (titular), só para itens da categoria 'cards'
+}
+
+// Cartão de crédito por titular (Alan, Pai, etc.) — o total de cada cartão é
+// sempre a soma dos itens com esse cardId, nunca um número guardado à parte.
+export interface CardAccount {
+  id: string
+  name: string
 }
 
 export interface MonthPoint extends MonthRecord {

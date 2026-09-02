@@ -10,6 +10,7 @@ import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
 import MonthForecastCard from '@/components/metrics/MonthForecastCard'
 import InvestmentSummaryBlock from '@/components/metrics/InvestmentSummaryBlock'
+import CardBreakdownBlock from '@/components/metrics/CardBreakdownBlock'
 import RevenueExpenseChart from '@/components/charts/RevenueExpenseChart'
 import ExpenseDonut from '@/components/charts/ExpenseDonut'
 import BalanceChart from '@/components/charts/BalanceChart'
@@ -166,6 +167,11 @@ export default function OverviewPage() {
         <Card title="Balanço mensal">
           <BalanceChart data={months} />
         </Card>
+      </div>
+
+      {/* Breakdown por cartão */}
+      <div className="mt-4">
+        <CardBreakdownBlock months={months} />
       </div>
 
       {/* Last month summary */}

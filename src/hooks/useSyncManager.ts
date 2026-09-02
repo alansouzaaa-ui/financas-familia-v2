@@ -4,6 +4,7 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
+import { useCardsStore } from '@/stores/useCardsStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
@@ -20,6 +21,7 @@ export function useSyncManager() {
   const goals = useGoalsStore(s => s.goals)
   const recurringItems = useRecurringStore(s => s.items)
   const positions = useInvestmentStore(s => s.positions)
+  const cardAccounts = useCardsStore(s => s.accounts)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -60,6 +62,9 @@ export function useSyncManager() {
     if (remote.investment_positions?.length) {
       useInvestmentStore.getState().setPositions(remote.investment_positions)
     }
+    if (remote.card_accounts?.length) {
+      useCardsStore.getState().setAccounts(remote.card_accounts)
+    }
     setStatus('synced')
     setLastSync(new Date())
     // Small delay so store updates propagate before re-enabling push
@@ -77,6 +82,7 @@ export function useSyncManager() {
       goals: useGoalsStore.getState().goals,
       recurring_items: useRecurringStore.getState().items,
       investment_positions: useInvestmentStore.getState().positions,
+      card_accounts: useCardsStore.getState().accounts,
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -94,7 +100,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(doPush, 2500)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts])
 
   return { status, lastSync, pull: doPull, push: doPush }
 }
