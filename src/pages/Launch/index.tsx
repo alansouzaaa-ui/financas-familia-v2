@@ -163,11 +163,15 @@ export default function LaunchPage() {
     return true
   }, [formItems, selectedMonth, selectedYear, allMonths, addMonth])
 
-  // Debounced auto-save: commit ~1s after the user stops editing
+  // Debounced auto-save: commit ~1s after the user stops editing.
+  // dirtyRef is cleared after a commit so the store update this triggers
+  // (allMonths changes → effect re-runs) does not loop into another save.
   useEffect(() => {
     if (!dirtyRef.current) return
     const t = setTimeout(() => {
-      if (commitCurrent()) {
+      const ok = commitCurrent()
+      dirtyRef.current = false
+      if (ok) {
         setSaved(true)
         setTimeout(() => setSaved(false), 1500)
       }
