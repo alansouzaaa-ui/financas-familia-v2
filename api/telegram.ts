@@ -277,7 +277,8 @@ export default async function handler(req: Request): Promise<Response> {
       let raw: Awaited<ReturnType<typeof getGistPayload>>
       try {
         raw = await getGistPayload()
-      } catch {
+      } catch (err) {
+        console.error('[telegram] getGistPayload failed:', err)
         await tgPost(botToken, 'editMessageText', {
           chat_id: msgChatId,
           message_id: msgId,
@@ -307,7 +308,8 @@ export default async function handler(req: Request): Promise<Response> {
 
       try {
         await setGistPayload(updated)
-      } catch {
+      } catch (err) {
+        console.error('[telegram] setGistPayload failed:', err)
         await tgPost(botToken, 'editMessageText', {
           chat_id: msgChatId,
           message_id: msgId,

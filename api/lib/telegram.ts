@@ -41,8 +41,12 @@ export function parseTransaction(
   const value = parseFloat(raw.replace(',', '.'))
   if (!value || value <= 0 || value > 1_000_000) return null
 
-  // Remove the matched number token from description
-  const descRaw = text.replace(new RegExp(raw.replace('.', '\\.') + ''), '').trim()
+  // Remove the matched number token from description, then strip a trailing
+  // currency symbol left behind when the amount was written as "R$100" (no space)
+  const descRaw = text
+    .replace(new RegExp(raw.replace('.', '\\.') + ''), '')
+    .replace(/\s*(r\$|\$)\s*$/i, '')
+    .trim()
   const description = descRaw || text.trim()
 
   const category = classifyCategory(norm)
