@@ -3,8 +3,9 @@ export const config = { runtime: 'edge' }
 
 import { signPayload, verifyPayload } from './lib/auth'
 import { getGistPayload, setGistPayload } from './lib/gist'
-import { parseTransaction, appendTelegramTransaction } from './lib/telegram'
+import { parseTransaction, appendTelegramTransaction, cardInvoiceLabel } from './lib/telegram'
 import type { ParsedTransaction } from './lib/telegram'
+import type { CardAccount } from '../src/types/finance'
 
 // ---- Types ----------------------------------------------------------------
 
@@ -33,6 +34,7 @@ interface CompactPayload {
   c: string   // category first letter: r/f/l/k/v
   id: string  // externalId
   at: string  // occurredAt ISO
+  cd?: string // cardId (só para cartões)
 }
 
 // ---- Constants ------------------------------------------------------------
@@ -154,7 +156,16 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const text = msg.text ?? ''
-    const parsed = parseTransaction(text, chatId, msg.message_id)
+
+    // Read card accounts so a card mention ("cartão pai 200") resolves to the
+    // right card. Best-effort: if the Gist read fails, proceed without cards.
+    let cardAccounts: CardAccount[] = []
+    try {
+      const gist = await getGistPayload()
+      cardAccounts = gist?.card_accounts ?? []
+    } catch { /* proceed without card resolution */ }
+
+    const parsed = parseTransaction(text, chatId, msg.message_id, cardAccounts)
 
     if (!parsed) {
       await tgPost(botToken, 'sendMessage', {
@@ -166,22 +177,34 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // Sign compact payload — avoids 64-byte callback_data limit by embedding
-    // the token in the message text itself (backtick code span at the bottom).
+    // the token in the message text itself (plain-text last line).
     const compact: CompactPayload = {
       d: parsed.description,
       v: parsed.value,
       c: CATEGORY_TO_KEY[parsed.category] ?? 'v',
       id: parsed.externalId,
       at: parsed.occurredAt,
+      ...(parsed.cardId ? { cd: parsed.cardId } : {}),
     }
     const token = await signPayload(compact, authSecret)
 
     const label = CATEGORY_LABELS[parsed.category]
+    // Card extras: which card + which invoice month (fatura do mês seguinte)
+    let cardLine = ''
+    if (parsed.category === 'cards') {
+      const cardName = parsed.cardId
+        ? (cardAccounts.find(a => a.id === parsed.cardId)?.name ?? 'cartão')
+        : null
+      cardLine =
+        (cardName ? `Cartão: ${cardName}\n` : `Cartão: (não identificado — sem cartão)\n`) +
+        `Fatura: ${cardInvoiceLabel(parsed.occurredAt)}\n`
+    }
     // Plain text — no parse_mode so user description cannot inject Markdown
     const messageText =
       `💰 ${parsed.description} — R$ ${fmtBRL(parsed.value)}\n` +
-      `Categoria: ${label}\n\n` +
-      `Confirmar este lançamento?\n` +
+      `Categoria: ${label}\n` +
+      cardLine +
+      `\nConfirmar este lançamento?\n` +
       token
 
     await tgPost(botToken, 'sendMessage', {
@@ -272,6 +295,7 @@ export default async function handler(req: Request): Promise<Response> {
         externalId: compact.id,
         chatId: chatId ?? String(cb.from.id),
         updateId: parseInt(updateIdStr ?? '0', 10),
+        ...(compact.cd ? { cardId: compact.cd } : {}),
       }
 
       let raw: Awaited<ReturnType<typeof getGistPayload>>
@@ -318,10 +342,13 @@ export default async function handler(req: Request): Promise<Response> {
         return new Response('OK', { status: 200 })
       }
 
+      const faturaNote = transaction.category === 'cards'
+        ? ` (fatura ${cardInvoiceLabel(transaction.occurredAt)})`
+        : ''
       await tgPost(botToken, 'editMessageText', {
         chat_id: msgChatId,
         message_id: msgId,
-        text: `✅ Registrado: ${transaction.description} — R$ ${fmtBRL(transaction.value)}`,
+        text: `✅ Registrado: ${transaction.description} — R$ ${fmtBRL(transaction.value)}${faturaNote}`,
       })
 
       return new Response('OK', { status: 200 })

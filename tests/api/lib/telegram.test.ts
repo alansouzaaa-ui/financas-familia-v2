@@ -53,6 +53,21 @@ describe('parseTransaction', () => {
     const result = parseTransaction('aluguel fixo 800', '123', 8)
     expect(result).toMatchObject({ category: 'fixedCosts' })
   })
+
+  it('resolves the card by name mention (cartão pai)', () => {
+    const accounts = [
+      { id: 'card-alan', name: 'Cartão Alan' },
+      { id: 'card-pai', name: 'Cartão Pai' },
+    ]
+    const result = parseTransaction('cartão pai 200', '123', 20, accounts)
+    expect(result).toMatchObject({ category: 'cards', cardId: 'card-pai' })
+  })
+
+  it('leaves cardId undefined for a card expense with no known card', () => {
+    const result = parseTransaction('cartao 300', '123', 21, [{ id: 'card-alan', name: 'Cartão Alan' }])
+    expect(result?.category).toBe('cards')
+    expect(result?.cardId).toBeUndefined()
+  })
 })
 
 describe('appendTelegramTransaction', () => {
@@ -91,5 +106,25 @@ describe('appendTelegramTransaction', () => {
     const record = payload.manual_months[0]
     expect(record.month).toBe('Set')
     expect(record.year).toBe(2026)
+  })
+
+  it('files a card purchase into next month (fatura shift) with cardId', () => {
+    const tx = parseTransaction('cartão pai 200', '42', 100, [{ id: 'card-pai', name: 'Cartão Pai' }])!
+    tx.occurredAt = '2026-09-15T12:00:00.000Z' // compra em setembro
+    const { payload } = appendTelegramTransaction(emptyPayload, tx)
+    const record = payload.manual_months[0]
+    expect(record.month).toBe('Out') // fatura de outubro
+    expect(record.year).toBe(2026)
+    expect(record.cards).toBeCloseTo(200)
+    expect(record.items?.[0].cardId).toBe('card-pai')
+  })
+
+  it('rolls a December card purchase into January of next year', () => {
+    const tx = parseTransaction('cartão alan 90', '42', 101, [{ id: 'card-alan', name: 'Cartão Alan' }])!
+    tx.occurredAt = '2026-12-20T12:00:00.000Z'
+    const { payload } = appendTelegramTransaction(emptyPayload, tx)
+    const record = payload.manual_months[0]
+    expect(record.month).toBe('Jan')
+    expect(record.year).toBe(2027)
   })
 })

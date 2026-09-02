@@ -1,5 +1,5 @@
 import type { SyncPayload } from '../../src/lib/syncService'
-import type { MonthRecord, MonthAbbr } from '../../src/types/finance'
+import type { MonthRecord, MonthAbbr, CardAccount } from '../../src/types/finance'
 
 export interface ParsedTransaction {
   description: string
@@ -9,6 +9,7 @@ export interface ParsedTransaction {
   externalId: string   // 'telegram:<chatId>:<updateId>'
   chatId: string
   updateId: number
+  cardId?: string      // cartão (titular) resolvido, só para category 'cards'
 }
 
 const MONTH_ABBRS: MonthAbbr[] = [
@@ -28,10 +29,26 @@ function classifyCategory(normalized: string): ParsedTransaction['category'] {
   return 'variableCosts'
 }
 
+// Resolve o cartão a partir do texto: casa se o nome do cartão (ou sua última
+// palavra, ex. "pai"/"alan") aparecer no texto. O nome mais longo vence.
+export function resolveCardId(normalizedText: string, accounts: CardAccount[]): string | undefined {
+  let best: { id: string; len: number } | undefined
+  for (const a of accounts) {
+    const nName = normalize(a.name)
+    const lastToken = nName.split(/\s+/).pop() ?? nName
+    const matched = normalizedText.includes(nName) || (lastToken.length >= 3 && normalizedText.includes(lastToken))
+    if (matched && (!best || nName.length > best.len)) {
+      best = { id: a.id, len: nName.length }
+    }
+  }
+  return best?.id
+}
+
 export function parseTransaction(
   text: string,
   chatId: string,
   updateId: number,
+  cardAccounts: CardAccount[] = [],
 ): ParsedTransaction | null {
   const norm = normalize(text)
   const matches = norm.match(/\d+(?:[.,]\d{1,2})?/g)
@@ -52,8 +69,9 @@ export function parseTransaction(
   const category = classifyCategory(norm)
   const occurredAt = new Date().toISOString()
   const externalId = `telegram:${chatId}:${updateId}`
+  const cardId = category === 'cards' ? resolveCardId(norm, cardAccounts) : undefined
 
-  return { description, value, category, occurredAt, externalId, chatId, updateId }
+  return { description, value, category, occurredAt, externalId, chatId, updateId, cardId }
 }
 
 function spTzMonth(isoString: string): { month: MonthAbbr; year: number } {
@@ -71,11 +89,29 @@ function spTzMonth(isoString: string): { month: MonthAbbr; year: number } {
   return { month: MONTH_ABBRS[monthNum - 1], year }
 }
 
+// Fatura do mês seguinte: compra de cartão feita no mês M cai na fatura de M+1.
+function shiftMonthForward(month: MonthAbbr, year: number): { month: MonthAbbr; year: number } {
+  const idx = MONTH_ABBRS.indexOf(month)
+  if (idx === 11) return { month: 'Jan', year: year + 1 }
+  return { month: MONTH_ABBRS[idx + 1], year }
+}
+
+// Rótulo da fatura (mês seguinte) para uma compra de cartão — usado na prévia.
+export function cardInvoiceLabel(occurredAtISO: string): string {
+  const cur = spTzMonth(occurredAtISO)
+  const { month, year } = shiftMonthForward(cur.month, cur.year)
+  return `${month}/${year}`
+}
+
 export function appendTelegramTransaction(
   payload: SyncPayload,
   transaction: ParsedTransaction,
 ): { payload: SyncPayload; inserted: boolean } {
-  const { month, year } = spTzMonth(transaction.occurredAt)
+  let { month, year } = spTzMonth(transaction.occurredAt)
+  // Cartão: a compra vai para a fatura do mês seguinte (Telegram/foto apenas)
+  if (transaction.category === 'cards') {
+    ({ month, year } = shiftMonthForward(month, year))
+  }
 
   // Deep-clone manual_months to avoid mutation
   const manual_months: MonthRecord[] = JSON.parse(JSON.stringify(payload.manual_months ?? []))
@@ -115,6 +151,7 @@ export function appendTelegramTransaction(
     source: 'telegram',
     occurredAt: transaction.occurredAt,
     externalId: transaction.externalId,
+    ...(transaction.category === 'cards' && transaction.cardId ? { cardId: transaction.cardId } : {}),
   })
 
   // Recalculate totals from items
