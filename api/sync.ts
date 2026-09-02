@@ -1,5 +1,6 @@
 import { getGistPayload, setGistPayload } from './lib/gist'
 import { verifySession } from './lib/auth'
+import { mergeSyncPayload } from './lib/syncMerge'
 import type { SyncPayload } from '../src/lib/syncService'
 
 export const config = { runtime: 'edge' }
@@ -78,7 +79,12 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'POST') {
     try {
       const body = await req.json() as SyncPayload
-      await setGistPayload({ ...body, updated_at: new Date().toISOString() })
+      // Merge with the current server state instead of overwriting it —
+      // a stale client (e.g. a background tab that never re-pulled) must
+      // never erase items only another writer (the Telegram bot) knows about.
+      const current = await getGistPayload()
+      const merged = mergeSyncPayload(current, body)
+      await setGistPayload({ ...merged, updated_at: new Date().toISOString() })
       return new Response(JSON.stringify({ ok: true }), { headers })
     } catch (err) {
       return new Response(JSON.stringify({ error: 'push_failed', detail: String(err) }), { status: 500, headers })
