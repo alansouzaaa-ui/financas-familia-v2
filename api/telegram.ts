@@ -1,10 +1,10 @@
 // api/telegram.ts — Vercel Edge Function
 export const config = { runtime: 'edge' }
 
-import { signPayload, verifyPayload } from './lib/auth.ts'
-import { getGistPayload, setGistPayload } from './lib/gist.ts'
-import { parseTransaction, appendTelegramTransaction } from './lib/telegram.ts'
-import type { ParsedTransaction } from './lib/telegram.ts'
+import { signPayload, verifyPayload } from './lib/auth'
+import { getGistPayload, setGistPayload } from './lib/gist'
+import { parseTransaction, appendTelegramTransaction } from './lib/telegram'
+import type { ParsedTransaction } from './lib/telegram'
 
 // ---- Types ----------------------------------------------------------------
 

@@ -1,6 +1,6 @@
-import { getGistPayload, setGistPayload } from './lib/gist.ts'
-import { verifySession } from './lib/auth.ts'
-import type { SyncPayload } from '../src/lib/syncService.ts'
+import { getGistPayload, setGistPayload } from './lib/gist'
+import { verifySession } from './lib/auth'
+import type { SyncPayload } from '../src/lib/syncService'
 
 export const config = { runtime: 'edge' }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { signPayload } from '../../api/lib/auth.ts'
+import { signPayload } from '../../api/lib/auth'
 
 // ---- Module mocks (hoisted before any import of the handler) ----
 

@@ -1,4 +1,4 @@
-import type { SyncPayload } from '../../src/lib/syncService.ts'
+import type { SyncPayload } from '../../src/lib/syncService'
 
 const GIST_FILE = 'financas-sync.json'
 

@@ -1,4 +1,4 @@
-import { createSession, getSessionCookie } from '../lib/auth.ts'
+import { createSession, getSessionCookie } from '../lib/auth'
 
 export const config = { runtime: 'edge' }
 

@@ -1,5 +1,5 @@
-import type { SyncPayload } from '../../src/lib/syncService.ts'
-import type { MonthRecord, MonthAbbr } from '../../src/types/finance.ts'
+import type { SyncPayload } from '../../src/lib/syncService'
+import type { MonthRecord, MonthAbbr } from '../../src/types/finance'
 
 export interface ParsedTransaction {
   description: string

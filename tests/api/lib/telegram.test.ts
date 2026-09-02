@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseTransaction, appendTelegramTransaction } from '../../../api/lib/telegram.ts'
-import type { SyncPayload } from '../../../src/lib/syncService.ts'
+import { parseTransaction, appendTelegramTransaction } from '../../../api/lib/telegram'
+import type { SyncPayload } from '../../../src/lib/syncService'
 
 const emptyPayload: SyncPayload = {
   manual_months: [],

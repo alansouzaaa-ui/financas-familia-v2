@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { getGistPayload, setGistPayload } from '../../../api/lib/gist.ts'
-import type { SyncPayload } from '../../../src/lib/syncService.ts'
+import { getGistPayload, setGistPayload } from '../../../api/lib/gist'
+import type { SyncPayload } from '../../../src/lib/syncService'
 
 beforeAll(() => {
   process.env.GITHUB_GIST_TOKEN = 'token'
