@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
@@ -54,8 +54,12 @@ export default function LaunchPage() {
     makeItem('fixedCosts', false),
   ])
   const [saved, setSaved] = useState(false)
+  // Auto-save: only commit when the user actually edited (not on load/mount)
+  const dirtyRef = useRef(false)
 
   function loadMonthIntoForm(month: string, year: string) {
+    // Loading a month is not a user edit — don't let it trigger an auto-save
+    dirtyRef.current = false
     const existing = allMonths.find(m => m.month === month && m.year === parseInt(year))
     if (existing?.items && existing.items.length > 0) {
       setFormItems(
@@ -73,18 +77,22 @@ export default function LaunchPage() {
   }
 
   const updateItem = useCallback((id: string, field: keyof FormItem, val: string | boolean) => {
+    dirtyRef.current = true
     setFormItems(prev => prev.map(i => i.id === id ? { ...i, [field]: val } : i))
   }, [])
 
   const removeItem = useCallback((id: string) => {
+    dirtyRef.current = true
     setFormItems(prev => prev.filter(i => i.id !== id))
   }, [])
 
   const addItem = useCallback((category: string) => {
+    dirtyRef.current = true
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
   }, [])
 
   function applyRecurring() {
+    dirtyRef.current = true
     const active = recurring.filter(r => r.isActive)
     const newItems: FormItem[] = active.map(r => ({
       id: crypto.randomUUID(),
@@ -103,6 +111,7 @@ export default function LaunchPage() {
     const prevYear  = mIdx === 0 ? year - 1 : year
     const prev = allMonths.find(m => m.month === prevMonth && m.year === prevYear)
     if (!prev?.items) return
+    dirtyRef.current = true
     setFormItems(prev.items.map(i => ({
       id: crypto.randomUUID(),
       description: i.description,
@@ -112,9 +121,9 @@ export default function LaunchPage() {
     })))
   }
 
-  function handleSave() {
-    if (saved) return
-
+  // Commits the current form into the store. Returns false when nothing valid
+  // to save on a month that doesn't exist yet (avoids creating empty months).
+  const commitCurrent = useCallback((): boolean => {
     const validItems: MonthItem[] = formItems
       .filter(i => {
         const v = parseFloat(i.value)
@@ -131,24 +140,45 @@ export default function LaunchPage() {
       }))
 
     const year = parseInt(selectedYear)
-    if (!isFinite(year) || year < 2000 || year > 2100) return
+    if (!isFinite(year) || year < 2000 || year > 2100) return false
 
-    const revenue       = validItems.filter(i => i.category === 'revenue').reduce((s, i) => s + i.value, 0)
-    const fixedCosts    = validItems.filter(i => i.category === 'fixedCosts').reduce((s, i) => s + i.value, 0)
-    const variableCosts = validItems.filter(i => i.category === 'variableCosts').reduce((s, i) => s + i.value, 0)
-    const loans         = validItems.filter(i => i.category === 'loans').reduce((s, i) => s + i.value, 0)
-    const cards         = validItems.filter(i => i.category === 'cards').reduce((s, i) => s + i.value, 0)
+    const monthExists = allMonths.some(m => m.month === selectedMonth && m.year === year)
+    // Don't auto-create an empty month; but DO allow emptying an existing one
+    // (so deleting the last item persists).
+    if (validItems.length === 0 && !monthExists) return false
+
+    const sum = (cat: string) => validItems.filter(i => i.category === cat).reduce((s, i) => s + i.value, 0)
 
     addMonth({
       month: selectedMonth as MonthAbbr,
       year,
-      revenue, fixedCosts, variableCosts, loans, cards,
+      revenue: sum('revenue'),
+      fixedCosts: sum('fixedCosts'),
+      variableCosts: sum('variableCosts'),
+      loans: sum('loans'),
+      cards: sum('cards'),
       source: 'manual',
       items: validItems,
     })
+    return true
+  }, [formItems, selectedMonth, selectedYear, allMonths, addMonth])
 
+  // Debounced auto-save: commit ~1s after the user stops editing
+  useEffect(() => {
+    if (!dirtyRef.current) return
+    const t = setTimeout(() => {
+      if (commitCurrent()) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+      }
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [formItems, selectedMonth, selectedYear, commitCurrent])
+
+  function handleSave() {
+    commitCurrent()
     setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    setTimeout(() => setSaved(false), 1500)
   }
 
   // Live totals per category
@@ -289,8 +319,11 @@ export default function LaunchPage() {
           })}
 
           <Button size="lg" onClick={handleSave} className="w-full justify-center">
-            {saved ? '✓ Salvo!' : `Salvar ${selectedMonth}/${selectedYear}`}
+            {saved ? '✓ Salvo automaticamente' : `Salvar ${selectedMonth}/${selectedYear} agora`}
           </Button>
+          <p className="text-[12px] text-[var(--color-text-muted)] text-center -mt-2">
+            As alterações são salvas automaticamente ao editar.
+          </p>
         </div>
 
         {/* Summary sidebar */}
