@@ -131,13 +131,20 @@ export default function LaunchPage() {
     const prev = allMonths.find(m => m.month === prevMonth && m.year === prevYear)
     if (!prev?.items) return
     dirtyRef.current = true
-    setFormItems(prev.items.map(i => ({
+    const copied: FormItem[] = prev.items.map(i => ({
       id: crypto.randomUUID(),
       description: i.description,
       value: String(i.value),
       category: i.category,
       isPaid: i.category === 'revenue',
-    })))
+      cardId: i.cardId,
+    }))
+    // Acrescenta ao que já existe (ex: lançamentos do Telegram) — NÃO substitui,
+    // mas ignora placeholders vazios do formulário inicial.
+    setFormItems(current => {
+      const kept = current.filter(i => i.description.trim() !== '' || i.value.trim() !== '')
+      return [...kept, ...copied]
+    })
   }
 
   // Commits the current form into the store. Returns false when nothing valid
