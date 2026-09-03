@@ -38,6 +38,16 @@ export default function OverviewPage() {
   const prevMonth = allMonths[allMonths.length - 2]
   const lastMonth = allMonths[allMonths.length - 1]
 
+  // Delta do balanço do mês vs mês anterior (para o hero)
+  const balDelta = (lastMonth && prevMonth && prevMonth.balance !== 0)
+    ? ((lastMonth.balance - prevMonth.balance) / Math.abs(prevMonth.balance)) * 100
+    : null
+  const balImproved = lastMonth && prevMonth ? lastMonth.balance >= prevMonth.balance : true
+
+  const catLabel = (c: string) =>
+    c === 'balance' ? 'balanço' : c === 'cards' ? 'cartões'
+    : c === 'loans' ? 'empréstimos' : c === 'fixedCosts' ? 'fixos' : 'receita'
+
   // Current calendar month for Forecast card
   const now = new Date()
   const curMonthAbbr = MONTHS_ABR[now.getMonth()]
@@ -60,45 +70,61 @@ export default function OverviewPage() {
         </Button>
       </div>
 
-      {/* Alerts */}
+      {/* Alertas — domados num chip expansível */}
       {alerts.length > 0 && (
-        <div className="flex flex-col gap-2 mb-5">
-          {alerts.map(alert => (
-            <div
-              key={alert.id}
-              className={`flex items-start gap-3 px-4 py-3 rounded-[10px] text-[13px] ${
-                alert.type === 'danger'
-                  ? 'bg-[#FAECE7] text-[#993C1D] dark:bg-[#993C1D]/20 dark:text-[#F07050]'
-                  : 'bg-[#FDF3E0] text-[#BA7517] dark:bg-[#BA7517]/20 dark:text-[#FBBF24]'
-              }`}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 mt-0.5">
-                <path d="M8 1L15 14H1L8 1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-                <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              </svg>
-              <span className="flex-1">{alert.message}</span>
-              <span className="text-[10px] font-medium uppercase tracking-wide opacity-70 mt-0.5">
-                {alert.category === 'balance' ? 'balanço'
-                  : alert.category === 'cards' ? 'cartões'
-                  : alert.category === 'loans' ? 'empréstimos'
-                  : alert.category === 'fixedCosts' ? 'fixos'
-                  : 'receita'}
-              </span>
-            </div>
-          ))}
-        </div>
+        <details className="group mb-5">
+          <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer inline-flex items-center gap-2.5 px-3.5 py-2 rounded-full text-[13px] font-medium select-none transition-colors bg-[var(--color-neg)]/10 text-[var(--color-neg)] border border-[var(--color-neg)]/25 hover:bg-[var(--color-neg)]/[0.16]">
+            <span aria-hidden="true">⚠︎</span>
+            {alerts.length} {alerts.length === 1 ? 'ponto de atenção' : 'pontos de atenção'}
+            <span aria-hidden="true" className="text-[10px] opacity-80 transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="mt-2.5 flex flex-col gap-px rounded-[12px] overflow-hidden bg-[var(--color-border)]">
+            {alerts.map(alert => (
+              <div key={alert.id} className="flex items-center gap-3 px-4 py-3 bg-[var(--color-surface)] text-[13px]">
+                <span aria-hidden="true" className={`flex-shrink-0 ${alert.type === 'danger' ? 'text-[var(--color-neg)]' : 'text-[var(--color-chart-amber)]'}`}>△</span>
+                <span className="flex-1">{alert.message}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] whitespace-nowrap">{catLabel(alert.category)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
-      {/* Health Score + Period Filter */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+      {/* Hero — balanço do mês + score */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        {lastMonth && (
+          <div
+            className="md:col-span-2 rounded-[18px] p-6 border border-[var(--color-border)] flex flex-col justify-between min-h-[168px]"
+            style={{ backgroundImage: 'linear-gradient(160deg, var(--color-surface), var(--color-surface-2))', boxShadow: '0 8px 26px -18px rgba(0,0,0,.55)' }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="label">Balanço do mês · {lastMonth.label}</span>
+              {balDelta !== null && (
+                <span className={`inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full ${balImproved ? 'text-[var(--color-pos)] bg-[var(--color-pos)]/[0.13]' : 'text-[var(--color-neg)] bg-[var(--color-neg)]/[0.13]'}`}>
+                  {balImproved ? '▲' : '▼'} {Math.abs(balDelta).toFixed(1)}% vs mês anterior
+                </span>
+              )}
+            </div>
+            <div>
+              <div className={`font-mono font-medium text-[40px] leading-none tracking-tight mt-4 mb-2 ${lastMonth.balance >= 0 ? 'pos' : 'neg'}`}>
+                {fmtSigned(lastMonth.balance)}
+              </div>
+              <span className="label normal-case tracking-normal text-[12px]">
+                Receita {fmt(lastMonth.revenue)} · Despesas {fmt(lastMonth.totalExpenses)}
+              </span>
+            </div>
+          </div>
+        )}
         <div className="md:col-span-1">
           <HealthScoreCard score={score} />
         </div>
-        <div className="md:col-span-2">
-          <Card title="Filtrar período">
-            <PeriodFilterBar filter={periodFilter} onChange={setPeriodFilter} />
-          </Card>
-        </div>
+      </div>
+
+      {/* Filtro de período */}
+      <div className="mb-6">
+        <Card title="Filtrar período">
+          <PeriodFilterBar filter={periodFilter} onChange={setPeriodFilter} />
+        </Card>
       </div>
 
       {/* Net Worth + Forecast */}
@@ -111,7 +137,8 @@ export default function OverviewPage() {
       <InvestmentSummaryBlock />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="label mb-3 mt-1">Acumulado no período</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <MetricCard
           label="Receita total"
           value={totals.revenue}
@@ -140,6 +167,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Main Chart */}
+      <div className="label mb-3">Evolução</div>
       <Card title="Receitas vs Despesas" className="mb-4">
         {months.length > 0
           ? <RevenueExpenseChart data={months} />
