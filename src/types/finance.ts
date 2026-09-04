@@ -31,7 +31,42 @@ export interface MonthItem {
   externalId?: string   // 'telegram:<chatId>:<updateId>'
   cardId?: string       // qual cartão (titular), só para itens da categoria 'cards'
   recurringId?: string  // vincula a uma regra recorrente (repete nos próximos meses)
+  tag?: string          // categoria de gasto (id de EXPENSE_TAGS): alimentacao, moradia, etc.
 }
+
+// Categorias de gasto (para relatórios) — separado dos 5 grupos contábeis.
+export interface ExpenseTag {
+  id: string
+  label: string
+  emoji: string
+  color: string
+}
+
+export const EXPENSE_TAGS: ExpenseTag[] = [
+  { id: 'moradia',       label: 'Moradia',        emoji: '🏠', color: '#3B82F6' },
+  { id: 'supermercado',  label: 'Supermercado',   emoji: '🛒', color: '#84CC16' },
+  { id: 'alimentacao',   label: 'Alimentação',    emoji: '🍽️', color: '#F59E0B' },
+  { id: 'restaurante',   label: 'Restaurante',    emoji: '🍔', color: '#F97316' },
+  { id: 'transporte',    label: 'Transporte',     emoji: '🚗', color: '#10B981' },
+  { id: 'combustivel',   label: 'Combustível',    emoji: '⛽', color: '#6EE7B7' },
+  { id: 'saude',         label: 'Saúde',          emoji: '❤️', color: '#EF4444' },
+  { id: 'farmacia',      label: 'Farmácia',       emoji: '💊', color: '#F87171' },
+  { id: 'academia',      label: 'Academia',       emoji: '🏋️', color: '#FB923C' },
+  { id: 'lazer',         label: 'Lazer',          emoji: '🎉', color: '#8B5CF6' },
+  { id: 'viagem',        label: 'Viagem',         emoji: '✈️', color: '#22D3EE' },
+  { id: 'educacao',      label: 'Educação',       emoji: '📚', color: '#06B6D4' },
+  { id: 'vestuario',     label: 'Vestuário',      emoji: '👕', color: '#EC4899' },
+  { id: 'assinaturas',   label: 'Assinaturas',    emoji: '📱', color: '#A78BFA' },
+  { id: 'servicos',      label: 'Serviços',       emoji: '🔧', color: '#6B7280' },
+  { id: 'impostos',      label: 'Impostos/Taxas', emoji: '📋', color: '#94A3B8' },
+  { id: 'pets',          label: 'Pets',           emoji: '🐾', color: '#A3A300' },
+  { id: 'presentes',     label: 'Presentes',      emoji: '🎁', color: '#F472B6' },
+  { id: 'salario',       label: 'Salário',        emoji: '💵', color: '#1D9E75' },
+  { id: 'investimentos', label: 'Investimentos',  emoji: '💰', color: '#0EA5E9' },
+  { id: 'outros',        label: 'Outros',         emoji: '📦', color: '#9CA3AF' },
+]
+
+export const TAG_MAP: Record<string, ExpenseTag> = Object.fromEntries(EXPENSE_TAGS.map(t => [t.id, t]))
 
 // Cartão de crédito por titular (Alan, Pai, etc.) — o total de cada cartão é
 // sempre a soma dos itens com esse cardId, nunca um número guardado à parte.

@@ -4,7 +4,7 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
+import { CATEGORY_LABELS, CATEGORY_COLORS, EXPENSE_TAGS, TAG_MAP } from '@/types/finance'
 import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -43,6 +43,7 @@ interface FormItem {
   isPaid: boolean
   cardId?: string
   recurringId?: string
+  tag?: string
 }
 
 function makeItem(category: string, isPaid = false): FormItem {
@@ -78,7 +79,7 @@ export default function LaunchPage() {
       dirtyRef.current = false
       setFormItems(nonCard.map(i => ({
         id: i.id, description: i.description, value: String(i.value),
-        category: i.category, isPaid: i.isPaid, recurringId: i.recurringId,
+        category: i.category, isPaid: i.isPaid, recurringId: i.recurringId, tag: i.tag,
       })))
       return
     }
@@ -222,6 +223,7 @@ export default function LaunchPage() {
         category: i.category as MonthItem['category'],
         isPaid: i.isPaid,
         ...(i.recurringId ? { recurringId: i.recurringId } : {}),
+        ...(i.tag ? { tag: i.tag } : {}),
       }))
 
     const year = parseInt(selectedYear)
@@ -395,6 +397,18 @@ export default function LaunchPage() {
                             onChange={e => updateItem(item.id, 'value', e.target.value)}
                             className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
                           />
+                          {/* Categoria (para relatórios) */}
+                          <select
+                            value={item.tag ?? ''}
+                            onChange={e => updateItem(item.id, 'tag', e.target.value)}
+                            title={item.tag ? `Categoria: ${TAG_MAP[item.tag]?.label}` : 'Escolher categoria'}
+                            className={`flex-shrink-0 w-[52px] text-[13px] px-1 py-1 bg-[var(--color-surface-2)] border rounded-[7px] outline-none focus:border-[var(--color-text-primary)] text-center ${item.tag ? 'border-[var(--color-border)]' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
+                          >
+                            <option value="">🏷️</option>
+                            {EXPENSE_TAGS.map(t => (
+                              <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
+                            ))}
+                          </select>
                           <button
                             onClick={() => repeatItem(item)}
                             title="Parcelar em N meses (ex: compra em 3x)"

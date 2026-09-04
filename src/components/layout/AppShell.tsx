@@ -40,6 +40,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/relatorios',
+    label: 'Relatórios',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 17V9M10 17V4M16 17v-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/metas',
     label: 'Metas',
     icon: (
