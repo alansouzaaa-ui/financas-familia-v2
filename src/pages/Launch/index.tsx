@@ -51,6 +51,7 @@ function makeItem(category: string, isPaid = false): FormItem {
 
 export default function LaunchPage() {
   const { allMonths, addMonth } = useFinanceStore()
+  const upsertStoreItem = useFinanceStore(s => s.upsertItem)
   const { items: recurring } = useRecurringStore()
   const upsertRule = useRecurringStore(s => s.upsertRule)
   const deleteRule = useRecurringStore(s => s.deleteItem)
@@ -112,7 +113,42 @@ export default function LaunchPage() {
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
   }, [])
 
-  // Liga/desliga "repetir nos próximos meses" para um item.
+  // Parcelamento: cria N parcelas (ex: compra em 3x) — a parcela do mês atual
+  // fica no formulário rotulada (1/N); as demais vão direto para os meses seguintes.
+  const repeatItem = useCallback((item: FormItem) => {
+    const value = Math.round((parseFloat(item.value) || 0) * 100) / 100
+    const desc = item.description.trim()
+    if (!(value > 0) || desc.length < 1) {
+      window.alert('Preencha a descrição e o valor antes de parcelar.')
+      return
+    }
+    const nStr = window.prompt('Parcelar em quantos meses? (ex: 3 para uma compra em 3x)')
+    const n = parseInt(nStr ?? '', 10)
+    if (!isFinite(n) || n < 2 || n > 60) return
+
+    const base = desc.slice(0, 110)
+    const startIdx = MONTHS_LIST.findIndex(m => m.value === selectedMonth)
+    const startYear = parseInt(selectedYear)
+
+    // Parcela 1/N fica no formulário (mês atual)
+    dirtyRef.current = true
+    setFormItems(prev => prev.map(i => i.id === item.id ? { ...i, description: `${base} (1/${n})` } : i))
+
+    // Parcelas 2..N vão direto para os meses seguintes
+    for (let k = 1; k < n; k++) {
+      let idx = startIdx + k, y = startYear
+      while (idx > 11) { idx -= 12; y += 1 }
+      upsertStoreItem(y, MONTHS_LIST[idx].value as MonthAbbr, {
+        id: crypto.randomUUID(),
+        description: `${base} (${k + 1}/${n})`,
+        value,
+        category: item.category as MonthItem['category'],
+        isPaid: false,
+      })
+    }
+  }, [selectedMonth, selectedYear, upsertStoreItem])
+
+  // Liga/desliga "despesa fixa" (repete todo mês, para sempre) para um item.
   // Ligar cria uma regra recorrente; desligar remove a regra.
   const toggleRecurring = useCallback((item: FormItem) => {
     dirtyRef.current = true
@@ -360,8 +396,18 @@ export default function LaunchPage() {
                             className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
                           />
                           <button
+                            onClick={() => repeatItem(item)}
+                            title="Parcelar em N meses (ex: compra em 3x)"
+                            className="p-1 flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                              <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                              <path d="M2.5 10.5V3.5A1 1 0 0 1 3.5 2.5h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                          <button
                             onClick={() => toggleRecurring(item)}
-                            title={item.recurringId ? 'Repetindo nos próximos meses — clique para parar' : 'Repetir nos próximos meses'}
+                            title={item.recurringId ? 'Despesa fixa (repete todo mês) — clique para desligar' : 'Marcar como despesa fixa (repete todo mês)'}
                             className={`p-1 flex-shrink-0 transition-colors ${item.recurringId ? 'text-[var(--color-chart-blue)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}`}
                           >
                             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">

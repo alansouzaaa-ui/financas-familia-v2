@@ -99,9 +99,11 @@ export const useFinanceStore = create<FinanceStore>()(
         const idx = items.findIndex(i => i.id === item.id)
         if (idx >= 0) items[idx] = item
         else items.push(item)
+        // Editar um item torna o mês 'manual' (converte um mês seed), senão
+        // o partialize (que só persiste meses manual) descartaria a alteração.
         get().addMonth({
           month, year,
-          source: existing?.source ?? 'manual',
+          source: 'manual',
           items,
           ...totalsFromItems(items),
         })
@@ -113,7 +115,7 @@ export const useFinanceStore = create<FinanceStore>()(
         const items = existing.items.filter(i => i.id !== itemId)
         get().addMonth({
           month, year,
-          source: existing.source ?? 'manual',
+          source: 'manual',
           items,
           ...totalsFromItems(items),
         })
