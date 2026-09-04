@@ -62,6 +62,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/cartoes',
+    label: 'Cartões',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M2 8h16" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+  },
+  {
     to: '/lancar',
     label: 'Lançar',
     icon: (

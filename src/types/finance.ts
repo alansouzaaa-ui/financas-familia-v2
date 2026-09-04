@@ -37,6 +37,7 @@ export interface MonthItem {
 export interface CardAccount {
   id: string
   name: string
+  dueDay?: number   // dia de vencimento da fatura (ex: 10)
 }
 
 export interface MonthPoint extends MonthRecord {

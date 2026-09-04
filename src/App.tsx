@@ -7,6 +7,7 @@ import AnnualPage from '@/pages/Annual'
 import GoalsPage from '@/pages/Goals'
 import RecurringPage from '@/pages/Recurring'
 import LaunchPage from '@/pages/Launch'
+import CardsPage from '@/pages/Cards'
 import InvestmentsPage from '@/pages/Investments'
 import LoginPage from '@/pages/Login'
 import { checkSession, clearSession } from '@/pages/Login/auth'
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="metas" element={<GoalsPage />} />
           <Route path="recorrentes" element={<RecurringPage />} />
           <Route path="lancar" element={<LaunchPage />} />
+          <Route path="cartoes" element={<CardsPage />} />
           <Route path="investimentos" element={<InvestmentsPage />} />
         </Route>
       </Routes>
