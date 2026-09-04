@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
@@ -22,6 +23,9 @@ const YEAR_OPTIONS = [2023, 2024, 2025, 2026, 2027].map(y => ({ value: String(y)
 
 const CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans', 'cards'] as const
 type Category = typeof CATEGORIES[number]
+// Categorias editáveis no formulário. Cartões saíram daqui — são geridos na
+// aba Cartões; aqui aparecem só como um resumo (total da fatura).
+const EDIT_CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans'] as const
 
 const CATEGORY_ACCENT: Record<Category, string> = {
   revenue:       '#1D9E75',
@@ -48,7 +52,6 @@ export default function LaunchPage() {
   const { allMonths, addMonth } = useFinanceStore()
   const { items: recurring } = useRecurringStore()
   const cardAccounts = useCardsStore(s => s.accounts)
-  const addCardAccount = useCardsStore(s => s.addAccount)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState<string>('Jan')
@@ -65,15 +68,16 @@ export default function LaunchPage() {
     // Loading a month is not a user edit — don't let it trigger an auto-save
     dirtyRef.current = false
     const existing = allMonths.find(m => m.month === month && m.year === parseInt(year))
-    if (existing?.items && existing.items.length > 0) {
+    // Cartões não entram no formulário — são geridos na aba Cartões
+    const nonCard = (existing?.items ?? []).filter(i => i.category !== 'cards')
+    if (nonCard.length > 0) {
       setFormItems(
-        existing.items.map(i => ({
+        nonCard.map(i => ({
           id: i.id,
           description: i.description,
           value: String(i.value),
           category: i.category,
           isPaid: i.isPaid,
-          cardId: i.cardId,
         }))
       )
     } else {
@@ -96,20 +100,6 @@ export default function LaunchPage() {
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
   }, [])
 
-  // Seletor de cartão (só para itens da categoria 'cards').
-  // '__new__' abre um prompt para cadastrar um cartão novo na hora.
-  const handleCardSelect = useCallback((itemId: string, value: string) => {
-    dirtyRef.current = true
-    if (value === '__new__') {
-      const name = window.prompt('Nome do novo cartão (ex: Cartão Pai):')?.trim()
-      if (!name) return
-      const account = addCardAccount(name)
-      setFormItems(prev => prev.map(i => i.id === itemId ? { ...i, cardId: account.id } : i))
-      return
-    }
-    setFormItems(prev => prev.map(i => i.id === itemId ? { ...i, cardId: value || undefined } : i))
-  }, [addCardAccount])
-
   function applyRecurring() {
     dirtyRef.current = true
     const active = recurring.filter(r => r.isActive)
@@ -131,13 +121,13 @@ export default function LaunchPage() {
     const prev = allMonths.find(m => m.month === prevMonth && m.year === prevYear)
     if (!prev?.items) return
     dirtyRef.current = true
-    const copied: FormItem[] = prev.items.map(i => ({
+    // Não copia cartões (são geridos na aba Cartões)
+    const copied: FormItem[] = prev.items.filter(i => i.category !== 'cards').map(i => ({
       id: crypto.randomUUID(),
       description: i.description,
       value: String(i.value),
       category: i.category,
       isPaid: i.category === 'revenue',
-      cardId: i.cardId,
     }))
     // Acrescenta ao que já existe (ex: lançamentos do Telegram) — NÃO substitui,
     // mas ignora placeholders vazios do formulário inicial.
@@ -163,18 +153,22 @@ export default function LaunchPage() {
         value: Math.round(parseFloat(i.value) * 100) / 100,
         category: i.category as MonthItem['category'],
         isPaid: i.isPaid,
-        ...(i.category === 'cards' && i.cardId ? { cardId: i.cardId } : {}),
       }))
 
     const year = parseInt(selectedYear)
     if (!isFinite(year) || year < 2000 || year > 2100) return false
 
-    const monthExists = allMonths.some(m => m.month === selectedMonth && m.year === year)
-    // Don't auto-create an empty month; but DO allow emptying an existing one
-    // (so deleting the last item persists).
-    if (validItems.length === 0 && !monthExists) return false
+    // Preserva os itens de cartão do mês (geridos na aba Cartões / Telegram):
+    // o formulário só cuida das outras categorias e NUNCA deve apagar cartões.
+    const rec = allMonths.find(m => m.month === selectedMonth && m.year === year)
+    const cardItems = (rec?.items ?? []).filter(i => i.category === 'cards')
+    const finalItems = [...validItems, ...cardItems]
 
-    const sum = (cat: string) => validItems.filter(i => i.category === cat).reduce((s, i) => s + i.value, 0)
+    // Não cria mês vazio; mas permite esvaziar as categorias do formulário
+    // mantendo os cartões, se o mês já existir.
+    if (finalItems.length === 0 && !rec) return false
+
+    const sum = (cat: string) => finalItems.filter(i => i.category === cat).reduce((s, i) => s + i.value, 0)
 
     addMonth({
       month: selectedMonth as MonthAbbr,
@@ -185,7 +179,7 @@ export default function LaunchPage() {
       loans: sum('loans'),
       cards: sum('cards'),
       source: 'manual',
-      items: validItems,
+      items: finalItems,
     })
     return true
   }, [formItems, selectedMonth, selectedYear, allMonths, addMonth])
@@ -212,17 +206,29 @@ export default function LaunchPage() {
     setTimeout(() => setSaved(false), 1500)
   }
 
-  // Live totals per category
+  // Itens de cartão do mês (geridos na aba Cartões) — para o resumo
+  const storeRec = allMonths.find(m => m.month === selectedMonth && m.year === parseInt(selectedYear))
+  const storeCardItems = (storeRec?.items ?? []).filter(i => i.category === 'cards')
+  const cardTotalStore = storeCardItems.reduce((s, i) => s + i.value, 0)
+  const perCard = cardAccounts
+    .map(a => ({ name: a.name, total: storeCardItems.filter(i => i.cardId === a.id).reduce((s, i) => s + i.value, 0) }))
+    .filter(c => c.total > 0)
+  const semCartaoTotal = storeCardItems.filter(i => !i.cardId).reduce((s, i) => s + i.value, 0)
+
+  // Live totals per category (cartões vêm do store, não do formulário)
   const catTotals: Record<string, number> = {}
   for (const cat of CATEGORIES) catTotals[cat] = 0
   for (const i of formItems) {
     const v = parseFloat(i.value) || 0
     if (i.category in catTotals) catTotals[i.category] += v
   }
+  catTotals.cards = cardTotalStore
   const totalExpenses = catTotals.fixedCosts + catTotals.variableCosts + catTotals.loans + catTotals.cards
   const balance = catTotals.revenue - totalExpenses
   const consolidatedRev = formItems.filter(i => i.category === 'revenue' && i.isPaid).reduce((s, i) => s + (parseFloat(i.value) || 0), 0)
-  const consolidatedExp = formItems.filter(i => i.category !== 'revenue' && i.isPaid).reduce((s, i) => s + (parseFloat(i.value) || 0), 0)
+  const consolidatedExp =
+    formItems.filter(i => i.category !== 'revenue' && i.isPaid).reduce((s, i) => s + (parseFloat(i.value) || 0), 0) +
+    storeCardItems.filter(i => i.isPaid).reduce((s, i) => s + i.value, 0)
   const consolidatedBalance = consolidatedRev - consolidatedExp
 
   const manualMonths = allMonths.filter(m => m.source === 'manual').slice().reverse()
@@ -255,8 +261,8 @@ export default function LaunchPage() {
             </div>
           </Card>
 
-          {/* Category blocks */}
-          {CATEGORIES.map(cat => {
+          {/* Category blocks (cartões saíram — geridos na aba Cartões) */}
+          {EDIT_CATEGORIES.map(cat => {
             const items = formItems.filter(i => i.category === cat)
             const blockTotal = catTotals[cat]
             const accent = CATEGORY_ACCENT[cat]
@@ -329,23 +335,6 @@ export default function LaunchPage() {
                             </svg>
                           </button>
                         </div>
-                        {/* Card selector — só para itens de cartão */}
-                        {cat === 'cards' && (
-                          <div className="flex items-center gap-2 pl-7">
-                            <span className="text-[11px] text-[var(--color-text-muted)]">Cartão:</span>
-                            <select
-                              value={item.cardId ?? ''}
-                              onChange={e => handleCardSelect(item.id, e.target.value)}
-                              className="text-[12px] px-2 py-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)]"
-                            >
-                              <option value="">Sem cartão</option>
-                              {cardAccounts.map(a => (
-                                <option key={a.id} value={a.id}>{a.name}</option>
-                              ))}
-                              <option value="__new__">➕ Novo cartão…</option>
-                            </select>
-                          </div>
-                        )}
                         </div>
                       ))}
                     </div>
@@ -367,6 +356,45 @@ export default function LaunchPage() {
               </div>
             )
           })}
+
+          {/* Resumo de Cartões — geridos na aba Cartões, sem cascata aqui */}
+          <div className="card rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-4 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_ACCENT.cards }} />
+                <span className="label">Cartões</span>
+              </div>
+              <Link to="/cartoes" className="text-[12px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">Gerenciar →</Link>
+            </div>
+            <div className="px-4 pb-3">
+              {cardTotalStore === 0 ? (
+                <p className="text-[12px] text-[var(--color-text-muted)] py-1">
+                  Nenhum lançamento de cartão neste mês. Adicione na aba <Link to="/cartoes" className="underline">Cartões</Link>.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {perCard.map(c => (
+                    <div key={c.name} className="flex justify-between text-[13px]">
+                      <span className="text-[var(--color-text-muted)]">{c.name}</span>
+                      <span className="font-mono neg">{fmt(c.total)}</span>
+                    </div>
+                  ))}
+                  {semCartaoTotal > 0 && (
+                    <div className="flex justify-between text-[13px]">
+                      <span className="text-[var(--color-text-muted)] italic">Sem cartão</span>
+                      <span className="font-mono neg">{fmt(semCartaoTotal)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {cardTotalStore > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">Total fatura</span>
+                <span className="text-[13px] font-mono font-semibold" style={{ color: CATEGORY_ACCENT.cards }}>-{fmt(cardTotalStore)}</span>
+              </div>
+            )}
+          </div>
 
           <Button size="lg" onClick={handleSave} className="w-full justify-center">
             {saved ? '✓ Salvo automaticamente' : `Salvar ${selectedMonth}/${selectedYear} agora`}
