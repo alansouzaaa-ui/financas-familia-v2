@@ -5,6 +5,7 @@ import type { RecurringItem } from '@/types/finance'
 interface RecurringStore {
   items: RecurringItem[]
   addItem: (item: Omit<RecurringItem, 'id'>) => void
+  upsertRule: (rule: RecurringItem) => void
   toggleActive: (id: string) => void
   deleteItem: (id: string) => void
   setItems: (items: RecurringItem[]) => void
@@ -18,6 +19,11 @@ export const useRecurringStore = create<RecurringStore>()(
         set((s) => ({
           items: [...s.items, { ...item, id: crypto.randomUUID() }],
         })),
+      upsertRule: (rule) =>
+        set((s) => {
+          const exists = s.items.some(i => i.id === rule.id)
+          return { items: exists ? s.items.map(i => i.id === rule.id ? rule : i) : [...s.items, rule] }
+        }),
       toggleActive: (id) =>
         set((s) => ({
           items: s.items.map(i => i.id === id ? { ...i, isActive: !i.isActive } : i),

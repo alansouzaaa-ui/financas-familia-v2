@@ -30,6 +30,7 @@ export interface MonthItem {
   occurredAt?: string   // ISO 8601
   externalId?: string   // 'telegram:<chatId>:<updateId>'
   cardId?: string       // qual cartão (titular), só para itens da categoria 'cards'
+  recurringId?: string  // vincula a uma regra recorrente (repete nos próximos meses)
 }
 
 // Cartão de crédito por titular (Alan, Pai, etc.) — o total de cada cartão é
@@ -72,7 +73,7 @@ export interface RecurringItem {
   id: string
   description: string
   value: number
-  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards'
+  category: 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'cards'
   isActive: boolean
 }
 

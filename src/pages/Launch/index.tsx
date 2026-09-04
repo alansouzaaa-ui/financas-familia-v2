@@ -5,7 +5,7 @@ import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
-import type { MonthAbbr, MonthItem } from '@/types/finance'
+import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
@@ -42,6 +42,7 @@ interface FormItem {
   category: string
   isPaid: boolean
   cardId?: string
+  recurringId?: string
 }
 
 function makeItem(category: string, isPaid = false): FormItem {
@@ -51,6 +52,8 @@ function makeItem(category: string, isPaid = false): FormItem {
 export default function LaunchPage() {
   const { allMonths, addMonth } = useFinanceStore()
   const { items: recurring } = useRecurringStore()
+  const upsertRule = useRecurringStore(s => s.upsertRule)
+  const deleteRule = useRecurringStore(s => s.deleteItem)
   const cardAccounts = useCardsStore(s => s.accounts)
 
   const now = new Date()
@@ -65,22 +68,31 @@ export default function LaunchPage() {
   const dirtyRef = useRef(false)
 
   function loadMonthIntoForm(month: string, year: string) {
-    // Loading a month is not a user edit — don't let it trigger an auto-save
-    dirtyRef.current = false
     const existing = allMonths.find(m => m.month === month && m.year === parseInt(year))
     // Cartões não entram no formulário — são geridos na aba Cartões
     const nonCard = (existing?.items ?? []).filter(i => i.category !== 'cards')
-    if (nonCard.length > 0) {
-      setFormItems(
-        nonCard.map(i => ({
-          id: i.id,
-          description: i.description,
-          value: String(i.value),
-          category: i.category,
-          isPaid: i.isPaid,
-        }))
-      )
+
+    if (existing) {
+      // Mês já existe: carrega o que está lá (não re-materializa recorrentes)
+      dirtyRef.current = false
+      setFormItems(nonCard.map(i => ({
+        id: i.id, description: i.description, value: String(i.value),
+        category: i.category, isPaid: i.isPaid, recurringId: i.recurringId,
+      })))
+      return
+    }
+
+    // Mês NOVO (sem registro): materializa as recorrentes ativas — acaba o
+    // "copiar mês anterior". Marca dirty para persistir a materialização.
+    const active = recurring.filter(r => r.isActive && r.category !== 'cards')
+    if (active.length > 0) {
+      dirtyRef.current = true
+      setFormItems(active.map(r => ({
+        id: crypto.randomUUID(), description: r.description, value: String(r.value),
+        category: r.category, isPaid: r.category === 'revenue', recurringId: r.id,
+      })))
     } else {
+      dirtyRef.current = false
       setFormItems([makeItem('revenue', true), makeItem('fixedCosts', false)])
     }
   }
@@ -99,6 +111,26 @@ export default function LaunchPage() {
     dirtyRef.current = true
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
   }, [])
+
+  // Liga/desliga "repetir nos próximos meses" para um item.
+  // Ligar cria uma regra recorrente; desligar remove a regra.
+  const toggleRecurring = useCallback((item: FormItem) => {
+    dirtyRef.current = true
+    if (item.recurringId) {
+      deleteRule(item.recurringId)
+      setFormItems(prev => prev.map(i => i.id === item.id ? { ...i, recurringId: undefined } : i))
+    } else {
+      const rid = crypto.randomUUID()
+      upsertRule({
+        id: rid,
+        description: item.description.trim() || 'Recorrente',
+        value: parseFloat(item.value) || 0,
+        category: item.category as RecurringItem['category'],
+        isActive: true,
+      })
+      setFormItems(prev => prev.map(i => i.id === item.id ? { ...i, recurringId: rid } : i))
+    }
+  }, [upsertRule, deleteRule])
 
   function applyRecurring() {
     dirtyRef.current = true
@@ -153,6 +185,7 @@ export default function LaunchPage() {
         value: Math.round(parseFloat(i.value) * 100) / 100,
         category: i.category as MonthItem['category'],
         isPaid: i.isPaid,
+        ...(i.recurringId ? { recurringId: i.recurringId } : {}),
       }))
 
     const year = parseInt(selectedYear)
@@ -326,6 +359,16 @@ export default function LaunchPage() {
                             onChange={e => updateItem(item.id, 'value', e.target.value)}
                             className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
                           />
+                          <button
+                            onClick={() => toggleRecurring(item)}
+                            title={item.recurringId ? 'Repetindo nos próximos meses — clique para parar' : 'Repetir nos próximos meses'}
+                            className={`p-1 flex-shrink-0 transition-colors ${item.recurringId ? 'text-[var(--color-chart-blue)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}`}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                              <path d="M13 8A5 5 0 1 1 3 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                              <path d="M13 5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
                           <button
                             onClick={() => removeItem(item.id)}
                             className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1 flex-shrink-0"
