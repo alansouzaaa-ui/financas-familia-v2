@@ -11,6 +11,7 @@ import NetWorthCard from '@/components/metrics/NetWorthCard'
 import MonthForecastCard from '@/components/metrics/MonthForecastCard'
 import InvestmentSummaryBlock from '@/components/metrics/InvestmentSummaryBlock'
 import CardBreakdownBlock from '@/components/metrics/CardBreakdownBlock'
+import CategoryReportBlock from '@/components/metrics/CategoryReportBlock'
 import RevenueExpenseChart from '@/components/charts/RevenueExpenseChart'
 import ExpenseDonut from '@/components/charts/ExpenseDonut'
 import BalanceChart from '@/components/charts/BalanceChart'
@@ -195,6 +196,11 @@ export default function OverviewPage() {
         <Card title="Balanço mensal">
           <BalanceChart data={months} />
         </Card>
+      </div>
+
+      {/* Relatório por categoria (resumo) */}
+      <div className="mt-4">
+        <CategoryReportBlock months={months} compact />
       </div>
 
       {/* Breakdown por cartão */}

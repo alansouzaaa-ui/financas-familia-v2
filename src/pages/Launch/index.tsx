@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
-import { CATEGORY_LABELS, CATEGORY_COLORS, EXPENSE_TAGS, TAG_MAP } from '@/types/finance'
+import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
+import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -57,6 +58,8 @@ export default function LaunchPage() {
   const upsertRule = useRecurringStore(s => s.upsertRule)
   const deleteRule = useRecurringStore(s => s.deleteItem)
   const cardAccounts = useCardsStore(s => s.accounts)
+  const tags = useCategoriesStore(s => s.tags)
+  const tagMap = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState<string>('Jan')
@@ -401,11 +404,11 @@ export default function LaunchPage() {
                           <select
                             value={item.tag ?? ''}
                             onChange={e => updateItem(item.id, 'tag', e.target.value)}
-                            title={item.tag ? `Categoria: ${TAG_MAP[item.tag]?.label}` : 'Escolher categoria'}
+                            title={item.tag ? `Categoria: ${tagMap[item.tag]?.label ?? ''}` : 'Escolher categoria'}
                             className={`flex-shrink-0 w-[52px] text-[13px] px-1 py-1 bg-[var(--color-surface-2)] border rounded-[7px] outline-none focus:border-[var(--color-text-primary)] text-center ${item.tag ? 'border-[var(--color-border)]' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
                           >
                             <option value="">🏷️</option>
-                            {EXPENSE_TAGS.map(t => (
+                            {tags.map(t => (
                               <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
                             ))}
                           </select>

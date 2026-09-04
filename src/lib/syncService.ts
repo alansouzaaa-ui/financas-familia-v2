@@ -1,4 +1,4 @@
-import type { MonthRecord, FinancialGoal, RecurringItem, CardAccount } from '@/types/finance'
+import type { MonthRecord, FinancialGoal, RecurringItem, CardAccount, ExpenseTag } from '@/types/finance'
 import type { InvestmentPosition } from '@/types/investment'
 import type { MonthPoint } from '@/types/finance'
 
@@ -8,6 +8,7 @@ export interface SyncPayload {
   recurring_items: RecurringItem[]
   investment_positions: InvestmentPosition[]
   card_accounts?: CardAccount[]
+  expense_tags?: ExpenseTag[]
   updated_at?: string
 }
 

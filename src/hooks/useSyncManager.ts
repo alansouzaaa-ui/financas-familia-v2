@@ -5,6 +5,7 @@ import { useGoalsStore } from '@/stores/useGoalsStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { useCardsStore } from '@/stores/useCardsStore'
+import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
@@ -22,6 +23,7 @@ export function useSyncManager() {
   const recurringItems = useRecurringStore(s => s.items)
   const positions = useInvestmentStore(s => s.positions)
   const cardAccounts = useCardsStore(s => s.accounts)
+  const expenseTags = useCategoriesStore(s => s.tags)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -65,6 +67,9 @@ export function useSyncManager() {
     if (remote.card_accounts?.length) {
       useCardsStore.getState().setAccounts(remote.card_accounts)
     }
+    if (remote.expense_tags?.length) {
+      useCategoriesStore.getState().setTags(remote.expense_tags)
+    }
     setStatus('synced')
     setLastSync(new Date())
     // Small delay so store updates propagate before re-enabling push
@@ -83,6 +88,7 @@ export function useSyncManager() {
       recurring_items: useRecurringStore.getState().items,
       investment_positions: useInvestmentStore.getState().positions,
       card_accounts: useCardsStore.getState().accounts,
+      expense_tags: useCategoriesStore.getState().tags,
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -100,7 +106,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(doPush, 2500)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags])
 
   return { status, lastSync, pull: doPull, push: doPush }
 }

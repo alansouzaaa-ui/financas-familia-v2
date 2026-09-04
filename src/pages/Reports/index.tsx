@@ -1,40 +1,75 @@
-import { useMemo } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { useState } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
-import { TAG_MAP } from '@/types/finance'
-import { fmt } from '@/lib/formatters'
+import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import Card from '@/components/ui/Card'
-import ChartTooltip from '@/components/charts/ChartTooltip'
+import Button from '@/components/ui/Button'
 import PeriodFilterBar from '@/components/filters/PeriodFilter'
+import CategoryReportBlock from '@/components/metrics/CategoryReportBlock'
 
 export default function ReportsPage() {
   const { periodFilter, setPeriodFilter, filteredMonths } = useFinanceStore()
   const months = filteredMonths()
 
-  const { rows, total, semCat } = useMemo(() => {
-    const byTag = new Map<string, number>()
-    let semCat = 0
-    let total = 0
-    for (const m of months) {
-      for (const it of m.items ?? []) {
-        if (it.category === 'revenue') continue // relatório de despesas
-        total += it.value
-        if (it.tag && TAG_MAP[it.tag]) byTag.set(it.tag, (byTag.get(it.tag) ?? 0) + it.value)
-        else semCat += it.value
-      }
-    }
-    const rows = [...byTag.entries()]
-      .map(([id, value]) => ({ id, value, tag: TAG_MAP[id] }))
-      .sort((a, b) => b.value - a.value)
-    return { rows, total, semCat }
-  }, [months])
+  const tags = useCategoriesStore(s => s.tags)
+  const addTag = useCategoriesStore(s => s.addTag)
+  const updateTag = useCategoriesStore(s => s.updateTag)
+  const deleteTag = useCategoriesStore(s => s.deleteTag)
 
-  const pieData = rows.map(r => ({ name: r.tag.label, value: Math.round(r.value), color: r.tag.color }))
-  if (semCat > 0) pieData.push({ name: 'Sem categoria', value: Math.round(semCat), color: '#4B5563' })
+  const [manage, setManage] = useState(false)
 
   return (
     <div>
-      <h1 className="text-[20px] font-semibold mb-5">Relatórios</h1>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-[20px] font-semibold">Relatórios</h1>
+        <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
+          {manage ? 'Concluir' : '⚙ Categorias'}
+        </Button>
+      </div>
+
+      {/* Gerenciar categorias */}
+      {manage && (
+        <Card title="Gerenciar categorias" className="mb-5">
+          <div className="flex flex-col gap-2.5">
+            {tags.map(t => (
+              <div key={t.id} className="flex items-center gap-2">
+                <input
+                  defaultValue={t.emoji}
+                  onBlur={e => { const v = e.target.value.trim(); if (v && v !== t.emoji) updateTag(t.id, { emoji: v.slice(0, 4) }) }}
+                  className="w-11 text-[16px] text-center px-1 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)]"
+                  title="Emoji"
+                />
+                <input
+                  defaultValue={t.label}
+                  onBlur={e => { const v = e.target.value.trim(); if (v && v !== t.label) updateTag(t.id, { label: v.slice(0, 30) }) }}
+                  className="flex-1 min-w-0 text-[13px] px-2.5 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)]"
+                />
+                <input
+                  type="color"
+                  defaultValue={t.color}
+                  onBlur={e => { if (e.target.value !== t.color) updateTag(t.id, { color: e.target.value }) }}
+                  className="w-9 h-9 rounded-[8px] bg-transparent border border-[var(--color-border)] cursor-pointer p-0.5"
+                  title="Cor"
+                />
+                <button
+                  onClick={() => { if (confirm(`Excluir a categoria "${t.label}"? Os lançamentos ficam sem categoria.`)) deleteTag(t.id) }}
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1"
+                  aria-label="Excluir categoria"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                </button>
+              </div>
+            ))}
+            <div className="pt-1">
+              <Button variant="ghost" size="sm" onClick={() => { const n = prompt('Nome da nova categoria (ex: Beleza):')?.trim(); if (n) addTag(n, '🏷️', '#9CA3AF') }}>
+                + Nova categoria
+              </Button>
+              <p className="text-[11.5px] text-[var(--color-text-muted)] mt-1.5">
+                Após criar, ajuste o emoji e a cor. As categorias sincronizam entre seus dispositivos.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="mb-5">
         <Card title="Filtrar período">
@@ -42,65 +77,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {total === 0 ? (
-        <div className="card text-center py-12">
-          <p className="text-[14px] text-[var(--color-text-muted)]">Sem despesas no período selecionado.</p>
-          <p className="text-[13px] text-[var(--color-text-muted)] mt-1">Marque a categoria dos lançamentos na aba <strong>Lançar</strong> para ver os gráficos aqui.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Donut */}
-          <Card title="Despesas por categoria">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={62} outerRadius={92} paddingAngle={2} dataKey="value" strokeWidth={0}>
-                  {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                </Pie>
-                <Tooltip content={<ChartTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="text-center -mt-1">
-              <div className="label">Total de despesas</div>
-              <div className="font-mono font-semibold text-[18px] neg">{fmt(total)}</div>
-            </div>
-          </Card>
-
-          {/* Ranking */}
-          <Card title="Ranking por categoria">
-            <div className="flex flex-col gap-2.5">
-              {rows.map(r => {
-                const pct = (r.value / total) * 100
-                return (
-                  <div key={r.id}>
-                    <div className="flex items-center justify-between text-[13px] mb-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="flex-shrink-0">{r.tag.emoji}</span>
-                        <span className="truncate">{r.tag.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-[11px] text-[var(--color-text-muted)]">{pct.toFixed(0)}%</span>
-                        <span className="font-mono font-medium neg">{fmt(r.value)}</span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: r.tag.color }} />
-                    </div>
-                  </div>
-                )
-              })}
-              {semCat > 0 && (
-                <div className="flex items-center justify-between text-[13px] pt-2 mt-1 border-t border-[var(--color-border)]">
-                  <span className="text-[var(--color-text-muted)] italic">Sem categoria</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-[var(--color-text-muted)]">{((semCat / total) * 100).toFixed(0)}%</span>
-                    <span className="font-mono font-medium neg">{fmt(semCat)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
+      <CategoryReportBlock months={months} />
     </div>
   )
 }
