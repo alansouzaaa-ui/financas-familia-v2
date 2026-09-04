@@ -17,6 +17,8 @@ const MONTHS: { value: MonthAbbr; label: string }[] = [
 
 export default function CardsPage() {
   const allMonths = useFinanceStore(s => s.allMonths)
+  const upsertItem = useFinanceStore(s => s.upsertItem)
+  const removeItem = useFinanceStore(s => s.removeItem)
   const accounts = useCardsStore(s => s.accounts)
   const addAccount = useCardsStore(s => s.addAccount)
   const renameAccount = useCardsStore(s => s.renameAccount)
@@ -57,6 +59,17 @@ export default function CardsPage() {
     if (ni < 0) { ni = 11; ny -= 1 }
     if (ni > 11) { ni = 0; ny += 1 }
     setMonth(MONTHS[ni].value); setYear(ny)
+  }
+
+  function addCardItem(cardId: string) {
+    upsertItem(year, month, {
+      id: crypto.randomUUID(), description: '', value: 0,
+      category: 'cards', isPaid: false, cardId,
+      source: 'manual', occurredAt: new Date().toISOString(),
+    })
+  }
+  function patchItem(it: MonthItem, patch: Partial<MonthItem>) {
+    upsertItem(year, month, { ...it, ...patch })
   }
 
   return (
@@ -154,17 +167,35 @@ export default function CardsPage() {
                 </button>
                 {open && (
                   <div className="border-t border-[var(--color-border)]">
-                    {items.length === 0 ? (
-                      <p className="px-4 py-4 text-[13px] text-[var(--color-text-muted)]">Nenhum lançamento nesta fatura.</p>
-                    ) : (
-                      items.map(it => (
-                        <div key={it.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0 text-[13px]">
-                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${it.isPaid ? 'bg-[var(--color-pos)]' : 'bg-[var(--color-border)]'}`} title={it.isPaid ? 'Pago' : 'Pendente'} />
-                          <span className="flex-1 min-w-0 truncate">{it.description}</span>
-                          <span className="font-mono neg">{fmt(it.value)}</span>
-                        </div>
-                      ))
-                    )}
+                    {items.map(it => (
+                      <div key={it.id} className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0">
+                        <button
+                          onClick={() => patchItem(it, { isPaid: !it.isPaid })}
+                          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${it.isPaid ? 'border-transparent bg-[var(--color-pos)]' : 'border-[var(--color-border)]'}`}
+                          title={it.isPaid ? 'Pago — marcar pendente' : 'Pendente — marcar pago'}
+                        >
+                          {it.isPaid && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </button>
+                        <input
+                          defaultValue={it.description}
+                          placeholder="Descrição"
+                          onBlur={e => { const v = e.target.value.trim(); if (v !== it.description) patchItem(it, { description: v.slice(0, 120) }) }}
+                          className="flex-1 min-w-0 px-2 py-1 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none focus:border-[var(--color-text-primary)]"
+                        />
+                        <input
+                          type="number" inputMode="decimal" placeholder="0,00"
+                          defaultValue={it.value || ''}
+                          onBlur={e => { const v = Math.round(parseFloat(e.target.value) * 100) / 100; if (isFinite(v) && v !== it.value) patchItem(it, { value: v }) }}
+                          className="w-24 px-2 py-1 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none text-right focus:border-[var(--color-text-primary)]"
+                        />
+                        <button onClick={() => removeItem(year, month, it.id)} className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1 flex-shrink-0" aria-label="Excluir">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                    <div className="px-4 py-2.5">
+                      <Button variant="ghost" size="sm" onClick={() => addCardItem(a.id)}>+ Adicionar lançamento</Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -188,11 +219,25 @@ export default function CardsPage() {
               </button>
               {openId === '__none__' && (
                 <div className="border-t border-[var(--color-border)]">
+                  {accounts.length > 0 && (
+                    <p className="px-4 pt-3 pb-1 text-[11.5px] text-[var(--color-text-muted)]">Atribua cada lançamento a um cartão no seletor à direita.</p>
+                  )}
                   {semCartao.map(it => (
-                    <div key={it.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0 text-[13px]">
+                    <div key={it.id} className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0 text-[13px]">
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${it.isPaid ? 'bg-[var(--color-pos)]' : 'bg-[var(--color-border)]'}`} />
                       <span className="flex-1 min-w-0 truncate">{it.description}</span>
-                      <span className="font-mono neg">{fmt(it.value)}</span>
+                      <span className="font-mono neg whitespace-nowrap">{fmt(it.value)}</span>
+                      {accounts.length > 0 && (
+                        <select
+                          value=""
+                          onChange={e => { if (e.target.value) patchItem(it, { cardId: e.target.value }) }}
+                          className="text-[12px] px-2 py-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none focus:border-[var(--color-text-primary)]"
+                          title="Mover para cartão"
+                        >
+                          <option value="">→ cartão…</option>
+                          {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MonthRecord, MonthPoint, PeriodFilter, PeriodPreset } from '@/types/finance'
+import type { MonthRecord, MonthPoint, MonthItem, MonthAbbr, PeriodFilter, PeriodPreset } from '@/types/finance'
 import { toMonthPoint, filterByPeriod } from '@/lib/calculations'
 import { SEED_DATA } from '@/lib/seedData'
 
@@ -15,6 +15,8 @@ interface FinanceStore {
   addMonth: (record: MonthRecord) => void
   updateMonth: (id: string, record: Partial<MonthRecord>) => void
   removeMonth: (year: number, month: string) => void
+  upsertItem: (year: number, month: MonthAbbr, item: MonthItem) => void
+  removeItem: (year: number, month: MonthAbbr, itemId: string) => void
   setPeriodFilter: (filter: PeriodFilter) => void
   setPeriodPreset: (preset: PeriodPreset) => void
   setSelectedYear: (year: number | 'all') => void
@@ -26,6 +28,12 @@ interface FinanceStore {
 }
 
 const MONTHS_ORDER = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+function totalsFromItems(items: MonthItem[]): Pick<MonthRecord, 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'> {
+  const t = { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0 }
+  for (const i of items) t[i.category] += i.value
+  return t
+}
 
 function sortMonths(months: MonthRecord[]): MonthPoint[] {
   return [...months]
@@ -81,6 +89,34 @@ export const useFinanceStore = create<FinanceStore>()(
         set(s => ({
           allMonths: s.allMonths.filter(m => !(m.year === year && m.month === month))
         }))
+      },
+
+      // Adiciona ou atualiza um item dentro de um mês (cria o mês se faltar),
+      // recalculando os totais das categorias a partir dos itens.
+      upsertItem: (year, month, item) => {
+        const existing = get().allMonths.find(m => m.year === year && m.month === month)
+        const items = existing?.items ? [...existing.items] : []
+        const idx = items.findIndex(i => i.id === item.id)
+        if (idx >= 0) items[idx] = item
+        else items.push(item)
+        get().addMonth({
+          month, year,
+          source: existing?.source ?? 'manual',
+          items,
+          ...totalsFromItems(items),
+        })
+      },
+
+      removeItem: (year, month, itemId) => {
+        const existing = get().allMonths.find(m => m.year === year && m.month === month)
+        if (!existing?.items) return
+        const items = existing.items.filter(i => i.id !== itemId)
+        get().addMonth({
+          month, year,
+          source: existing.source ?? 'manual',
+          items,
+          ...totalsFromItems(items),
+        })
       },
 
       setPeriodFilter: (filter) => set({ periodFilter: filter }),
