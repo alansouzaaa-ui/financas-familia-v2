@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useCardsStore } from '@/stores/useCardsStore'
+import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { fmt } from '@/lib/formatters'
 import type { MonthItem, MonthAbbr } from '@/types/finance'
 import Card from '@/components/ui/Card'
@@ -20,6 +21,7 @@ export default function CardsPage() {
   const upsertItem = useFinanceStore(s => s.upsertItem)
   const removeItem = useFinanceStore(s => s.removeItem)
   const accounts = useCardsStore(s => s.accounts)
+  const tags = useCategoriesStore(s => s.tags)
   const addAccount = useCardsStore(s => s.addAccount)
   const renameAccount = useCardsStore(s => s.renameAccount)
   const setDueDay = useCardsStore(s => s.setDueDay)
@@ -186,8 +188,17 @@ export default function CardsPage() {
                           type="number" inputMode="decimal" placeholder="0,00"
                           defaultValue={it.value || ''}
                           onBlur={e => { const v = Math.round(parseFloat(e.target.value) * 100) / 100; if (isFinite(v) && v !== it.value) patchItem(it, { value: v }) }}
-                          className="w-24 px-2 py-1 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none text-right focus:border-[var(--color-text-primary)]"
+                          className="w-20 px-2 py-1 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none text-right focus:border-[var(--color-text-primary)]"
                         />
+                        <select
+                          value={it.tag ?? ''}
+                          onChange={e => patchItem(it, { tag: e.target.value || undefined })}
+                          title={it.tag ? 'Categoria' : 'Escolher categoria'}
+                          className={`flex-shrink-0 w-[50px] text-[13px] px-1 py-1 bg-[var(--color-surface-2)] border rounded-[7px] outline-none focus:border-[var(--color-text-primary)] text-center ${it.tag ? 'border-[var(--color-border)]' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
+                        >
+                          <option value="">🏷️</option>
+                          {tags.map(t => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+                        </select>
                         <button onClick={() => removeItem(year, month, it.id)} className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1 flex-shrink-0" aria-label="Excluir">
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                         </button>
