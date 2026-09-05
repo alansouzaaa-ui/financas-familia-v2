@@ -37,6 +37,15 @@ const CATEGORY_ACCENT: Record<Category, string> = {
   cards:         '#D85A30',
 }
 
+function PagoBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-pos)] bg-[var(--color-pos)]/[0.13] px-1.5 py-0.5 rounded-full not-italic">
+      <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      Pago
+    </span>
+  )
+}
+
 interface FormItem {
   id: string
   description: string
@@ -301,10 +310,17 @@ export default function LaunchPage() {
   const storeRec = allMonths.find(m => m.month === selectedMonth && m.year === parseInt(selectedYear))
   const storeCardItems = (storeRec?.items ?? []).filter(i => i.category === 'cards')
   const cardTotalStore = storeCardItems.reduce((s, i) => s + i.value, 0)
+  const cardPaidStore = storeCardItems.reduce((s, i) => s + (i.isPaid ? i.value : 0), 0)
+  const allCardsPaid = storeCardItems.length > 0 && storeCardItems.every(i => i.isPaid)
   const perCard = cardAccounts
-    .map(a => ({ name: a.name, total: storeCardItems.filter(i => i.cardId === a.id).reduce((s, i) => s + i.value, 0) }))
+    .map(a => {
+      const its = storeCardItems.filter(i => i.cardId === a.id)
+      return { name: a.name, total: its.reduce((s, i) => s + i.value, 0), paid: its.length > 0 && its.every(i => i.isPaid) }
+    })
     .filter(c => c.total > 0)
-  const semCartaoTotal = storeCardItems.filter(i => !i.cardId).reduce((s, i) => s + i.value, 0)
+  const semCartaoItems = storeCardItems.filter(i => !i.cardId)
+  const semCartaoTotal = semCartaoItems.reduce((s, i) => s + i.value, 0)
+  const semCartaoPaid = semCartaoItems.length > 0 && semCartaoItems.every(i => i.isPaid)
 
   // Live totals per category (cartões vêm do store, não do formulário)
   const catTotals: Record<string, number> = {}
@@ -530,15 +546,21 @@ export default function LaunchPage() {
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {perCard.map(c => (
-                    <div key={c.name} className="flex justify-between text-[13px]">
-                      <span className="text-[var(--color-text-muted)]">{c.name}</span>
-                      <span className="font-mono neg">{fmt(c.total)}</span>
+                    <div key={c.name} className="flex justify-between items-center text-[13px]">
+                      <span className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
+                        {c.name}
+                        {c.paid && <PagoBadge />}
+                      </span>
+                      <span className={`font-mono ${c.paid ? 'text-[var(--color-text-muted)] line-through' : 'neg'}`}>{fmt(c.total)}</span>
                     </div>
                   ))}
                   {semCartaoTotal > 0 && (
-                    <div className="flex justify-between text-[13px]">
-                      <span className="text-[var(--color-text-muted)] italic">Sem cartão</span>
-                      <span className="font-mono neg">{fmt(semCartaoTotal)}</span>
+                    <div className="flex justify-between items-center text-[13px]">
+                      <span className="flex items-center gap-1.5 text-[var(--color-text-muted)] italic">
+                        Sem cartão
+                        {semCartaoPaid && <PagoBadge />}
+                      </span>
+                      <span className={`font-mono ${semCartaoPaid ? 'text-[var(--color-text-muted)] line-through' : 'neg'}`}>{fmt(semCartaoTotal)}</span>
                     </div>
                   )}
                 </div>
@@ -546,8 +568,20 @@ export default function LaunchPage() {
             </div>
             {cardTotalStore > 0 && (
               <div className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)]">
-                <span className="text-[12px] text-[var(--color-text-muted)]">Total fatura</span>
-                <span className="text-[13px] font-mono font-semibold" style={{ color: CATEGORY_ACCENT.cards }}>-{fmt(cardTotalStore)}</span>
+                <span className="flex items-center gap-1.5 text-[12px] text-[var(--color-text-muted)]">
+                  Total fatura
+                  {allCardsPaid && <PagoBadge />}
+                </span>
+                {allCardsPaid ? (
+                  <span className="text-[13px] font-mono font-semibold text-[var(--color-pos)]">✓ {fmt(cardTotalStore)}</span>
+                ) : (
+                  <span className="flex flex-col items-end leading-tight">
+                    <span className="text-[13px] font-mono font-semibold" style={{ color: CATEGORY_ACCENT.cards }}>-{fmt(cardTotalStore)}</span>
+                    {cardPaidStore > 0.005 && (
+                      <span className="text-[10px] text-[var(--color-text-muted)]">✓ Pago <span className="font-mono">{fmt(cardPaidStore)}</span></span>
+                    )}
+                  </span>
+                )}
               </div>
             )}
           </div>
