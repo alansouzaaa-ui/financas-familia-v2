@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { calcHealthScore, calcAlerts } from '@/lib/calculations'
-import { fmt, fmtSigned } from '@/lib/formatters'
+import { fmt } from '@/lib/formatters'
 import { exportToCSV } from '@/lib/csvExport'
 import Card from '@/components/ui/Card'
+import Money from '@/components/ui/Money'
+import Sparkline from '@/components/ui/Sparkline'
 import MetricCard from '@/components/metrics/MetricCard'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
@@ -53,6 +55,17 @@ export default function OverviewPage() {
     : null
   const balImproved = lastMonth && prevMonth ? lastMonth.balance >= prevMonth.balance : true
 
+  // Tendência do balanço — últimos meses visíveis (sparkline do herói)
+  const balanceTrend = useMemo(() => allMonths.slice(-8).map(m => m.balance), [allMonths])
+
+  // Veredito em português claro — direção, não só número
+  const heroPositive = !!lastMonth && lastMonth.balance >= 0
+  const verdict = lastMonth
+    ? heroPositive
+      ? `Você fechou ${lastMonth.label} no azul. Sobrou dinheiro depois de todas as contas.`
+      : `As despesas passaram da renda em ${lastMonth.label}. Vale revisar cartões e gastos variáveis.`
+    : ''
+
   const catLabel = (c: string) =>
     c === 'balance' ? 'balanço' : c === 'cards' ? 'cartões'
     : c === 'loans' ? 'empréstimos' : c === 'fixedCosts' ? 'fixos' : 'receita'
@@ -99,27 +112,51 @@ export default function OverviewPage() {
         </details>
       )}
 
-      {/* Hero — balanço do mês + score */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {/* Hero — balanço do mês, calmo e com tendência */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {lastMonth && (
           <div
-            className="md:col-span-2 rounded-[18px] p-6 border border-[var(--color-border)] flex flex-col justify-between min-h-[168px]"
-            style={{ backgroundImage: 'linear-gradient(160deg, var(--color-surface), var(--color-surface-2))', boxShadow: '0 8px 26px -18px rgba(0,0,0,.55)' }}
+            className="md:col-span-2 relative overflow-hidden rounded-[20px] p-6 md:p-7 border border-[var(--color-border)] flex flex-col justify-between min-h-[196px]"
+            style={{ background: 'var(--hero-glow), var(--color-surface)', boxShadow: 'var(--shadow-hero)' }}
           >
-            <div className="flex items-center justify-between gap-3">
-              <span className="label">Balanço do mês · {lastMonth.label}</span>
+            <div className="flex items-start justify-between gap-3">
+              <span className="label">Balanço · {lastMonth.label}</span>
               {balDelta !== null && (
-                <span className={`inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full ${balImproved ? 'text-[var(--color-pos)] bg-[var(--color-pos)]/[0.13]' : 'text-[var(--color-neg)] bg-[var(--color-neg)]/[0.13]'}`}>
-                  {balImproved ? '▲' : '▼'} {Math.abs(balDelta).toFixed(1)}% vs mês anterior
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${balImproved ? 'text-[var(--color-pos)] bg-[var(--color-pos)]/[0.11]' : 'text-[var(--color-neg)] bg-[var(--color-neg)]/[0.11]'}`}>
+                  <span className="text-[9px]">{balImproved ? '▲' : '▼'}</span>
+                  {Math.abs(balDelta).toFixed(1)}% <span className="font-normal opacity-70">vs. mês anterior</span>
                 </span>
               )}
             </div>
-            <div>
-              <div className={`font-mono font-medium text-[40px] leading-none tracking-tight mt-4 mb-2 ${lastMonth.balance >= 0 ? 'pos' : 'neg'}`}>
-                {fmtSigned(lastMonth.balance)}
+
+            <div className="flex items-end justify-between gap-5 mt-5">
+              <div className="min-w-0">
+                <div className={`font-mono font-medium text-[clamp(34px,6.5vw,46px)] leading-none tracking-[-0.02em] ${heroPositive ? 'pos' : 'neg'}`}>
+                  <Money value={lastMonth.balance} signed />
+                </div>
+                <p className="text-[12.5px] leading-snug text-[var(--color-text-muted)] mt-3 max-w-[34ch]">{verdict}</p>
               </div>
-              <span className="label normal-case tracking-normal text-[12px]">
-                Receita {fmt(lastMonth.revenue)} · Despesas {fmt(lastMonth.totalExpenses)}
+              {balanceTrend.length >= 2 && (
+                <div className="hidden sm:flex flex-col items-end flex-shrink-0 pb-0.5">
+                  <Sparkline
+                    data={balanceTrend}
+                    width={150}
+                    height={56}
+                    stroke={heroPositive ? 'var(--color-pos)' : 'var(--color-neg)'}
+                  />
+                  <span className="label mt-1.5 !tracking-[0.08em] opacity-80">{balanceTrend.length} meses</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-5 mt-5 pt-4 border-t border-[var(--hairline)] text-[12px]">
+              <span className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-pos)]" />
+                Receita <span className="font-mono tnum text-[var(--color-text-primary)]">{fmt(lastMonth.revenue)}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-neg)]" />
+                Despesas <span className="font-mono tnum text-[var(--color-text-primary)]">{fmt(lastMonth.totalExpenses)}</span>
               </span>
             </div>
           </div>
@@ -160,7 +197,7 @@ export default function OverviewPage() {
       <InvestmentSummaryBlock />
 
       {/* KPI Cards */}
-      <div className="label mb-3 mt-1">Acumulado no período</div>
+      <div className="section-head label mb-3 mt-1">Acumulado no período</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <MetricCard
           label="Receita total"
@@ -190,7 +227,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Main Chart */}
-      <div className="label mb-3">Evolução</div>
+      <div className="section-head label mb-3">Evolução</div>
       <Card title="Receitas vs Despesas" className="mb-4">
         {months.length > 0
           ? <RevenueExpenseChart data={months} />
@@ -233,24 +270,24 @@ export default function OverviewPage() {
       {/* Last month summary */}
       {lastMonth && (
         <div className="mt-4 card bg-[var(--color-surface-2)] border-0">
-          <div className="label mb-2">Último mês lançado — {lastMonth.label}</div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[13px]">
+          <div className="section-head label mb-4">Último mês lançado — {lastMonth.label}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-4">
             {[
               { label: 'Receita',      value: lastMonth.revenue,     cls: 'pos' },
-              { label: 'Custos fixos', value: lastMonth.fixedCosts,  cls: 'neg' },
-              { label: 'Empréstimos',  value: lastMonth.loans,       cls: 'neg' },
-              { label: 'Cartões',      value: lastMonth.cards,       cls: 'neg' },
+              { label: 'Custos fixos', value: lastMonth.fixedCosts,  cls: 'text-[var(--color-text-primary)]' },
+              { label: 'Empréstimos',  value: lastMonth.loans,       cls: 'text-[var(--color-text-primary)]' },
+              { label: 'Cartões',      value: lastMonth.cards,       cls: 'text-[var(--color-text-primary)]' },
             ].map(item => (
               <div key={item.label}>
                 <div className="text-[11px] text-[var(--color-text-muted)]">{item.label}</div>
-                <div className={`font-mono font-semibold text-[14px] mt-0.5 ${item.cls}`}>{fmt(item.value)}</div>
+                <div className={`font-semibold text-[15px] mt-1 ${item.cls}`}><Money value={item.value} /></div>
               </div>
             ))}
           </div>
-          <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+          <div className="mt-4 pt-4 border-t border-[var(--color-border)] flex items-center justify-between">
             <span className="text-[13px] font-medium">Balanço</span>
-            <span className={`font-mono font-semibold text-[15px] ${lastMonth.balance >= 0 ? 'pos' : 'neg'}`}>
-              {fmtSigned(lastMonth.balance)}
+            <span className={`font-semibold text-[17px] ${lastMonth.balance >= 0 ? 'pos' : 'neg'}`}>
+              <Money value={lastMonth.balance} signed />
             </span>
           </div>
         </div>

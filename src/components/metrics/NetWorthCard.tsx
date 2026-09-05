@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import type { MonthPoint } from '@/types/finance'
-import { fmt, fmtSigned } from '@/lib/formatters'
+import Money from '@/components/ui/Money'
 
 interface Props {
   months: MonthPoint[]
@@ -23,41 +23,41 @@ export default function NetWorthCard({ months }: Props) {
 
   return (
     <div className="card h-full flex flex-col">
-      <div className="label mb-3">Patrimônio Líquido</div>
+      <div className="section-head label mb-3">Patrimônio Líquido</div>
 
-      <div className={`font-mono font-bold text-[26px] leading-none mb-4 ${netWorth >= 0 ? 'pos' : 'neg'}`}>
-        {fmtSigned(netWorth)}
+      <div className={`font-semibold text-[27px] leading-none mb-5 ${netWorth >= 0 ? 'pos' : 'neg'}`}>
+        <Money value={netWorth} signed />
       </div>
 
-      <div className="flex flex-col gap-2 flex-1">
-        <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-medium">
+      <div className="flex flex-col gap-2.5 flex-1">
+        <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-[0.09em] font-semibold">
           Ativos
         </div>
-        <div className="flex justify-between text-[12px]">
+        <div className="flex justify-between items-baseline text-[12.5px]">
           <span className="text-[var(--color-text-muted)]">Carteira (custo base)</span>
-          <span className="font-mono pos">{fmt(portfolio)}</span>
+          <span className="pos"><Money value={portfolio} /></span>
         </div>
-        <div className="flex justify-between text-[12px]">
+        <div className="flex justify-between items-baseline text-[12.5px]">
           <span className="text-[var(--color-text-muted)]">Balanço acumulado</span>
-          <span className={`font-mono ${accumulated >= 0 ? 'pos' : 'neg'}`}>{fmtSigned(accumulated)}</span>
+          <span className={accumulated >= 0 ? 'pos' : 'neg'}><Money value={accumulated} signed /></span>
         </div>
 
-        <div className="border-t border-[var(--color-border)] my-1" />
+        <div className="border-t border-[var(--hairline)] my-1.5" />
 
-        <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-medium">
+        <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-[0.09em] font-semibold">
           Compromissos mensais
         </div>
-        <div className="flex justify-between text-[12px]">
+        <div className="flex justify-between items-baseline text-[12.5px]">
           <span className="text-[var(--color-text-muted)]">Empréstimos</span>
-          <span className="font-mono neg">{fmt(monthlyLoans)}</span>
+          <span className="text-[var(--color-text-primary)]"><Money value={monthlyLoans} /></span>
         </div>
-        <div className="flex justify-between text-[12px]">
+        <div className="flex justify-between items-baseline text-[12.5px]">
           <span className="text-[var(--color-text-muted)]">Cartões</span>
-          <span className="font-mono neg">{fmt(monthlyCards)}</span>
+          <span className="text-[var(--color-text-primary)]"><Money value={monthlyCards} /></span>
         </div>
       </div>
 
-      <div className="mt-3 pt-2.5 border-t border-[var(--color-border)]">
+      <div className="mt-3 pt-2.5 border-t border-[var(--hairline)]">
         <div className="text-[10px] text-[var(--color-text-muted)]">
           Carteira + Acumulado − Emp. × 12 (estimativa)
         </div>

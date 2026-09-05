@@ -21,6 +21,10 @@
     --color-chart-blue:   #378ADD;
     --color-chart-amber:  #EF9F27;
     --scrollbar-thumb:    #E8E6E0;
+    --shadow-card:  0 1px 2px rgba(26,25,23,.05), 0 1px 1px rgba(26,25,23,.03);
+    --shadow-hero:  0 18px 48px -30px rgba(26,25,23,.40);
+    --hero-glow:    radial-gradient(130% 150% at 88% -25%, rgba(15,110,86,.10), transparent 55%);
+    --hairline:     rgba(26,25,23,.06);
   }
 
   /* ── Tokens de cor — dark ──────────────────────────────── */
@@ -39,6 +43,10 @@
     --color-chart-blue:   #60A5FA;
     --color-chart-amber:  #FBBF24;
     --scrollbar-thumb:    #2E3344;
+    --shadow-card:  0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -22px rgba(0,0,0,.8);
+    --shadow-hero:  0 30px 70px -34px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.04) inset;
+    --hero-glow:    radial-gradient(130% 150% at 88% -25%, rgba(45,212,160,.14), transparent 55%);
+    --hairline:     rgba(255,255,255,.05);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -77,19 +85,36 @@
   .val   { font-family: 'DM Mono', monospace; font-weight: 500; }
 
   .label {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.09em;
   }
 
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 1.25rem;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    box-shadow: var(--shadow-card);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  /* Cabeçalho de seção: rótulo com filete curto à esquerda — dá ritmo sem virar caixa */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .section-head::before {
+    content: '';
+    width: 14px;
+    height: 1.5px;
+    border-radius: 2px;
+    background: var(--color-text-muted);
+    opacity: 0.5;
+    flex-shrink: 0;
   }
 
   .pill {
@@ -123,6 +148,8 @@
   .neg        { color: var(--color-neg); }
   .text-muted { color: var(--color-text-muted); }
   .font-mono  { font-family: 'DM Mono', monospace; }
+  /* Numerais tabulares — colunas de dinheiro alinham na vírgula */
+  .tnum       { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
   /* Safe area padding for mobile bottom nav */
   .pb-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
