@@ -37,7 +37,7 @@ export function useAIChat() {
     if (!question.trim() || streaming) return
 
     setError(null)
-    const context = buildContext(useFinanceStore.getState().allMonths)
+    const context = buildContext(useFinanceStore.getState().visibleMonths())
 
     const userMsg: ChatMessage = { role: 'user', content: question }
     setMessages(prev => [...prev, userMsg, { role: 'assistant', content: '' }])

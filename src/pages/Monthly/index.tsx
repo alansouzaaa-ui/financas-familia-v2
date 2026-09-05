@@ -18,7 +18,11 @@ const CAT_PILLS: { key: CategoryKey; label: string }[] = [
 ]
 
 export default function MonthlyPage() {
-  const { allMonths, years, selectedYear, setSelectedYear } = useFinanceStore()
+  const { years, selectedYear, setSelectedYear } = useFinanceStore()
+  const rawMonths = useFinanceStore(s => s.allMonths)
+  const historyCutoff = useFinanceStore(s => s.historyCutoff)
+  const visibleFn = useFinanceStore(s => s.visibleMonths)
+  const allMonths = useMemo(() => visibleFn(), [rawMonths, historyCutoff, visibleFn])
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null)
   const [trendCategory, setTrendCategory] = useState<CategoryKey>('revenue')
 

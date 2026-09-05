@@ -9,6 +9,7 @@ export interface SyncPayload {
   investment_positions: InvestmentPosition[]
   card_accounts?: CardAccount[]
   expense_tags?: ExpenseTag[]
+  history_cutoff?: string | null
   updated_at?: string
 }
 

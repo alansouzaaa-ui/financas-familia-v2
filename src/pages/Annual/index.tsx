@@ -6,7 +6,10 @@ import Card from '@/components/ui/Card'
 import AnnualChart from '@/components/charts/AnnualChart'
 
 export default function AnnualPage() {
-  const { allMonths } = useFinanceStore()
+  const rawMonths = useFinanceStore(s => s.allMonths)
+  const historyCutoff = useFinanceStore(s => s.historyCutoff)
+  const visibleFn = useFinanceStore(s => s.visibleMonths)
+  const allMonths = useMemo(() => visibleFn(), [rawMonths, historyCutoff, visibleFn])
   const summary = useMemo(() => buildAnnualSummary(allMonths), [allMonths])
 
   return (

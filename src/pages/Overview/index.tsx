@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useFinanceStore } from '@/stores/useFinanceStore'
+import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { calcHealthScore, calcAlerts } from '@/lib/calculations'
 import { fmt, fmtSigned } from '@/lib/formatters'
@@ -21,10 +21,18 @@ import Button from '@/components/ui/Button'
 const MONTHS_ABR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] as const
 
 export default function OverviewPage() {
-  const { allMonths, periodFilter, setPeriodFilter, filteredMonths } = useFinanceStore()
+  const { periodFilter, setPeriodFilter, filteredMonths, visibleMonths, historyCutoff, setHistoryCutoff } = useFinanceStore()
+  const rawMonths = useFinanceStore(s => s.allMonths) // completo (para o seletor de corte)
   const { goals } = useGoalsStore()
 
+  // allMonths visível respeita o corte de histórico
+  const allMonths = useMemo(() => visibleMonths(), [rawMonths, historyCutoff, visibleMonths])
   const months = filteredMonths()
+
+  // Opções do seletor "início do histórico" (todos os meses existentes)
+  const cutoffOptions = useMemo(() => {
+    return rawMonths.map(m => ({ key: String(monthKey(m.year, m.month)), label: `${m.month}/${String(m.year).slice(2)}` }))
+  }, [rawMonths])
   const score = useMemo(() => calcHealthScore(allMonths.slice(-3)), [allMonths])
   const alerts = useMemo(() => calcAlerts(allMonths, goals), [allMonths, goals])
 
@@ -125,6 +133,20 @@ export default function OverviewPage() {
       <div className="mb-6">
         <Card title="Filtrar período">
           <PeriodFilterBar filter={periodFilter} onChange={setPeriodFilter} />
+          <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] text-[var(--color-text-muted)]">Início do histórico:</span>
+            <select
+              value={historyCutoff ?? ''}
+              onChange={e => setHistoryCutoff(e.target.value || null)}
+              className="text-[12px] px-2 py-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)]"
+            >
+              <option value="">Mostrar tudo</option>
+              {cutoffOptions.map(o => <option key={o.key} value={o.key}>a partir de {o.label}</option>)}
+            </select>
+            {historyCutoff && (
+              <span className="text-[11px] text-[var(--color-text-muted)]">meses anteriores ficam ocultos (não são apagados)</span>
+            )}
+          </div>
         </Card>
       </div>
 

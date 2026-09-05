@@ -305,7 +305,7 @@ export default function LaunchPage() {
     storeCardItems.filter(i => i.isPaid).reduce((s, i) => s + i.value, 0)
   const consolidatedBalance = consolidatedRev - consolidatedExp
 
-  const manualMonths = allMonths.filter(m => m.source === 'manual').slice().reverse()
+  const manualMonths = useFinanceStore.getState().visibleMonths().filter(m => m.source === 'manual').slice().reverse()
 
   return (
     <div>

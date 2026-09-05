@@ -19,6 +19,7 @@ export function useSyncManager() {
   const isPulling = useRef(false)
 
   const allMonths = useFinanceStore(s => s.allMonths)
+  const historyCutoff = useFinanceStore(s => s.historyCutoff)
   const goals = useGoalsStore(s => s.goals)
   const recurringItems = useRecurringStore(s => s.items)
   const positions = useInvestmentStore(s => s.positions)
@@ -70,6 +71,9 @@ export function useSyncManager() {
     if (remote.expense_tags?.length) {
       useCategoriesStore.getState().setTags(remote.expense_tags)
     }
+    if (remote.history_cutoff !== undefined) {
+      useFinanceStore.getState().setHistoryCutoff(remote.history_cutoff)
+    }
     setStatus('synced')
     setLastSync(new Date())
     // Small delay so store updates propagate before re-enabling push
@@ -89,6 +93,7 @@ export function useSyncManager() {
       investment_positions: useInvestmentStore.getState().positions,
       card_accounts: useCardsStore.getState().accounts,
       expense_tags: useCategoriesStore.getState().tags,
+      history_cutoff: useFinanceStore.getState().historyCutoff,
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -106,7 +111,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(doPush, 2500)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff])
 
   return { status, lastSync, pull: doPull, push: doPush }
 }

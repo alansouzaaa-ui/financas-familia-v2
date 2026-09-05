@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
@@ -28,7 +28,10 @@ const CAT_OPTIONS = [
 
 export default function GoalsPage() {
   const { goals, upsertGoal, deleteGoal } = useGoalsStore()
-  const { allMonths } = useFinanceStore()
+  const rawMonths = useFinanceStore(s => s.allMonths)
+  const historyCutoff = useFinanceStore(s => s.historyCutoff)
+  const visibleFn = useFinanceStore(s => s.visibleMonths)
+  const allMonths = useMemo(() => visibleFn(), [rawMonths, historyCutoff, visibleFn])
 
   const [category, setCategory] = useState<string>('revenue')
   const [targetValue, setTargetValue] = useState('')

@@ -10,6 +10,7 @@ interface FinanceStore {
   selectedYear: number | 'all'
   isLoading: boolean
   lastSync: string | null
+  historyCutoff: string | null   // "YYYYMM": oculta meses anteriores; null = mostra tudo
 
   setMonths: (records: MonthRecord[]) => void
   addMonth: (record: MonthRecord) => void
@@ -22,9 +23,16 @@ interface FinanceStore {
   setSelectedYear: (year: number | 'all') => void
   setLoading: (v: boolean) => void
   setLastSync: (ts: string) => void
+  setHistoryCutoff: (key: string | null) => void
 
+  visibleMonths: () => MonthPoint[]
   filteredMonths: () => MonthPoint[]
   years: () => number[]
+}
+
+// Chave comparável YYYYMM (ex: Jun/2026 = 202606) para o corte de histórico.
+export function monthKey(year: number, month: string): number {
+  return year * 100 + (MONTHS_ORDER.indexOf(month) + 1)
 }
 
 const MONTHS_ORDER = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -56,6 +64,7 @@ export const useFinanceStore = create<FinanceStore>()(
       selectedYear: 'all',
       isLoading: false,
       lastSync: null,
+      historyCutoff: null,
 
       setMonths: (records) => {
         const merged = mergeRecords(SEED_DATA, records)
@@ -127,13 +136,24 @@ export const useFinanceStore = create<FinanceStore>()(
       setLoading: (isLoading) => set({ isLoading }),
       setLastSync: (ts) => set({ lastSync: ts }),
 
+      setHistoryCutoff: (key) => set({ historyCutoff: key }),
+
+      // Meses visíveis = allMonths sem os anteriores ao corte de histórico.
+      // Não afeta persistência/sync (allMonths continua completo).
+      visibleMonths: () => {
+        const { allMonths, historyCutoff } = get()
+        if (!historyCutoff) return allMonths
+        const cut = parseInt(historyCutoff, 10)
+        return allMonths.filter(m => monthKey(m.year, m.month) >= cut)
+      },
+
       filteredMonths: () => {
-        const { allMonths, periodFilter } = get()
-        return filterByPeriod(allMonths, periodFilter.preset, periodFilter.customRange)
+        const { periodFilter } = get()
+        return filterByPeriod(get().visibleMonths(), periodFilter.preset, periodFilter.customRange)
       },
 
       years: () => {
-        return [...new Set(get().allMonths.map(m => m.year))].sort()
+        return [...new Set(get().visibleMonths().map(m => m.year))].sort()
       },
     }),
     {
@@ -141,15 +161,17 @@ export const useFinanceStore = create<FinanceStore>()(
       partialize: (s) => ({
         periodFilter: s.periodFilter,
         selectedYear: s.selectedYear,
+        historyCutoff: s.historyCutoff,
         manualMonths: s.allMonths.filter(m => m.source === 'manual'),
       }),
       merge: (persisted: unknown, current) => {
-        const p = persisted as { periodFilter?: typeof current.periodFilter; selectedYear?: typeof current.selectedYear; manualMonths?: MonthRecord[] }
+        const p = persisted as { periodFilter?: typeof current.periodFilter; selectedYear?: typeof current.selectedYear; historyCutoff?: string | null; manualMonths?: MonthRecord[] }
         // manualMonths override seed — mergeRecords já garante isso via Map
         return {
           ...current,
           periodFilter: p.periodFilter ?? current.periodFilter,
           selectedYear: p.selectedYear ?? current.selectedYear,
+          historyCutoff: p.historyCutoff ?? null,
           allMonths: sortMonths(mergeRecords(SEED_DATA, p.manualMonths ?? [])),
         }
       },
