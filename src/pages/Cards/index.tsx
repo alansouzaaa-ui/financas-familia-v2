@@ -6,6 +6,7 @@ import { fmt } from '@/lib/formatters'
 import type { MonthItem, MonthAbbr } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import NovaDespesaModal from '@/pages/Launch/NovaDespesaModal'
 
 const MONTHS: { value: MonthAbbr; label: string }[] = [
   { value: 'Jan', label: 'Janeiro' }, { value: 'Fev', label: 'Fevereiro' },
@@ -22,6 +23,7 @@ export default function CardsPage() {
   const removeItem = useFinanceStore(s => s.removeItem)
   const accounts = useCardsStore(s => s.accounts)
   const tags = useCategoriesStore(s => s.tags)
+  const tagMap = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
   const addAccount = useCardsStore(s => s.addAccount)
   const renameAccount = useCardsStore(s => s.renameAccount)
   const setDueDay = useCardsStore(s => s.setDueDay)
@@ -32,6 +34,8 @@ export default function CardsPage() {
   const [year, setYear] = useState<number>(now.getFullYear())
   const [openId, setOpenId] = useState<string | null>(null)
   const [manage, setManage] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [modalCardId, setModalCardId] = useState('')
 
   const monthLabel = `${MONTHS.find(m => m.value === month)?.label}/${year}`
 
@@ -76,12 +80,37 @@ export default function CardsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 gap-2">
         <h1 className="text-[20px] font-semibold">Cartões</h1>
-        <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
-          {manage ? 'Concluir' : '⚙ Gerenciar'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
+            {manage ? 'Concluir' : '⚙ Gerenciar'}
+          </Button>
+          <button
+            onClick={() => { setModalCardId(''); setShowModal(true) }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-text-primary)] text-[var(--color-surface)] hover:opacity-90 transition-opacity"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            Nova despesa
+          </button>
+        </div>
       </div>
+
+      {showModal && (
+        <NovaDespesaModal
+          month={month}
+          year={year}
+          monthLabel={monthLabel}
+          defaultGrupo="cards"
+          defaultCardId={modalCardId}
+          onClose={() => setShowModal(false)}
+          onAddFormItem={(it) => upsertItem(year, month, {
+            id: crypto.randomUUID(), description: it.description, value: it.value,
+            category: it.category as MonthItem['category'], isPaid: it.isPaid,
+            ...(it.tag ? { tag: it.tag } : {}), ...(it.recurringId ? { recurringId: it.recurringId } : {}),
+          })}
+        />
+      )}
 
       {/* Seletor de fatura */}
       <div className="flex items-center justify-center gap-3 mb-5">
@@ -169,41 +198,50 @@ export default function CardsPage() {
                 </button>
                 {open && (
                   <div className="border-t border-[var(--color-border)]">
-                    {items.map(it => (
+                    {items.map(it => {
+                      const tg = it.tag ? tagMap[it.tag] : null
+                      return (
                       <div key={it.id} className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0">
                         <button
                           onClick={() => patchItem(it, { isPaid: !it.isPaid })}
-                          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${it.isPaid ? 'border-transparent bg-[var(--color-pos)]' : 'border-[var(--color-border)]'}`}
-                          title={it.isPaid ? 'Pago — marcar pendente' : 'Pendente — marcar pago'}
+                          className={`w-[22px] h-[22px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${it.isPaid ? 'border-transparent bg-[var(--color-pos)]' : 'border-[var(--color-border)]'}`}
+                          title={it.isPaid ? 'Pago — clique para pendente' : 'Pendente — clique para pago'}
                         >
-                          {it.isPaid && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          {it.isPaid && <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </button>
                         <input
                           defaultValue={it.description}
                           placeholder="Descrição"
                           onBlur={e => { const v = e.target.value.trim(); if (v !== it.description) patchItem(it, { description: v.slice(0, 120) }) }}
-                          className="flex-1 min-w-0 px-2 py-1 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none focus:border-[var(--color-text-primary)]"
+                          className="flex-1 min-w-0 px-2.5 py-2 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)]"
                         />
-                        <input
-                          type="number" inputMode="decimal" placeholder="0,00"
-                          defaultValue={it.value || ''}
-                          onBlur={e => { const v = Math.round(parseFloat(e.target.value) * 100) / 100; if (isFinite(v) && v !== it.value) patchItem(it, { value: v }) }}
-                          className="w-20 px-2 py-1 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[7px] outline-none text-right focus:border-[var(--color-text-primary)]"
-                        />
-                        <select
-                          value={it.tag ?? ''}
-                          onChange={e => patchItem(it, { tag: e.target.value || undefined })}
-                          title={it.tag ? 'Categoria' : 'Escolher categoria'}
-                          className={`flex-shrink-0 w-[50px] text-[13px] px-1 py-1 bg-[var(--color-surface-2)] border rounded-[7px] outline-none focus:border-[var(--color-text-primary)] text-center ${it.tag ? 'border-[var(--color-border)]' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
-                        >
-                          <option value="">🏷️</option>
-                          {tags.map(t => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
-                        </select>
+                        <div className="relative flex-shrink-0">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-[var(--color-text-muted)] pointer-events-none">R$</span>
+                          <input
+                            type="number" inputMode="decimal" placeholder="0,00"
+                            defaultValue={it.value || ''}
+                            onBlur={e => { const v = Math.round(parseFloat(e.target.value) * 100) / 100; if (isFinite(v) && v !== it.value) patchItem(it, { value: v }) }}
+                            className="w-[104px] pl-7 pr-2 py-2 text-[14px] font-mono font-semibold bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none text-right focus:border-[var(--color-text-primary)]"
+                          />
+                        </div>
+                        <div className="relative flex-shrink-0">
+                          <select
+                            value={it.tag ?? ''}
+                            onChange={e => patchItem(it, { tag: e.target.value || undefined })}
+                            title={tg ? `Categoria: ${tg.label}` : 'Escolher categoria'}
+                            className={`appearance-none h-[38px] pl-2 pr-5 text-[13px] rounded-[8px] outline-none cursor-pointer border ${tg ? 'border-transparent' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
+                            style={tg ? { backgroundColor: tg.color + '26', color: tg.color } : { backgroundColor: 'var(--color-surface-2)' }}
+                          >
+                            <option value="">🏷️</option>
+                            {tags.map(t => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+                          </select>
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-[9px] opacity-60" style={tg ? { color: tg.color } : {}}>▾</span>
+                        </div>
                         <button onClick={() => removeItem(year, month, it.id)} className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1 flex-shrink-0" aria-label="Excluir">
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                         </button>
                       </div>
-                    ))}
+                    )})}
                     <div className="px-4 py-2.5">
                       <Button variant="ghost" size="sm" onClick={() => addCardItem(a.id)}>+ Adicionar lançamento</Button>
                     </div>

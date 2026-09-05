@@ -22,9 +22,11 @@ interface Props {
   onClose: () => void
   // Adiciona um item NÃO-cartão ao formulário do mês atual (evita conflito com o auto-save)
   onAddFormItem: (item: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string }) => void
+  defaultGrupo?: Grupo
+  defaultCardId?: string
 }
 
-export default function NovaDespesaModal({ month, year, monthLabel, onClose, onAddFormItem }: Props) {
+export default function NovaDespesaModal({ month, year, monthLabel, onClose, onAddFormItem, defaultGrupo, defaultCardId }: Props) {
   const tags = useCategoriesStore(s => s.tags)
   const cardAccounts = useCardsStore(s => s.accounts)
   const upsertRule = useRecurringStore(s => s.upsertRule)
@@ -32,8 +34,8 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
 
   const [value, setValue] = useState('')
   const [description, setDescription] = useState('')
-  const [grupo, setGrupo] = useState<Grupo>('variableCosts')
-  const [cardId, setCardId] = useState('')
+  const [grupo, setGrupo] = useState<Grupo>(defaultGrupo ?? 'variableCosts')
+  const [cardId, setCardId] = useState(defaultCardId ?? '')
   const [tag, setTag] = useState('')
   const [isPaid, setIsPaid] = useState(false)
   const [repetir, setRepetir] = useState(false)
@@ -140,7 +142,15 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
           {/* Toggles */}
           <div className="flex flex-col gap-2.5">
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-[14px]">{isRevenue ? 'Já recebida' : 'Já paga'}</span>
+              <span className="flex items-center gap-2 text-[14px]">
+                {isRevenue ? 'Já recebida' : 'Já paga'}
+                {isPaid && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-pos)] bg-[var(--color-pos)]/[0.13] px-2 py-0.5 rounded-full">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    {isRevenue ? 'Recebido' : 'Pago'}
+                  </span>
+                )}
+              </span>
               <button type="button" onClick={() => setIsPaid(p => !p)}
                 className={`w-11 h-6 rounded-full transition-colors relative ${isPaid ? 'bg-[var(--color-pos)]' : 'bg-[var(--color-surface-3)]'}`}>
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${isPaid ? 'left-[22px]' : 'left-0.5'}`} />
