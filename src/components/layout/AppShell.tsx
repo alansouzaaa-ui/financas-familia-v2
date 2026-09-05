@@ -274,7 +274,7 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
           </div>
         </header>
         <MarketBar />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-nav md:pb-6 max-w-5xl w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-nav md:pb-6 max-w-6xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
