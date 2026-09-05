@@ -341,6 +341,8 @@ export default function LaunchPage() {
             const blockTotal = catTotals[cat]
             const accent = CATEGORY_ACCENT[cat]
             const isRevenue = cat === 'revenue'
+            const paidTotal = items.filter(i => i.isPaid).reduce((s, i) => s + (parseFloat(i.value) || 0), 0)
+            const pendingTotal = blockTotal - paidTotal
 
             return (
               <div key={cat} className="card rounded-2xl overflow-hidden">
@@ -447,16 +449,23 @@ export default function LaunchPage() {
                   )}
                 </div>
 
-                {/* Block total footer */}
+                {/* Block total footer + pago/falta */}
                 {blockTotal > 0 && (
-                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)]">
-                    <span className="text-[12px] text-[var(--color-text-muted)]">Total</span>
-                    <span
-                      className="text-[13px] font-mono font-semibold"
-                      style={{ color: accent }}
-                    >
-                      {isRevenue ? '+' : '-'}{fmt(blockTotal)}
-                    </span>
+                  <div className="px-4 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[var(--color-text-muted)]">Total</span>
+                      <span className="text-[13px] font-mono font-semibold" style={{ color: accent }}>
+                        {isRevenue ? '+' : '-'}{fmt(blockTotal)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 text-[11.5px]">
+                      <span className="text-[var(--color-pos)]">
+                        ✓ {isRevenue ? 'Recebido' : 'Pago'} {fmt(paidTotal)}
+                      </span>
+                      <span className={pendingTotal > 0.005 ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-muted)] opacity-60'}>
+                        {isRevenue ? 'A receber' : 'Falta'} <span className="font-mono">{fmt(pendingTotal)}</span>
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
