@@ -69,6 +69,7 @@ export default function LaunchPage() {
     makeItem('fixedCosts', false),
   ])
   const [saved, setSaved] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   // Auto-save: only commit when the user actually edited (not on load/mount)
   const dirtyRef = useRef(false)
 
@@ -366,85 +367,90 @@ export default function LaunchPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2 pb-3">
-                      {items.map(item => (
-                        <div key={item.id} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          {/* Paid toggle */}
+                      {items.map(item => {
+                        const tag = item.tag ? tagMap[item.tag] : null
+                        return (
+                        <div key={item.id} className="flex items-center gap-2">
+                          {/* Pago / pendente */}
                           <button
                             onClick={() => updateItem(item.id, 'isPaid', !item.isPaid)}
-                            className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                              item.isPaid
-                                ? 'border-transparent'
-                                : 'border-[var(--color-border)] bg-[var(--color-surface)]'
+                            className={`w-[22px] h-[22px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                              item.isPaid ? 'border-transparent' : 'border-[var(--color-border)] bg-[var(--color-surface)]'
                             }`}
                             style={item.isPaid ? { backgroundColor: accent } : {}}
-                            title={item.isPaid ? 'Marcar como pendente' : 'Marcar como pago'}
+                            title={item.isPaid ? `${isRevenue ? 'Recebido' : 'Pago'} — clique para pendente` : `Pendente — clique para ${isRevenue ? 'recebido' : 'pago'}`}
                           >
                             {item.isPaid && (
-                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              <svg width="11" height="11" viewBox="0 0 10 10" fill="none">
+                                <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                               </svg>
                             )}
                           </button>
-                          {/* Description */}
+                          {/* Descrição */}
                           <input
                             type="text"
                             placeholder="Descrição"
                             value={item.description}
                             onChange={e => updateItem(item.id, 'description', e.target.value)}
-                            className="flex-1 min-w-0 px-2.5 py-1.5 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
+                            className="flex-1 min-w-0 px-2.5 py-2 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
                           />
-                          {/* Value */}
-                          <input
-                            type="number"
-                            placeholder="0,00"
-                            value={item.value}
-                            onChange={e => updateItem(item.id, 'value', e.target.value)}
-                            className="w-28 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
-                          />
-                          {/* Categoria (para relatórios) */}
-                          <select
-                            value={item.tag ?? ''}
-                            onChange={e => updateItem(item.id, 'tag', e.target.value)}
-                            title={item.tag ? `Categoria: ${tagMap[item.tag]?.label ?? ''}` : 'Escolher categoria'}
-                            className={`flex-shrink-0 w-[52px] text-[13px] px-1 py-1 bg-[var(--color-surface-2)] border rounded-[7px] outline-none focus:border-[var(--color-text-primary)] text-center ${item.tag ? 'border-[var(--color-border)]' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
-                          >
-                            <option value="">🏷️</option>
-                            {tags.map(t => (
-                              <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => repeatItem(item)}
-                            title="Parcelar em N meses (ex: compra em 3x)"
-                            className="p-1 flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                          >
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                              <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                              <path d="M2.5 10.5V3.5A1 1 0 0 1 3.5 2.5h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => toggleRecurring(item)}
-                            title={item.recurringId ? 'Despesa fixa (repete todo mês) — clique para desligar' : 'Marcar como despesa fixa (repete todo mês)'}
-                            className={`p-1 flex-shrink-0 transition-colors ${item.recurringId ? 'text-[var(--color-chart-blue)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}`}
-                          >
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                              <path d="M13 8A5 5 0 1 1 3 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                              <path d="M13 5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => removeItem(item.id)}
-                            className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1 flex-shrink-0"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                            </svg>
-                          </button>
+                          {/* Valor (destaque) */}
+                          <div className="relative flex-shrink-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-[var(--color-text-muted)] pointer-events-none">R$</span>
+                            <input
+                              type="number" inputMode="decimal" placeholder="0,00"
+                              value={item.value}
+                              onChange={e => updateItem(item.id, 'value', e.target.value)}
+                              className="w-[104px] pl-7 pr-2 py-2 text-[14px] font-mono font-semibold bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none focus:border-[var(--color-text-primary)] text-right text-[var(--color-text-primary)]"
+                            />
+                          </div>
+                          {/* Categoria (chip) */}
+                          <div className="relative flex-shrink-0">
+                            <select
+                              value={item.tag ?? ''}
+                              onChange={e => updateItem(item.id, 'tag', e.target.value)}
+                              title={tag ? `Categoria: ${tag.label}` : 'Escolher categoria'}
+                              className={`appearance-none h-[38px] pl-2 pr-5 text-[13px] rounded-[8px] outline-none cursor-pointer border ${tag ? 'border-transparent' : 'border-dashed border-[var(--color-border)] text-[var(--color-text-muted)]'}`}
+                              style={tag ? { backgroundColor: tag.color + '26', color: tag.color } : { backgroundColor: 'var(--color-surface-2)' }}
+                            >
+                              <option value="">🏷️</option>
+                              {tags.map(t => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+                            </select>
+                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-[9px] opacity-60" style={tag ? { color: tag.color } : {}}>▾</span>
+                          </div>
+                          {/* Menu ⋯ */}
+                          <div className="relative flex-shrink-0">
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
+                              title="Mais opções"
+                              className="w-8 h-8 flex items-center justify-center rounded-[8px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg>
+                            </button>
+                            {openMenuId === item.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                                <div className="absolute right-0 top-full mt-1 z-20 w-56 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl py-1 text-[13px]">
+                                  <button onClick={() => { toggleRecurring(item); setOpenMenuId(null) }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[var(--color-surface-2)] text-left transition-colors">
+                                    <span className="w-4 text-center">🔁</span>
+                                    <span className="flex-1">{item.recurringId ? 'Despesa fixa' : 'Repetir todo mês'}</span>
+                                    {item.recurringId && <span className="text-[var(--color-chart-blue)]">✓</span>}
+                                  </button>
+                                  <button onClick={() => { repeatItem(item); setOpenMenuId(null) }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[var(--color-surface-2)] text-left transition-colors">
+                                    <span className="w-4 text-center">⧉</span>
+                                    <span className="flex-1">Parcelar (compra em Nx)</span>
+                                  </button>
+                                  <div className="h-px bg-[var(--color-border)] my-1" />
+                                  <button onClick={() => { removeItem(item.id); setOpenMenuId(null) }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[var(--color-surface-2)] text-left text-[var(--color-neg)] transition-colors">
+                                    <span className="w-4 text-center">🗑️</span>
+                                    <span className="flex-1">Excluir</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        </div>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </div>
