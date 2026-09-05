@@ -10,6 +10,7 @@ import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import NovaDespesaModal from './NovaDespesaModal'
 
 const MONTHS_LIST: { value: string; label: string }[] = [
   { value: 'Jan', label: 'Janeiro' }, { value: 'Fev', label: 'Fevereiro' },
@@ -70,6 +71,7 @@ export default function LaunchPage() {
   ])
   const [saved, setSaved] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
   // Auto-save: only commit when the user actually edited (not on load/mount)
   const dirtyRef = useRef(false)
 
@@ -116,6 +118,20 @@ export default function LaunchPage() {
   const addItem = useCallback((category: string) => {
     dirtyRef.current = true
     setFormItems(prev => [...prev, makeItem(category, category === 'revenue')])
+  }, [])
+
+  // Modal "Nova despesa" adiciona itens não-cartão ao formulário (o auto-save grava)
+  const addFromModal = useCallback((it: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string }) => {
+    dirtyRef.current = true
+    setFormItems(prev => [...prev, {
+      id: crypto.randomUUID(),
+      description: it.description,
+      value: String(it.value),
+      category: it.category,
+      isPaid: it.isPaid,
+      tag: it.tag,
+      recurringId: it.recurringId,
+    }])
   }, [])
 
   // Parcelamento: cria N parcelas (ex: compra em 3x) — a parcela do mês atual
@@ -310,7 +326,26 @@ export default function LaunchPage() {
 
   return (
     <div>
-      <h1 className="text-[20px] font-semibold mb-5">Lançar Mês</h1>
+      <div className="flex items-center justify-between mb-5 gap-3">
+        <h1 className="text-[20px] font-semibold">Lançar Mês</h1>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-text-primary)] text-[var(--color-surface)] hover:opacity-90 transition-opacity"
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          Nova despesa
+        </button>
+      </div>
+
+      {showModal && (
+        <NovaDespesaModal
+          month={selectedMonth as MonthAbbr}
+          year={parseInt(selectedYear)}
+          monthLabel={`${selectedMonth}/${selectedYear}`}
+          onClose={() => setShowModal(false)}
+          onAddFormItem={addFromModal}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Form */}
