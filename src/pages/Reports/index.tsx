@@ -3,7 +3,7 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import PeriodFilterBar from '@/components/filters/PeriodFilter'
+import PeriodSegment from '@/components/filters/PeriodSegment'
 import CategoryReportBlock from '@/components/metrics/CategoryReportBlock'
 
 export default function ReportsPage() {
@@ -19,12 +19,18 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[20px] font-semibold">Relatórios</h1>
-        <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
-          {manage ? 'Concluir' : '⚙ Categorias'}
-        </Button>
-      </div>
+      <header className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Relatórios</h1>
+          <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Para onde vai o dinheiro, por categoria de gasto.</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <PeriodSegment filter={periodFilter} onChange={setPeriodFilter} />
+          <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
+            {manage ? 'Concluir' : '⚙ Categorias'}
+          </Button>
+        </div>
+      </header>
 
       {/* Gerenciar categorias */}
       {manage && (
@@ -70,12 +76,6 @@ export default function ReportsPage() {
           </div>
         </Card>
       )}
-
-      <div className="mb-5">
-        <Card title="Filtrar período">
-          <PeriodFilterBar filter={periodFilter} onChange={setPeriodFilter} />
-        </Card>
-      </div>
 
       <CategoryReportBlock months={months} />
     </div>

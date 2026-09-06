@@ -4,6 +4,7 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import type { FinancialGoal } from '@/types/finance'
+import Money from '@/components/ui/Money'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -61,20 +62,23 @@ export default function GoalsPage() {
 
   return (
     <div>
-      <h1 className="text-[20px] font-semibold mb-5">Metas Financeiras</h1>
+      <header className="mb-5">
+        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Metas Financeiras</h1>
+        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Defina limites por categoria e acompanhe o quanto já foi consumido.</p>
+      </header>
 
-      {/* Averages summary */}
+      {/* Médias de referência */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           { label: 'Média Receita', value: avgRevenue, cls: 'pos' },
-          { label: 'Média Fixos',   value: avgFixedCosts, cls: 'text-[var(--color-text-muted)]' },
-          { label: 'Média Emp.',    value: avgLoans, cls: 'text-[var(--color-text-muted)]' },
-          { label: 'Média Cartões', value: avgCards, cls: 'neg' },
+          { label: 'Média Fixos',   value: avgFixedCosts, cls: 'text-[var(--color-text-primary)]' },
+          { label: 'Média Emp.',    value: avgLoans, cls: 'text-[var(--color-text-primary)]' },
+          { label: 'Média Cartões', value: avgCards, cls: 'text-[var(--color-text-primary)]' },
         ].map(item => (
           <div key={item.label} className="card">
-            <div className="label mb-1.5">{item.label}</div>
-            <div className={`font-mono font-semibold text-[16px] ${item.cls}`}>{fmt(item.value)}</div>
-            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">últimos 12 meses</div>
+            <div className="label mb-2">{item.label}</div>
+            <div className={`font-semibold text-[18px] leading-none ${item.cls}`}><Money value={item.value} /></div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">últimos 12 meses</div>
           </div>
         ))}
       </div>

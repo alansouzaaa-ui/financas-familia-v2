@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { fmt } from '@/lib/formatters'
 import { CATEGORY_LABELS } from '@/types/finance'
+import Money from '@/components/ui/Money'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -44,10 +45,12 @@ export default function RecurringPage() {
 
   return (
     <div>
-      <h1 className="text-[20px] font-semibold mb-5">Itens Recorrentes</h1>
-      <p className="text-[13px] text-[var(--color-text-muted)] mb-5">
-        Cadastre itens que se repetem todo mês. Ao lançar um novo mês, clique em "↻ Recorrentes" para preenchê-los automaticamente.
-      </p>
+      <header className="mb-5">
+        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Itens Recorrentes</h1>
+        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5 max-w-[60ch]">
+          Itens que se repetem todo mês. Ao abrir um mês novo, eles são preenchidos automaticamente.
+        </p>
+      </header>
 
       {/* Add form */}
       <Card title="Novo item recorrente" className="mb-4">
@@ -87,17 +90,17 @@ export default function RecurringPage() {
       {activeItems.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="card text-center">
-            <div className="label mb-1">Receitas ativas</div>
-            <div className="font-mono font-semibold text-[16px] pos">{fmt(totalRevenue)}</div>
+            <div className="label mb-2">Receitas ativas</div>
+            <div className="font-semibold text-[17px] pos"><Money value={totalRevenue} /></div>
           </div>
           <div className="card text-center">
-            <div className="label mb-1">Despesas ativas</div>
-            <div className="font-mono font-semibold text-[16px] neg">{fmt(totalExpenses)}</div>
+            <div className="label mb-2">Despesas ativas</div>
+            <div className="font-semibold text-[17px] text-[var(--color-text-primary)]"><Money value={totalExpenses} /></div>
           </div>
           <div className="card text-center">
-            <div className="label mb-1">Balanço recorrente</div>
-            <div className={`font-mono font-semibold text-[16px] ${totalRevenue - totalExpenses >= 0 ? 'pos' : 'neg'}`}>
-              {fmt(totalRevenue - totalExpenses)}
+            <div className="label mb-2">Balanço recorrente</div>
+            <div className={`font-semibold text-[17px] ${totalRevenue - totalExpenses >= 0 ? 'pos' : 'neg'}`}>
+              <Money value={totalRevenue - totalExpenses} signed />
             </div>
           </div>
         </div>

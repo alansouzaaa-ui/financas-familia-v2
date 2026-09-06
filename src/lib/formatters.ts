@@ -17,6 +17,16 @@ export function fmtSigned(value: number): string {
   return sign + fmt(value)
 }
 
+// Sem símbolo R$ — para tabelas densas onde a moeda fica implícita no cabeçalho.
+export function fmtNum(value: number): string {
+  return Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+export function fmtNumSigned(value: number): string {
+  const sign = value < -0.005 ? '−' : value > 0.005 ? '+' : ''
+  return sign + fmtNum(value)
+}
+
 export function fmtPct(value: number, decimals = 0): string {
   return value.toFixed(decimals) + '%'
 }
