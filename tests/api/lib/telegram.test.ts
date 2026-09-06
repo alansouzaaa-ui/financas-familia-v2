@@ -117,6 +117,22 @@ describe('appendTelegramTransaction', () => {
     expect(record.year).toBe(2026)
     expect(record.cards).toBeCloseTo(200)
     expect(record.items?.[0].cardId).toBe('card-pai')
+    // Cartão é fatura futura → entra em aberto (não pago)
+    expect(record.items?.[0].isPaid).toBe(false)
+  })
+
+  it('marks card expenses as unpaid but keeps other expenses paid', () => {
+    const card = parseTransaction('cartão alan 300', '42', 200, [{ id: 'card-alan', name: 'Cartão Alan' }])!
+    const cardRes = appendTelegramTransaction(emptyPayload, card)
+    const cardItem = cardRes.payload.manual_months[0].items?.[0]
+    expect(cardItem?.category).toBe('cards')
+    expect(cardItem?.isPaid).toBe(false)
+
+    const grocery = parseTransaction('mercado 120', '42', 201)!
+    const groceryRes = appendTelegramTransaction(emptyPayload, grocery)
+    const groceryItem = groceryRes.payload.manual_months[0].items?.[0]
+    expect(groceryItem?.category).toBe('variableCosts')
+    expect(groceryItem?.isPaid).toBe(true)
   })
 
   it('rolls a December card purchase into January of next year', () => {

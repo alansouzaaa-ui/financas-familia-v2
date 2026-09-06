@@ -147,7 +147,9 @@ export function appendTelegramTransaction(
     description: transaction.description,
     value: transaction.value,
     category: transaction.category,
-    isPaid: true,
+    // Cartão lançado pelo Telegram é fatura futura → entra em aberto (não pago).
+    // Demais despesas/receitas seguem como quitadas no momento do lançamento.
+    isPaid: transaction.category !== 'cards',
     source: 'telegram',
     occurredAt: transaction.occurredAt,
     externalId: transaction.externalId,
