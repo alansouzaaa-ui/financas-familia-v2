@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { guessTag } from '@/lib/autoTag'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
@@ -37,8 +38,21 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   const [grupo, setGrupo] = useState<Grupo>(defaultGrupo ?? 'variableCosts')
   const [cardId, setCardId] = useState(defaultCardId ?? '')
   const [tag, setTag] = useState('')
+  const [tagTouched, setTagTouched] = useState(false)
+  const [autoTagged, setAutoTagged] = useState(false)
   const [isPaid, setIsPaid] = useState(false)
   const [repetir, setRepetir] = useState(false)
+
+  // Auto-categoriza pela descrição enquanto o usuário digita, até que ele
+  // escolha uma categoria manualmente (aí paramos de sobrescrever).
+  function onDescriptionChange(v: string) {
+    setDescription(v)
+    if (!tagTouched && !isRevenue) {
+      const guess = guessTag(v)
+      setTag(guess ?? '')
+      setAutoTagged(!!guess)
+    }
+  }
 
   const isRevenue = grupo === 'revenue'
   const valNum = Math.round((parseFloat(value.replace(',', '.')) || 0) * 100) / 100
@@ -47,6 +61,8 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   function save() {
     if (!canSave) return
     const desc = description.trim().slice(0, 120)
+    // Se ficou sem categoria, tenta adivinhar pela descrição no ato de salvar
+    const finalTag = (tag || (!isRevenue ? guessTag(desc) : undefined)) || undefined
     let recurringId: string | undefined
     if (repetir) {
       recurringId = crypto.randomUUID()
@@ -57,12 +73,12 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
       // Cartão: grava direto no mês (a aba Cartões/Reports leem daí)
       const item: MonthItem = {
         id: crypto.randomUUID(), description: desc, value: valNum, category: 'cards',
-        isPaid, ...(cardId ? { cardId } : {}), ...(tag ? { tag } : {}), ...(recurringId ? { recurringId } : {}),
+        isPaid, ...(cardId ? { cardId } : {}), ...(finalTag ? { tag: finalTag } : {}), ...(recurringId ? { recurringId } : {}),
       }
       upsertItem(year, month, item)
     } else {
       // Demais grupos: entra no formulário do mês (auto-save cuida da gravação)
-      onAddFormItem({ description: desc, value: valNum, category: grupo, isPaid, tag: tag || undefined, recurringId })
+      onAddFormItem({ description: desc, value: valNum, category: grupo, isPaid, tag: finalTag, recurringId })
     }
     onClose()
   }
@@ -112,7 +128,7 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
             <label className="label block mb-1.5">Descrição</label>
             <input
               type="text" placeholder="Ex: Mercado, Uber, Aluguel…"
-              value={description} onChange={e => setDescription(e.target.value)}
+              value={description} onChange={e => onDescriptionChange(e.target.value)}
               className="w-full px-3 py-2.5 text-[14px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] outline-none focus:border-[var(--color-text-primary)]"
             />
           </div>
@@ -131,8 +147,18 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
 
           {/* Categoria */}
           <div>
-            <label className="label block mb-1.5">Categoria</label>
-            <select value={tag} onChange={e => setTag(e.target.value)}
+            <label className="label mb-1.5 flex items-center gap-1.5">
+              Categoria
+              {autoTagged && tag && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-chart-blue)] bg-[var(--color-chart-blue)]/[0.12] px-1.5 py-0.5 rounded-full normal-case tracking-normal">
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 1l1 2.5L8.5 4 6.5 6 7 9 5 7.5 3 9l.5-3L1.5 4 4 3.5 5 1z" fill="currentColor"/></svg>
+                  automática
+                </span>
+              )}
+            </label>
+            <select
+              value={tag}
+              onChange={e => { setTag(e.target.value); setTagTouched(true); setAutoTagged(false) }}
               className="w-full px-3 py-2.5 text-[14px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] outline-none focus:border-[var(--color-text-primary)]">
               <option value="">Sem categoria</option>
               {tags.map(t => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}

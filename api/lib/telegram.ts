@@ -1,5 +1,6 @@
 import type { SyncPayload } from '../../src/lib/syncService'
 import type { MonthRecord, MonthAbbr, CardAccount } from '../../src/types/finance'
+import { guessTag } from '../../src/lib/autoTag'
 
 export interface ParsedTransaction {
   description: string
@@ -154,6 +155,8 @@ export function appendTelegramTransaction(
     occurredAt: transaction.occurredAt,
     externalId: transaction.externalId,
     ...(transaction.category === 'cards' && transaction.cardId ? { cardId: transaction.cardId } : {}),
+    // Auto-categorização por descrição (ex: "ifood" → restaurante)
+    ...(guessTag(transaction.description) ? { tag: guessTag(transaction.description) } : {}),
   })
 
   // Recalculate totals from items
