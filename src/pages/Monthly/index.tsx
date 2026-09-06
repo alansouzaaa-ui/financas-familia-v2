@@ -115,7 +115,11 @@ export default function MonthlyPage() {
       {/* Tabela mensal */}
       <Card>
         {monthsForYear.length === 0 ? (
-          <EmptyState message="Sem dados para este ano" hint="Lance um mês na aba Lançar" />
+          <EmptyState
+            message="Sem dados para este ano"
+            hint="Registre receitas e despesas para ver o detalhamento mês a mês."
+            action={{ label: 'Lançar um mês', to: '/lancar' }}
+          />
         ) : (
           <div className="overflow-x-auto -mx-5">
             <table className="w-full text-[13px] min-w-[680px]">

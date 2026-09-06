@@ -4,6 +4,7 @@ import type { MonthPoint, ExpenseTag } from '@/types/finance'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { fmt } from '@/lib/formatters'
 import Card from '@/components/ui/Card'
+import EmptyState from '@/components/ui/EmptyState'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 
 interface Props {
@@ -39,9 +40,12 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
   if (total === 0) {
     return (
       <Card title="Despesas por categoria">
-        <p className="text-[13px] text-[var(--color-text-muted)] py-4 text-center">
-          Marque a categoria dos lançamentos na aba Lançar para ver o relatório.
-        </p>
+        <EmptyState
+          message="Nada para relatar ainda"
+          hint="Marque a categoria de cada gasto ao lançar para ver para onde o dinheiro está indo."
+          icon={<span className="text-[22px]">🏷️</span>}
+          action={{ label: 'Categorizar lançamentos', to: '/lancar' }}
+        />
       </Card>
     )
   }

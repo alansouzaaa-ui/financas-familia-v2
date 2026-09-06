@@ -6,6 +6,7 @@ import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
+import { useUiStore } from '@/stores/useUiStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
@@ -30,6 +31,7 @@ export function useSyncManager() {
     if (!isSupabaseConfigured) return
     isPulling.current = true
     setStatus('syncing')
+    const settle = () => useUiStore.getState().markFirstSyncSettled()
     const remote = await pullSync()
     // null = sem dados ainda (primeiro uso) → não é erro, continua para push
     if (remote === null) {
@@ -37,6 +39,7 @@ export function useSyncManager() {
       setLastSync(new Date())
       isPulling.current = false
       hasPulled.current = true
+      settle()
       return
     }
     // false = erro de rede/API
@@ -44,6 +47,7 @@ export function useSyncManager() {
       setStatus('error')
       isPulling.current = false
       hasPulled.current = true
+      settle()
       return
     }
     // 'unauthorized' = sem sessão válida
@@ -51,6 +55,7 @@ export function useSyncManager() {
       setStatus('error')
       isPulling.current = false
       hasPulled.current = true
+      settle()
       return
     }
     if (remote.manual_months?.length) {
@@ -76,6 +81,7 @@ export function useSyncManager() {
     }
     setStatus('synced')
     setLastSync(new Date())
+    settle()
     // Small delay so store updates propagate before re-enabling push
     setTimeout(() => {
       isPulling.current = false

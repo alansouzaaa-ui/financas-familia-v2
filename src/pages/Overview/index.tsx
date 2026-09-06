@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
 import { useGoalsStore } from '@/stores/useGoalsStore'
+import { useUiStore } from '@/stores/useUiStore'
+import Skeleton from '@/components/ui/Skeleton'
 import { calcHealthScore, calcAlerts } from '@/lib/calculations'
 import { fmt } from '@/lib/formatters'
 import { exportToCSV } from '@/lib/csvExport'
@@ -29,6 +31,12 @@ export default function OverviewPage() {
 
   const allMonths = useMemo(() => visibleMonths(), [rawMonths, historyCutoff, visibleMonths])
   const months = filteredMonths()
+
+  // Skeleton de 1ª carga: só quando o sync ainda não resolveu E não há dados
+  // manuais para mostrar (evita piscar por cima de dados já persistidos).
+  const firstSyncSettled = useUiStore(s => s.firstSyncSettled)
+  const hasManualData = useMemo(() => rawMonths.some(m => m.source === 'manual'), [rawMonths])
+  const loadingFirst = !firstSyncSettled && !hasManualData
 
   const cutoffOptions = useMemo(
     () => rawMonths.map(m => ({ key: String(monthKey(m.year, m.month)), label: `${m.month}/${String(m.year).slice(2)}` })),
@@ -77,6 +85,38 @@ export default function OverviewPage() {
   const catLabel = (c: string) =>
     c === 'balance' ? 'balanço' : c === 'cards' ? 'cartões'
     : c === 'loans' ? 'empréstimos' : c === 'fixedCosts' ? 'fixos' : c === 'variableCosts' ? 'variáveis' : 'receita'
+
+  if (loadingFirst) {
+    return (
+      <div>
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div className="flex flex-col gap-2">
+            <Skeleton w={150} h={22} />
+            <Skeleton w={260} h={13} />
+          </div>
+          <Skeleton w={220} h={34} rounded="rounded-[10px]" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="card flex flex-col gap-3 min-h-[128px]">
+              <Skeleton w="45%" h={11} />
+              <div className="mt-auto"><Skeleton w="70%" h={24} rounded="rounded-[6px]" /></div>
+              <Skeleton w="55%" h={11} />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+          <div className="lg:col-span-2 card"><Skeleton w="40%" h={12} /><Skeleton className="mt-4" w="100%" h={220} rounded="rounded-[12px]" /></div>
+          <div className="card flex flex-col gap-3">
+            <Skeleton w="55%" h={12} />
+            {[0, 1, 2, 3].map(i => <Skeleton key={i} w="100%" h={14} />)}
+            <Skeleton w="100%" h={6} rounded="rounded-full" />
+          </div>
+        </div>
+        <p className="text-center text-[12px] text-[var(--color-text-muted)] mt-6">Carregando seus dados…</p>
+      </div>
+    )
+  }
 
   return (
     <div>

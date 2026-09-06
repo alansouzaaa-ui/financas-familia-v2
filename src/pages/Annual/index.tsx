@@ -25,7 +25,13 @@ export default function AnnualPage() {
       </header>
 
       {summary.length === 0 ? (
-        <Card><EmptyState message="Sem dados" hint="Lance meses na aba Lançar" /></Card>
+        <Card>
+          <EmptyState
+            message="Ainda não há anos para resumir"
+            hint="Assim que você lançar alguns meses, o consolidado anual aparece aqui."
+            action={{ label: 'Lançar um mês', to: '/lancar' }}
+          />
+        </Card>
       ) : (
         <>
           {/* Cards por ano */}
