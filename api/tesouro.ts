@@ -67,10 +67,15 @@ export default async function handler(): Promise<Response> {
 
         const tipo = c[0].trim()
         const venc = c[1].trim()
-        const year = venc.slice(-4)
+        const vencYear = venc.slice(-4)
         const puVenda = brNum(c[6])   // PU Venda Manhã = valor de resgate (quanto vale hoje)
-        if (!tipo || !/^\d{4}$/.test(year) || puVenda === null || puVenda <= 0) continue
-        titles.push({ name: `${tipo} ${year}`, pu: puVenda, buyPu: brNum(c[5]), sellRate: brNum(c[4]), maturity: venc })
+        if (!tipo || !/^\d{4}$/.test(vencYear) || puVenda === null || puVenda <= 0) continue
+        // Educa+ e Renda+ têm nome pelo ANO DE RECEBIMENTO, não pelo vencimento:
+        // recebe por 5 anos (Educa+, venc = ano+4) ou 20 anos (Renda+, venc = ano+19).
+        let displayYear = parseInt(vencYear, 10)
+        if (/educa\+/i.test(tipo)) displayYear -= 4
+        else if (/renda\+/i.test(tipo)) displayYear -= 19
+        titles.push({ name: `${tipo} ${displayYear}`, pu: puVenda, buyPu: brNum(c[5]), sellRate: brNum(c[4]), maturity: venc })
       }
 
       if (done) break
