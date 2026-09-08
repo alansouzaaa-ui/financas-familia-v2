@@ -369,6 +369,9 @@ export default function InvestmentsPage() {
 
   const hasPositions = positions.length > 0
   const hasQuotes = Object.keys(quotes).length > 0
+  // Há valorização se qualquer posição tem cotação — inclui Tesouro (PU),
+  // que não entra no mapa `quotes` da brapi.
+  const hasValuation = enriched.some(p => p.quote !== null)
 
   return (
     <div className="space-y-6">
@@ -538,19 +541,19 @@ export default function InvestmentsPage() {
           />
           <SummaryCard
             label="Valor Atual"
-            main={hasQuotes ? fmtFull(totals.currentValue) : '—'}
+            main={hasValuation ? fmtFull(totals.currentValue) : '—'}
             sub={hasQuotes && totals.dayChange !== 0
               ? `${totals.dayChange >= 0 ? '+' : ''}${fmtFull(totals.dayChange)} hoje`
               : undefined}
             subTrend={totals.dayChange}
-            loading={loading && !hasQuotes}
+            loading={loading && !hasValuation}
           />
           <SummaryCard
             label="Rentabilidade"
-            main={hasQuotes ? fmtFull(totals.pnl) : '—'}
-            sub={hasQuotes ? pct(totals.pnlPercent) : undefined}
+            main={hasValuation ? fmtFull(totals.pnl) : '—'}
+            sub={hasValuation ? pct(totals.pnlPercent) : undefined}
             subTrend={totals.pnl}
-            loading={loading && !hasQuotes}
+            loading={loading && !hasValuation}
           />
           <SummaryCard
             label="IBOV Hoje"
