@@ -5,6 +5,8 @@
 // Ordem importa: a primeira regra que casa vence. Regras mais específicas
 // (restaurante, combustível) vêm antes das genéricas (moradia/serviços).
 const RULES: { tag: string; kw: string[] }[] = [
+  // Categoria dedicada (frase específica vence as genéricas): mercado do condomínio
+  { tag: 'mercado_condominio', kw: ['mercadinho condominio', 'mercado condominio', 'mercadinho do condominio', 'mercado do condominio', 'mercadinho do predio', 'mercado do predio'] },
   { tag: 'combustivel',   kw: ['posto', 'gasolina', 'etanol', 'alcool', 'diesel', 'combustivel', 'shell', 'ipiranga', 'petrobras', 'br mania'] },
   { tag: 'restaurante',   kw: ['ifood', 'restaurante', 'lanche', 'lanchonete', 'pizza', 'burger', 'hamburg', 'mcdonald', 'bk ', 'subway', 'padaria', 'cafe', 'bar ', 'boteco', 'rappi', 'churrasc', 'sushi', 'espeto'] },
   { tag: 'supermercado',  kw: ['mercado', 'supermerc', 'atacad', 'atacadao', 'carrefour', 'assai', 'big ', 'extra', 'hortifruti', 'sacolao', 'comper', 'zaffari', 'nacional', 'compras do mes'] },

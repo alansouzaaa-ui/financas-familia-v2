@@ -45,6 +45,7 @@ export interface ExpenseTag {
 export const EXPENSE_TAGS: ExpenseTag[] = [
   { id: 'moradia',       label: 'Moradia',        emoji: '🏠', color: '#3B82F6' },
   { id: 'supermercado',  label: 'Supermercado',   emoji: '🛒', color: '#84CC16' },
+  { id: 'mercado_condominio', label: 'Mercado Condomínio', emoji: '🏪', color: '#0D9488' },
   { id: 'alimentacao',   label: 'Alimentação',    emoji: '🍽️', color: '#F59E0B' },
   { id: 'restaurante',   label: 'Restaurante',    emoji: '🍔', color: '#F97316' },
   { id: 'transporte',    label: 'Transporte',     emoji: '🚗', color: '#10B981' },

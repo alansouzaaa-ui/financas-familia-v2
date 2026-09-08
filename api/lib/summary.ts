@@ -6,7 +6,7 @@ const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julh
 
 // Rótulos amigáveis de tag/grupo (evita depender de EXPENSE_TAGS no Edge)
 const TAG_LABELS: Record<string, string> = {
-  moradia: 'Moradia', supermercado: 'Supermercado', alimentacao: 'Alimentação', restaurante: 'Restaurante',
+  moradia: 'Moradia', supermercado: 'Supermercado', mercado_condominio: 'Mercado Condomínio', alimentacao: 'Alimentação', restaurante: 'Restaurante',
   transporte: 'Transporte', combustivel: 'Combustível', saude: 'Saúde', farmacia: 'Farmácia', academia: 'Academia',
   lazer: 'Lazer', viagem: 'Viagem', educacao: 'Educação', vestuario: 'Vestuário', assinaturas: 'Assinaturas',
   servicos: 'Serviços', impostos: 'Impostos', pets: 'Pets', presentes: 'Presentes', salario: 'Salário',

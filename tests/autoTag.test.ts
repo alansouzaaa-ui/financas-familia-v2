@@ -17,6 +17,13 @@ describe('guessTag', () => {
     expect(guessTag('Combustível diesel')).toBe('combustivel')
   })
 
+  it('separa "Mercadinho Condominio" na categoria dedicada (não cai em supermercado)', () => {
+    expect(guessTag('Mercadinho Condominio')).toBe('mercado_condominio')
+    expect(guessTag('mercado do condominio 45')).toBe('mercado_condominio')
+    // garante que não é confundido com supermercado nem moradia (condomínio)
+    expect(guessTag('mercado semana')).toBe('supermercado')
+  })
+
   it('retorna undefined quando nada casa', () => {
     expect(guessTag('xyz coisa aleatoria')).toBeUndefined()
     expect(guessTag('')).toBeUndefined()
