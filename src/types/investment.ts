@@ -1,9 +1,10 @@
-export type AssetType = 'acao' | 'fii' | 'etf' | 'renda_fixa' | 'cripto' | 'outro'
+export type AssetType = 'acao' | 'fii' | 'etf' | 'tesouro' | 'renda_fixa' | 'cripto' | 'outro'
 
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   acao: 'Ação',
   fii: 'FII',
   etf: 'ETF',
+  tesouro: 'Tesouro Direto',
   renda_fixa: 'Renda Fixa',
   cripto: 'Cripto',
   outro: 'Outro',
@@ -13,6 +14,7 @@ export const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   acao: '#1D9E75',
   fii: '#378ADD',
   etf: '#EF9F27',
+  tesouro: '#0EA5E9',
   renda_fixa: '#8B5CF6',
   cripto: '#F59E0B',
   outro: '#94A3B8',

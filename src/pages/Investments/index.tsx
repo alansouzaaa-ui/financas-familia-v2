@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { fetchQuotes, fetchIbov } from '@/lib/brapiService'
+import { fetchTesouroTitles, type TesouroTitle } from '@/lib/tesouroService'
 import { fmtFull, fmtPct } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
@@ -192,10 +193,21 @@ function safe(n: number): number {
 
 function enrichPositions(
   positions: InvestmentPosition[],
-  quotes: Record<string, BrapiQuote>
+  quotes: Record<string, BrapiQuote>,
+  tesouroPu?: Map<string, number>
 ) {
   return positions.map((p) => {
-    const quote = quotes[p.ticker] ?? null
+    let quote = quotes[p.ticker] ?? null
+    // Tesouro Direto: sintetiza uma "cotação" a partir do PU atual do título
+    if (p.assetType === 'tesouro') {
+      const pu = tesouroPu?.get(p.ticker)
+      if (pu != null && pu > 0) {
+        quote = {
+          symbol: p.ticker, shortName: p.ticker, longName: p.ticker, currency: 'BRL',
+          regularMarketPrice: pu, regularMarketChange: 0, regularMarketChangePercent: 0, regularMarketPreviousClose: pu,
+        }
+      }
+    }
     const totalInvested = safe(p.quantity * p.avgPrice)
     const currentValue  = quote ? safe(p.quantity * quote.regularMarketPrice) : totalInvested
     const pnl           = safe(currentValue - totalInvested)
@@ -217,6 +229,7 @@ export default function InvestmentsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
 
   // ── quote fetching ──────────────────────────────────────────────────────
 
@@ -225,7 +238,8 @@ export default function InvestmentsPage() {
     setLoading(true)
     setQuotesError(null)
     try {
-      const tickers = positions.map((p) => p.ticker)
+      // Só ativos de mercado vão para a brapi (Tesouro é valorizado à parte)
+      const tickers = positions.filter(p => p.assetType !== 'tesouro').map((p) => p.ticker)
       const [quoteList, ibovData] = await Promise.all([fetchQuotes(tickers), fetchIbov()])
       const map: Record<string, BrapiQuote> = {}
       quoteList.forEach((q) => {
@@ -245,9 +259,15 @@ export default function InvestmentsPage() {
     loadQuotes()
   }, [loadQuotes])
 
+  // Lista de títulos do Tesouro (para o seletor e para valorizar as posições)
+  useEffect(() => {
+    fetchTesouroTitles().then(setTesouroTitles).catch(() => setTesouroTitles([]))
+  }, [])
+
   // ── derived data ────────────────────────────────────────────────────────
 
-  const enriched = useMemo(() => enrichPositions(positions, quotes), [positions, quotes])
+  const tesouroPu = useMemo(() => new Map(tesouroTitles.map(t => [t.name, t.pu])), [tesouroTitles])
+  const enriched = useMemo(() => enrichPositions(positions, quotes, tesouroPu), [positions, quotes, tesouroPu])
 
   const totals = useMemo(() => {
     const totalInvested = enriched.reduce((s, p) => s + p.totalInvested, 0)
@@ -308,7 +328,9 @@ export default function InvestmentsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const ticker = form.ticker.trim().toUpperCase()
+    const isTesouro = form.assetType === 'tesouro'
+    // Tesouro: o "ticker" é o nome do título (com espaços); demais: símbolo B3
+    const ticker = isTesouro ? form.ticker.trim() : form.ticker.trim().toUpperCase()
     if (!ticker || !form.quantity || !form.avgPrice) return
 
     const quantity = Number(form.quantity)
@@ -316,7 +338,8 @@ export default function InvestmentsPage() {
 
     if (!isFinite(quantity) || quantity <= 0 || quantity > 1_000_000_000) return
     if (!isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 1_000_000_000) return
-    if (!/^[A-Z0-9^]{1,12}$/.test(ticker)) return
+    if (!isTesouro && !/^[A-Z0-9^]{1,12}$/.test(ticker)) return
+    if (isTesouro && ticker.length > 60) return
 
     const data = {
       ticker,
@@ -400,26 +423,47 @@ export default function InvestmentsPage() {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Input
-                label="Ticker"
-                placeholder="PETR4"
-                value={form.ticker}
-                onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-                required
-                className="font-mono uppercase"
-              />
               <Select
                 label="Tipo"
                 options={ASSET_OPTIONS}
                 value={form.assetType}
-                onChange={(e) => setForm((f) => ({ ...f, assetType: e.target.value as AssetType }))}
+                onChange={(e) => setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '' }))}
               />
+              {form.assetType === 'tesouro' ? (
+                <div className="sm:col-span-2">
+                  {tesouroTitles.length > 0 ? (
+                    <Select
+                      label="Título do Tesouro"
+                      options={[{ value: '', label: 'Selecione o título…' }, ...tesouroTitles.map(t => ({ value: t.name, label: t.name }))]}
+                      value={form.ticker}
+                      onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                    />
+                  ) : (
+                    <Input
+                      label="Título do Tesouro"
+                      placeholder="Ex: Tesouro Selic 2029"
+                      value={form.ticker}
+                      onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                      required
+                    />
+                  )}
+                </div>
+              ) : (
+                <Input
+                  label="Ticker"
+                  placeholder="PETR4"
+                  value={form.ticker}
+                  onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
+                  required
+                  className="font-mono uppercase"
+                />
+              )}
               <Input
                 label="Quantidade"
                 type="number"
                 min="0"
-                step="1"
-                placeholder="100"
+                step={form.assetType === 'tesouro' ? '0.01' : '1'}
+                placeholder={form.assetType === 'tesouro' ? '0,5' : '100'}
                 value={form.quantity}
                 onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
                 required
