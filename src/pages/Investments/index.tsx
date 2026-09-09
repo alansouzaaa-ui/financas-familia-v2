@@ -248,6 +248,8 @@ export default function InvestmentsPage() {
       setQuotes(map)
       setIbov(ibovData)
       setLastUpdated(new Date())
+      // Re-busca os preços do Tesouro também (permite retry pelo botão Atualizar)
+      fetchTesouroTitles().then(setTesouroTitles).catch(() => {})
     } catch {
       setQuotesError('Não foi possível buscar cotações. Verifique sua conexão.')
     } finally {
