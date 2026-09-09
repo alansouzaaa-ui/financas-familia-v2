@@ -8,6 +8,8 @@ import { fmt } from '@/lib/formatters'
 import { exportToCSV } from '@/lib/csvExport'
 import Kpi from '@/components/metrics/Kpi'
 import SafeToSpend from '@/components/metrics/SafeToSpend'
+import InsightsCard from '@/components/metrics/InsightsCard'
+import CashFlowProjection from '@/components/metrics/CashFlowProjection'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
 import MonthForecastCard from '@/components/metrics/MonthForecastCard'
@@ -184,6 +186,9 @@ export default function OverviewPage() {
         />
       </div>
 
+      {/* ── Insights narrativos ────────────────────────────── */}
+      <InsightsCard months={allMonths} />
+
       {/* ── Nível 2 · Fluxo + A pagar/receber ──────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         <div className="lg:col-span-2 card">
@@ -212,6 +217,11 @@ export default function OverviewPage() {
         <div className="lg:col-span-1">
           <PayablesPanel month={currentMonthData} label={currentLabel} />
         </div>
+      </div>
+
+      {/* ── Fluxo de caixa projetado ───────────────────────── */}
+      <div className="mb-5">
+        <CashFlowProjection months={allMonths} />
       </div>
 
       {/* ── Nível 3 · Para onde vai o dinheiro ─────────────── */}

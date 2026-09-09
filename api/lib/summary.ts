@@ -78,6 +78,18 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
   if (faltaReceber > 0.005) lines.push(`📥 Falta receber: ${brl(faltaReceber)}`)
   if (topLabel && topValue > 0.005) lines.push(`🏷️ Maior gasto: ${topLabel} — ${brl(topValue)}`)
 
+  // Insight: despesas vs mês anterior
+  const pIdx = monthIdx === 0 ? 11 : monthIdx - 1
+  const pYear = monthIdx === 0 ? year - 1 : year
+  const prev = payload?.manual_months?.find(m => m.month === MONTH_ABBRS[pIdx] && m.year === pYear)
+  if (prev) {
+    const pExp = prev.fixedCosts + prev.loans + prev.cards + prev.variableCosts
+    if (pExp > 0) {
+      const d = ((expenses - pExp) / pExp) * 100
+      if (Math.abs(d) >= 5) lines.push(`${d > 0 ? '📈' : '📉'} Despesas ${d > 0 ? 'subiram' : 'caíram'} ${Math.abs(d).toFixed(0)}% vs ${MONTH_NAMES[pIdx]}`)
+    }
+  }
+
   // Vencimento de cartão nos próximos 5 dias
   const dueSoon: string[] = []
   for (const acc of payload?.card_accounts ?? []) {
