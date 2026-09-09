@@ -75,6 +75,7 @@ export interface CardAccount {
   id: string
   name: string
   dueDay?: number   // dia de vencimento da fatura (ex: 10)
+  limit?: number    // limite total do cartão (BRL); disponível = limite − fatura atual
 }
 
 export interface MonthPoint extends MonthRecord {

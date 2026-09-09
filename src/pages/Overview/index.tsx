@@ -7,6 +7,7 @@ import { calcHealthScore, calcAlerts } from '@/lib/calculations'
 import { fmt } from '@/lib/formatters'
 import { exportToCSV } from '@/lib/csvExport'
 import Kpi from '@/components/metrics/Kpi'
+import SafeToSpend from '@/components/metrics/SafeToSpend'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
 import MonthForecastCard from '@/components/metrics/MonthForecastCard'
@@ -159,6 +160,9 @@ export default function OverviewPage() {
           </div>
         </details>
       )}
+
+      {/* ── Posso gastar — o número da decisão ─────────────── */}
+      <SafeToSpend month={currentMonthData} />
 
       {/* ── Nível 1 · KPIs executivos ──────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

@@ -8,6 +8,19 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import NovaDespesaModal from '@/pages/Launch/NovaDespesaModal'
 
+// Dias até o próximo vencimento (dia `dueDay`) a partir de hoje.
+function daysUntilDue(dueDay?: number): number | null {
+  if (!dueDay || dueDay < 1 || dueDay > 31) return null
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  let due = new Date(now.getFullYear(), now.getMonth(), dueDay)
+  if (dueDay < now.getDate()) due = new Date(now.getFullYear(), now.getMonth() + 1, dueDay)
+  return Math.round((due.getTime() - today.getTime()) / 86400000)
+}
+function dueLabel(n: number): string {
+  return n === 0 ? 'vence hoje' : n === 1 ? 'vence amanhã' : `vence em ${n} dias`
+}
+
 const MONTHS: { value: MonthAbbr; label: string }[] = [
   { value: 'Jan', label: 'Janeiro' }, { value: 'Fev', label: 'Fevereiro' },
   { value: 'Mar', label: 'Março' },   { value: 'Abr', label: 'Abril' },
@@ -27,6 +40,7 @@ export default function CardsPage() {
   const addAccount = useCardsStore(s => s.addAccount)
   const renameAccount = useCardsStore(s => s.renameAccount)
   const setDueDay = useCardsStore(s => s.setDueDay)
+  const setLimit = useCardsStore(s => s.setLimit)
   const deleteAccount = useCardsStore(s => s.deleteAccount)
 
   const now = new Date()
@@ -148,6 +162,15 @@ export default function CardsPage() {
                     className="w-14 px-2 py-1.5 text-[13px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none text-center focus:border-[var(--color-text-primary)]"
                   />
                 </div>
+                <div className="flex items-center gap-1.5 text-[12px] text-[var(--color-text-muted)]">
+                  limite R$
+                  <input
+                    type="number" min={0} step={100} placeholder="—"
+                    defaultValue={a.limit ?? ''}
+                    onBlur={e => { const v = parseFloat(e.target.value); setLimit(a.id, isFinite(v) ? v : undefined) }}
+                    className="w-24 px-2 py-1.5 text-[13px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none text-right focus:border-[var(--color-text-primary)]"
+                  />
+                </div>
                 <button
                   onClick={() => { if (confirm(`Excluir o cartão "${a.name}"? Os lançamentos não são apagados, só ficam sem cartão.`)) deleteAccount(a.id) }}
                   className="text-[var(--color-text-muted)] hover:text-[var(--color-neg)] transition-colors p-1"
@@ -178,6 +201,11 @@ export default function CardsPage() {
             const items = byCard.get(a.id) ?? []
             const total = items.reduce((s, i) => s + i.value, 0)
             const open = openId === a.id
+            const dueIn = daysUntilDue(a.dueDay)
+            const dueSoon = dueIn !== null && dueIn <= 3
+            const available = a.limit != null ? a.limit - total : null
+            const usedPct = a.limit && a.limit > 0 ? Math.min(100, (total / a.limit) * 100) : null
+            const usedColor = usedPct == null ? '' : usedPct >= 90 ? 'var(--color-neg)' : usedPct >= 70 ? 'var(--color-chart-amber)' : 'var(--color-pos)'
             return (
               <div key={a.id} className="card !p-0 overflow-hidden">
                 <button
@@ -189,13 +217,33 @@ export default function CardsPage() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-medium truncate">{a.name}</div>
-                    <div className="text-[11.5px] text-[var(--color-text-muted)]">
-                      {items.length} {items.length === 1 ? 'lançamento' : 'lançamentos'} · vence dia {a.dueDay ?? 10}
+                    <div className="text-[11.5px] text-[var(--color-text-muted)] flex items-center gap-1.5 flex-wrap">
+                      <span>{items.length} {items.length === 1 ? 'lançamento' : 'lançamentos'}</span>
+                      {dueIn !== null && (
+                        <><span aria-hidden="true">·</span>
+                        <span className={dueSoon ? 'font-medium text-[var(--color-chart-amber)]' : ''}>
+                          {dueSoon && '🔔 '}{dueLabel(dueIn)}{a.dueDay ? ` (dia ${a.dueDay})` : ''}
+                        </span></>
+                      )}
                     </div>
                   </div>
                   <span className="font-mono font-semibold text-[15px] neg">{fmt(total)}</span>
                   <span className={`text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
                 </button>
+                {a.limit != null && (
+                  <div className="px-4 pb-3 -mt-1">
+                    <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${usedPct}%`, background: usedColor }} />
+                    </div>
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--color-text-muted)]">
+                      <span>{usedPct!.toFixed(0)}% do limite ({fmt(a.limit)})</span>
+                      <span className={available != null && available < 0 ? 'text-[var(--color-neg)] font-medium' : ''}>
+                        {available != null && available < 0 ? 'estourou ' : 'disponível '}
+                        <span className="font-mono">{fmt(Math.abs(available ?? 0))}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {open && (
                   <div className="border-t border-[var(--color-border)]">
                     {items.map(it => {

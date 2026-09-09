@@ -8,6 +8,7 @@ interface CardsStore {
   addAccount: (name: string) => CardAccount
   renameAccount: (id: string, name: string) => void
   setDueDay: (id: string, dueDay: number) => void
+  setLimit: (id: string, limit: number | undefined) => void
   deleteAccount: (id: string) => void
 }
 
@@ -29,6 +30,8 @@ export const useCardsStore = create<CardsStore>()(
         set((s) => ({ accounts: s.accounts.map(a => a.id === id ? { ...a, name: name.trim().slice(0, 40) } : a) })),
       setDueDay: (id, dueDay) =>
         set((s) => ({ accounts: s.accounts.map(a => a.id === id ? { ...a, dueDay } : a) })),
+      setLimit: (id, limit) =>
+        set((s) => ({ accounts: s.accounts.map(a => a.id === id ? { ...a, limit: limit && limit > 0 ? limit : undefined } : a) })),
       deleteAccount: (id) =>
         set((s) => ({ accounts: s.accounts.filter(a => a.id !== id) })),
     }),
