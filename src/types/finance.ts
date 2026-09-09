@@ -49,6 +49,7 @@ export const EXPENSE_TAGS: ExpenseTag[] = [
   { id: 'alimentacao',   label: 'Alimentação',    emoji: '🍽️', color: '#F59E0B' },
   { id: 'restaurante',   label: 'Restaurante',    emoji: '🍔', color: '#F97316' },
   { id: 'transporte',    label: 'Transporte',     emoji: '🚗', color: '#10B981' },
+  { id: 'uber',          label: 'Uber',           emoji: '🚕', color: '#6366F1' },
   { id: 'combustivel',   label: 'Combustível',    emoji: '⛽', color: '#6EE7B7' },
   { id: 'saude',         label: 'Saúde',          emoji: '❤️', color: '#EF4444' },
   { id: 'farmacia',      label: 'Farmácia',       emoji: '💊', color: '#F87171' },

@@ -55,6 +55,7 @@ interface FormItem {
   cardId?: string
   recurringId?: string
   tag?: string
+  occurredAt?: string
 }
 
 function makeItem(category: string, isPaid = false): FormItem {
@@ -94,7 +95,7 @@ export default function LaunchPage() {
       dirtyRef.current = false
       setFormItems(nonCard.map(i => ({
         id: i.id, description: i.description, value: String(i.value),
-        category: i.category, isPaid: i.isPaid, recurringId: i.recurringId, tag: i.tag,
+        category: i.category, isPaid: i.isPaid, recurringId: i.recurringId, tag: i.tag, occurredAt: i.occurredAt,
       })))
       return
     }
@@ -130,7 +131,7 @@ export default function LaunchPage() {
   }, [])
 
   // Modal "Nova despesa" adiciona itens não-cartão ao formulário (o auto-save grava)
-  const addFromModal = useCallback((it: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string }) => {
+  const addFromModal = useCallback((it: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string; occurredAt?: string }) => {
     dirtyRef.current = true
     setFormItems(prev => [...prev, {
       id: crypto.randomUUID(),
@@ -140,6 +141,7 @@ export default function LaunchPage() {
       isPaid: it.isPaid,
       tag: it.tag,
       recurringId: it.recurringId,
+      occurredAt: it.occurredAt,
     }])
   }, [])
 
@@ -253,6 +255,7 @@ export default function LaunchPage() {
         isPaid: i.isPaid,
         ...(i.recurringId ? { recurringId: i.recurringId } : {}),
         ...(i.tag ? { tag: i.tag } : {}),
+        ...(i.occurredAt ? { occurredAt: i.occurredAt } : {}),
       }))
 
     const year = parseInt(selectedYear)

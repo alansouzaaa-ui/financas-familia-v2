@@ -22,7 +22,7 @@ interface Props {
   monthLabel: string
   onClose: () => void
   // Adiciona um item NÃO-cartão ao formulário do mês atual (evita conflito com o auto-save)
-  onAddFormItem: (item: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string }) => void
+  onAddFormItem: (item: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string; occurredAt?: string }) => void
   defaultGrupo?: Grupo
   defaultCardId?: string
 }
@@ -42,6 +42,7 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   const [autoTagged, setAutoTagged] = useState(false)
   const [isPaid, setIsPaid] = useState(false)
   const [repetir, setRepetir] = useState(false)
+  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10))
 
   // Auto-categoriza pela descrição enquanto o usuário digita, até que ele
   // escolha uma categoria manualmente (aí paramos de sobrescrever).
@@ -61,6 +62,7 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   function save() {
     if (!canSave) return
     const desc = description.trim().slice(0, 120)
+    const occurredAt = new Date(data + 'T12:00:00').toISOString()
     // Se ficou sem categoria, tenta adivinhar pela descrição no ato de salvar
     const finalTag = (tag || (!isRevenue ? guessTag(desc) : undefined)) || undefined
     let recurringId: string | undefined
@@ -73,12 +75,12 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
       // Cartão: grava direto no mês (a aba Cartões/Reports leem daí)
       const item: MonthItem = {
         id: crypto.randomUUID(), description: desc, value: valNum, category: 'cards',
-        isPaid, ...(cardId ? { cardId } : {}), ...(finalTag ? { tag: finalTag } : {}), ...(recurringId ? { recurringId } : {}),
+        isPaid, occurredAt, ...(cardId ? { cardId } : {}), ...(finalTag ? { tag: finalTag } : {}), ...(recurringId ? { recurringId } : {}),
       }
       upsertItem(year, month, item)
     } else {
       // Demais grupos: entra no formulário do mês (auto-save cuida da gravação)
-      onAddFormItem({ description: desc, value: valNum, category: grupo, isPaid, tag: finalTag, recurringId })
+      onAddFormItem({ description: desc, value: valNum, category: grupo, isPaid, tag: finalTag, recurringId, occurredAt })
     }
     onClose()
   }
@@ -130,6 +132,15 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
               type="text" placeholder="Ex: Mercado, Uber, Aluguel…"
               value={description} onChange={e => onDescriptionChange(e.target.value)}
               className="w-full px-3 py-2.5 text-[14px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] outline-none focus:border-[var(--color-text-primary)]"
+            />
+          </div>
+
+          {/* Data do lançamento */}
+          <div>
+            <label className="label block mb-1.5">Data</label>
+            <input
+              type="date" value={data} onChange={e => setData(e.target.value)}
+              className="w-full px-3 py-2.5 text-[14px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] outline-none focus:border-[var(--color-text-primary)]"
             />
           </div>
 

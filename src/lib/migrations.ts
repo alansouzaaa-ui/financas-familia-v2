@@ -1,20 +1,16 @@
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { guessTag } from '@/lib/autoTag'
 
-// Backfill único: reclassifica lançamentos antigos de "mercadinho condomínio"
-// para a categoria dedicada. Roda uma vez (trava em localStorage) e depois do
-// primeiro sync, para não ser sobrescrito pelo pull do Gist.
-const FLAG = 'mig_mercado_condominio_v1'
-
-export function backfillMercadoCondominio(): number {
+// Backfill genérico: reclassifica lançamentos antigos cuja descrição casa com
+// uma categoria por palavra-chave (guessTag), movendo-os para essa categoria.
+// Roda uma vez por chave (trava em localStorage) e depois do 1º sync, para não
+// ser sobrescrito pelo pull do Gist.
+function backfillTag(target: string, flag: string): number {
   try {
-    if (localStorage.getItem(FLAG)) return 0
+    if (localStorage.getItem(flag)) return 0
   } catch { /* sem localStorage: segue e não trava */ }
 
   const store = useFinanceStore.getState()
-  const target = 'mercado_condominio'
-
-  // Coleta as mudanças antes de aplicar (upsertItem lê o estado a cada chamada)
   const updates: { year: number; month: (typeof store.allMonths)[number]['month']; item: NonNullable<(typeof store.allMonths)[number]['items']>[number] }[] = []
   for (const m of store.allMonths) {
     for (const it of m.items ?? []) {
@@ -25,11 +21,16 @@ export function backfillMercadoCondominio(): number {
       }
     }
   }
+  for (const u of updates) store.upsertItem(u.year, u.month, u.item)
 
-  for (const u of updates) {
-    store.upsertItem(u.year, u.month, u.item)
-  }
-
-  try { localStorage.setItem(FLAG, new Date().toISOString()) } catch { /* noop */ }
+  try { localStorage.setItem(flag, new Date().toISOString()) } catch { /* noop */ }
   return updates.length
+}
+
+export function backfillMercadoCondominio(): number {
+  return backfillTag('mercado_condominio', 'mig_mercado_condominio_v1')
+}
+
+export function backfillUber(): number {
+  return backfillTag('uber', 'mig_uber_v1')
 }

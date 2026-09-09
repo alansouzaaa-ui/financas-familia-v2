@@ -4,7 +4,7 @@ import { clearSession } from '@/pages/Login/auth'
 import { useDarkMode } from '@/hooks/useDarkMode'
 import { useSyncManager, type SyncStatus } from '@/hooks/useSyncManager'
 import { useUiStore } from '@/stores/useUiStore'
-import { backfillMercadoCondominio } from '@/lib/migrations'
+import { backfillMercadoCondominio, backfillUber } from '@/lib/migrations'
 import { isSupabaseConfigured } from '@/config/supabase'
 import MarketBar from '@/components/layout/MarketBar'
 import AIAssistant from '@/components/layout/AIAssistant'
@@ -238,7 +238,7 @@ export default function AppShell({ onLogout }: { onLogout: () => void }) {
   // Migração única: reclassifica lançamentos antigos de "mercadinho condomínio".
   // Só depois do 1º sync resolver, para não ser sobrescrita pelo pull do Gist.
   useEffect(() => {
-    if (firstSyncSettled) backfillMercadoCondominio()
+    if (firstSyncSettled) { backfillMercadoCondominio(); backfillUber() }
   }, [firstSyncSettled])
 
   const currentPage = NAV_ITEMS.find(i =>

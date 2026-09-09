@@ -122,6 +122,7 @@ export default function CardsPage() {
             id: crypto.randomUUID(), description: it.description, value: it.value,
             category: it.category as MonthItem['category'], isPaid: it.isPaid,
             ...(it.tag ? { tag: it.tag } : {}), ...(it.recurringId ? { recurringId: it.recurringId } : {}),
+            ...(it.occurredAt ? { occurredAt: it.occurredAt } : {}),
           })}
         />
       )}
@@ -272,6 +273,13 @@ export default function CardsPage() {
                             className="w-[104px] pl-7 pr-2 py-2 text-[14px] font-mono font-semibold bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none text-right focus:border-[var(--color-text-primary)]"
                           />
                         </div>
+                        <input
+                          type="date"
+                          defaultValue={it.occurredAt ? it.occurredAt.slice(0, 10) : ''}
+                          onBlur={e => { const v = e.target.value; const iso = v ? new Date(v + 'T12:00:00').toISOString() : undefined; if (iso !== it.occurredAt) patchItem(it, { occurredAt: iso }) }}
+                          title="Data do lançamento"
+                          className="w-[130px] flex-shrink-0 px-2 py-2 text-[12px] font-mono bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[8px] outline-none text-[var(--color-text-muted)] focus:border-[var(--color-text-primary)]"
+                        />
                         <div className="relative flex-shrink-0">
                           <select
                             value={it.tag ?? ''}

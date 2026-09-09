@@ -6,7 +6,7 @@ import { EXPENSE_TAGS } from '@/types/finance'
 // Categorias "de sistema" que devem existir sempre — mesmo para quem já tem
 // a lista salva/sincronizada (senão a auto-categoria do Telegram apontaria
 // para uma tag inexistente e cairia em "sem categoria").
-const GUARANTEED_IDS = ['mercado_condominio']
+const GUARANTEED_IDS = ['mercado_condominio', 'uber']
 
 function ensureGuaranteed(tags: ExpenseTag[]): ExpenseTag[] {
   const have = new Set(tags.map(t => t.id))
