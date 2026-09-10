@@ -58,6 +58,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
+        cache: 'no-store',
         body: JSON.stringify({ user, pass }),
       })
 

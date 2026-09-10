@@ -22,7 +22,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!token) {
     return new Response(JSON.stringify({ authenticated: false }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, no-cache, must-revalidate' },
     })
   }
 
@@ -30,6 +30,6 @@ export default async function handler(req: Request): Promise<Response> {
 
   return new Response(JSON.stringify({ authenticated: valid }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, no-cache, must-revalidate' },
   })
 }

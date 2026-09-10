@@ -10,6 +10,7 @@ export default async function handler(req: Request): Promise<Response> {
     headers: {
       'Content-Type': 'application/json',
       'Set-Cookie': 'ff_session=; Max-Age=0; HttpOnly; Secure; SameSite=Strict; Path=/',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   })
 }

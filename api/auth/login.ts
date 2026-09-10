@@ -44,6 +44,7 @@ export default async function handler(req: Request): Promise<Response> {
     headers: {
       'Content-Type': 'application/json',
       'Set-Cookie': cookie,
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   })
 }
