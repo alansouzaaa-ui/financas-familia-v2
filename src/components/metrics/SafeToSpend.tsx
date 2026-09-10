@@ -30,37 +30,43 @@ export default function SafeToSpend({ month }: Props) {
 
   const positive = data.available >= 0
   const elapsedPct = Math.min(100, Math.round((data.dayNum / data.daysInMonth) * 100))
+  const accent = positive ? 'var(--color-pos)' : 'var(--color-neg)'
 
   return (
     <div
-      className="relative overflow-hidden rounded-[18px] border border-[var(--color-border)] p-5 md:p-6 mb-5"
+      className="rise relative overflow-hidden mb-5 border border-[var(--color-border)] p-5 md:p-7"
       style={{
-        background: positive
-          ? 'radial-gradient(120% 140% at 90% -20%, color-mix(in srgb, var(--color-pos) 12%, transparent), transparent 55%), var(--color-surface)'
-          : 'radial-gradient(120% 140% at 90% -20%, color-mix(in srgb, var(--color-neg) 12%, transparent), transparent 55%), var(--color-surface)',
-        boxShadow: 'var(--shadow-card)',
+        borderRadius: 'var(--r-card)',
+        background: 'var(--hero-glow), var(--color-surface)',
+        boxShadow: 'var(--shadow-hero)',
       }}
     >
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="section-head label">{positive ? 'Posso gastar' : 'Acima do orçamento'} · {data.label}</div>
-          <div className={`font-mono font-medium text-[clamp(30px,6vw,42px)] leading-none tracking-[-0.02em] mt-2.5 ${positive ? 'pos' : 'neg'}`}>
+      {/* faixa-assinatura à esquerda, na cor do veredito */}
+      <span aria-hidden className="absolute left-0 top-5 bottom-5 w-[3px] rounded-full" style={{ background: accent, opacity: 0.9 }} />
+
+      <div className="flex items-start justify-between gap-5 flex-wrap pl-3 md:pl-4">
+        <div className="min-w-0 max-w-[52ch]">
+          <div className="label" style={{ color: accent }}>
+            {positive ? 'Posso gastar' : 'Acima do orçamento'} · {data.label}
+          </div>
+          <div className={`font-mono font-medium text-[clamp(34px,7vw,52px)] leading-[0.95] tracking-[-0.025em] mt-3 ${positive ? 'pos' : 'neg'}`}>
             <Money value={data.available} />
           </div>
-          <p className="text-[12.5px] text-[var(--color-text-muted)] mt-2.5 max-w-[42ch]">
+          <p className="serif text-[clamp(15px,2.4vw,18px)] leading-snug text-[var(--color-text-primary)] mt-4">
             {positive
               ? (data.perDay !== null
-                  ? <>Dá pra gastar cerca de <span className="font-mono text-[var(--color-text-primary)]">{fmt(data.perDay)}</span> por dia nos <span className="text-[var(--color-text-primary)]">{data.daysLeft}</span> dias que faltam sem ficar no vermelho.</>
+                  ? <>Dá pra gastar cerca de <span className="font-mono" style={{ color: accent }}>{fmt(data.perDay)}</span> por dia nos {data.daysLeft} dias que faltam — sem ficar no vermelho.</>
                   : <>Sobra depois de todas as despesas já lançadas de {data.label}.</>)
               : <>As despesas de {data.label} já superam a renda. Segure gastos novos até equilibrar.</>}
           </p>
         </div>
         {data.isCurrent && (
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            <span className="label !tracking-[0.08em] opacity-80">{data.dayNum}/{data.daysInMonth} do mês</span>
-            <div className="w-[120px] h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${elapsedPct}%`, background: 'var(--color-text-muted)' }} />
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <span className="label !tracking-[0.08em]">dia {data.dayNum} de {data.daysInMonth}</span>
+            <div className="w-[128px] h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
+              <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${elapsedPct}%`, background: 'var(--color-primary)' }} />
             </div>
+            <span className="text-[11px] text-[var(--color-text-muted)]">{data.daysLeft} dias restantes</span>
           </div>
         )}
       </div>

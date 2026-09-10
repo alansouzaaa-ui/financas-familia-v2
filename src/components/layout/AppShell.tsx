@@ -148,8 +148,11 @@ function SidebarNav({ onLogout, syncStatus, lastSync, onPull }: { onLogout: () =
     <aside className="hidden md:flex flex-col w-52 min-h-screen bg-[var(--color-surface)] border-r border-[var(--color-border)] px-3 py-5 flex-shrink-0 transition-colors duration-200">
       <div className="px-2 mb-6 flex items-center justify-between">
         <div>
-          <div className="font-semibold text-[15px] text-[var(--color-text-primary)]">Finanças</div>
-          <div className="text-[11px] text-[var(--color-text-muted)] font-mono mt-0.5">Jul/2021 – hoje</div>
+          <div className="serif font-medium text-[18px] tracking-[-0.01em] text-[var(--color-text-primary)] flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-primary)' }} />
+            Finanças
+          </div>
+          <div className="text-[11px] text-[var(--color-text-muted)] font-mono mt-0.5 pl-3">Jul/2021 – hoje</div>
         </div>
         <div className="flex items-center gap-0.5">
           <SyncIndicator status={syncStatus} lastSync={lastSync} onPull={onPull} />
@@ -172,7 +175,7 @@ function SidebarNav({ onLogout, syncStatus, lastSync, onPull }: { onLogout: () =
             className={({ isActive }) =>
               `flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px] transition-all duration-150 ` +
               (isActive
-                ? 'bg-[var(--color-text-primary)] text-[var(--color-surface)] font-medium'
+                ? 'bg-[var(--color-primary)] text-white font-medium shadow-sm'
                 : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]')
             }
           >
@@ -211,12 +214,12 @@ function BottomNav() {
             end={item.to === '/'}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors ` +
-              (isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]')
+              (isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]')
             }
           >
             {({ isActive }) => (
               <>
-                <span className={`p-1.5 rounded-[10px] transition-colors ${isActive ? 'bg-[var(--color-surface-2)]' : ''}`}>
+                <span className={`p-1.5 rounded-[10px] transition-colors ${isActive ? 'bg-[var(--color-primary-tint)]' : ''}`}>
                   {item.icon}
                 </span>
                 {item.label}

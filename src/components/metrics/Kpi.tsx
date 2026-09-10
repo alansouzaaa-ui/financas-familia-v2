@@ -18,6 +18,8 @@ interface KpiProps {
   /** Rótulo do comparativo (ex: 'vs. mês anterior') */
   comparisonLabel?: string
   footer?: ReactNode
+  /** true = célula sem chrome de card (para linha unificada dividida por hairlines) */
+  bare?: boolean
 }
 
 const TONE_COLOR: Record<string, string> = {
@@ -28,7 +30,7 @@ const TONE_COLOR: Record<string, string> = {
 
 export default function Kpi({
   label, value, signed = false, previousValue, goodWhenUp = true,
-  trend, tone = 'neutral', comparisonLabel = 'vs. mês anterior', footer,
+  trend, tone = 'neutral', comparisonLabel = 'vs. mês anterior', footer, bare = false,
 }: KpiProps) {
   const change = previousValue !== undefined && previousValue !== 0
     ? ((value - previousValue) / Math.abs(previousValue)) * 100
@@ -40,7 +42,9 @@ export default function Kpi({
   const sparkStroke = TONE_COLOR[tone]
 
   return (
-    <div className="card flex flex-col gap-3 min-h-[128px]">
+    <div className={bare
+      ? 'bg-[var(--color-surface)] flex flex-col gap-3 p-4 min-h-[116px]'
+      : 'card flex flex-col gap-3 min-h-[128px]'}>
       <div className="flex items-start justify-between gap-2">
         <span className="label">{label}</span>
         {change !== null && (

@@ -67,6 +67,15 @@ export default function OverviewPage() {
     }
   }, [allMonths])
 
+  // Saudação por horário — calor sem exagero
+  const greeting = (() => {
+    const h = new Date().getHours()
+    if (h < 6) return 'Boa madrugada, Alan'
+    if (h < 12) return 'Bom dia, Alan'
+    if (h < 18) return 'Boa tarde, Alan'
+    return 'Boa noite, Alan'
+  })()
+
   // Mês-calendário atual — base para "a pagar/receber" e projeção
   const now = new Date()
   const curMonthAbbr = MONTHS_ABR[now.getMonth()]
@@ -123,11 +132,12 @@ export default function OverviewPage() {
 
   return (
     <div>
-      {/* ── Header ─────────────────────────────────────────── */}
-      <header className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-5">
+      {/* ── Header editorial ───────────────────────────────── */}
+      <header className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Visão Geral</h1>
-          <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">{verdict}</p>
+          <p className="label">Visão Geral · {currentLabel}</p>
+          <h1 className="text-[clamp(22px,4vw,28px)] font-semibold tracking-[-0.015em] mt-1.5">{greeting}</h1>
+          <p className="text-[13px] text-[var(--color-text-muted)] mt-1.5 max-w-[56ch]">{verdict}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <PeriodSegment filter={periodFilter} onChange={setPeriodFilter} />
@@ -166,22 +176,25 @@ export default function OverviewPage() {
       {/* ── Posso gastar — o número da decisão ─────────────── */}
       <SafeToSpend month={currentMonthData} />
 
-      {/* ── Nível 1 · KPIs executivos ──────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      {/* ── Nível 1 · KPIs · uma peça, dividida por hairlines ─ */}
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-5 overflow-hidden border border-[var(--color-border)]"
+        style={{ borderRadius: 'var(--r-card)', background: 'var(--color-border)', boxShadow: 'var(--shadow-card)' }}
+      >
         <Kpi
-          label="Receitas" value={totals.revenue} tone="pos" goodWhenUp trend={trend.revenue}
+          bare label="Receitas" value={totals.revenue} tone="pos" goodWhenUp trend={trend.revenue}
           previousValue={isCurrentMonthView ? prevMonth?.revenue : undefined}
         />
         <Kpi
-          label="Despesas" value={totals.expenses} tone="neutral" goodWhenUp={false} trend={trend.expenses}
+          bare label="Despesas" value={totals.expenses} tone="neutral" goodWhenUp={false} trend={trend.expenses}
           previousValue={isCurrentMonthView ? prevMonth?.totalExpenses : undefined}
         />
         <Kpi
-          label="Resultado" value={totals.balance} signed tone={totals.balance >= 0 ? 'pos' : 'neg'} goodWhenUp trend={trend.balance}
+          bare label="Resultado" value={totals.balance} signed tone={totals.balance >= 0 ? 'pos' : 'neg'} goodWhenUp trend={trend.balance}
           previousValue={isCurrentMonthView ? prevMonth?.balance : undefined}
         />
         <Kpi
-          label={`A pagar · ${currentLabel}`} value={toPay} tone={toPay > 0.005 ? 'neg' : 'pos'}
+          bare label={`A pagar · ${currentLabel}`} value={toPay} tone={toPay > 0.005 ? 'neg' : 'pos'}
           comparisonLabel="" footer={toPay > 0.005 ? 'ainda não quitado neste mês' : 'tudo quitado 🎉'}
         />
       </div>
