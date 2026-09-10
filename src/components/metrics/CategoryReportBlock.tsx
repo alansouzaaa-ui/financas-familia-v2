@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { MonthPoint, ExpenseTag } from '@/types/finance'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
+import { monthKey } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
@@ -14,6 +15,8 @@ interface Props {
 }
 
 const SEM_CAT_COLOR = '#4B5563'
+// Relatórios só a partir daqui (dados antigos = faturas agregadas sem categoria)
+const REPORT_FROM = 202609 // Set/2026
 
 export default function CategoryReportBlock({ months, compact = false, topN = 6 }: Props) {
   const tags = useCategoriesStore(s => s.tags)
@@ -24,8 +27,11 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
     let semCat = 0
     let total = 0
     for (const m of months) {
+      if (monthKey(m.year, m.month) < REPORT_FROM) continue   // só Set/2026 pra frente
       for (const it of m.items ?? []) {
         if (it.category === 'revenue') continue
+        // Esconde faturas de cartão sem categoria (linhas agregadas antigas)
+        if (it.category === 'cards' && !it.tag) continue
         total += it.value
         if (it.tag && tagMap[it.tag]) byTag.set(it.tag, (byTag.get(it.tag) ?? 0) + it.value)
         else semCat += it.value
@@ -112,6 +118,11 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
           )}
         </div>
       </div>
+      {!compact && (
+        <p className="text-[11px] text-[var(--color-text-muted)] mt-4 pt-3 border-t border-[var(--hairline)]">
+          Considera lançamentos de <b>Set/2026 em diante</b> e ignora faturas de cartão sem categoria (linhas agregadas antigas).
+        </p>
+      )}
     </Card>
   )
 }
