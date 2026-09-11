@@ -148,8 +148,8 @@ function SidebarNav({ onLogout, syncStatus, lastSync, onPull }: { onLogout: () =
     <aside className="hidden md:flex flex-col w-52 min-h-screen bg-[var(--color-surface)] border-r border-[var(--color-border)] px-3 py-5 flex-shrink-0 transition-colors duration-200">
       <div className="px-2 mb-6 flex items-center justify-between">
         <div>
-          <div className="serif font-medium text-[18px] tracking-[-0.01em] text-[var(--color-text-primary)] flex items-center gap-1.5">
-            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-primary)' }} />
+          <div className="serif font-medium text-[18px] tracking-[-0.01em] flex items-center gap-1.5" style={{ color: 'var(--color-primary)' }}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-accent)' }} />
             Finanças
           </div>
           <div className="text-[11px] text-[var(--color-text-muted)] font-mono mt-0.5 pl-3">Jul/2021 – hoje</div>
