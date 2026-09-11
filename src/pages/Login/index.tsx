@@ -6,25 +6,44 @@ const LOCKOUT_MS = 5 * 60 * 1000 // 5 minutos
 
 // ─── rate limiting (UX only — actual auth is server-side) ─────────────────────
 const ATTEMPT_KEY = 'ff_attempts'
+const ATTEMPT_TTL = 15 * 60 * 1000 // esquece tentativas após 15 min sem atividade
 
-function getAttemptState(): { count: number; lockedUntil: number } {
+type AttemptState = { count: number; lockedUntil: number; ts: number }
+const EMPTY: AttemptState = { count: 0, lockedUntil: 0, ts: 0 }
+
+function clearAttempts() {
+  localStorage.removeItem(ATTEMPT_KEY)
+}
+
+function getAttemptState(): AttemptState {
+  let s: AttemptState
   try {
-    return JSON.parse(localStorage.getItem(ATTEMPT_KEY) || '{"count":0,"lockedUntil":0}')
+    s = JSON.parse(localStorage.getItem(ATTEMPT_KEY) || '') as AttemptState
+    if (!s || typeof s.count !== 'number') return EMPTY
   } catch {
-    return { count: 0, lockedUntil: 0 }
+    return EMPTY
   }
+  const now = Date.now()
+  // Bloqueio expirou → limpa tudo (não recebe o usuário já "bloqueado" no load seguinte)
+  if (s.lockedUntil && now >= s.lockedUntil) {
+    clearAttempts()
+    return EMPTY
+  }
+  // Tentativas antigas decaem — não acumulam entre sessões distantes
+  if (!s.lockedUntil && s.ts && now - s.ts > ATTEMPT_TTL) {
+    clearAttempts()
+    return EMPTY
+  }
+  return { count: s.count || 0, lockedUntil: s.lockedUntil || 0, ts: s.ts || 0 }
 }
 
 function recordFailedAttempt() {
   const state = getAttemptState()
   const count = state.count + 1
-  const lockedUntil = count >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : state.lockedUntil
-  localStorage.setItem(ATTEMPT_KEY, JSON.stringify({ count, lockedUntil }))
+  const now = Date.now()
+  const lockedUntil = count >= MAX_ATTEMPTS ? now + LOCKOUT_MS : state.lockedUntil
+  localStorage.setItem(ATTEMPT_KEY, JSON.stringify({ count, lockedUntil, ts: now }))
   return { count, lockedUntil }
-}
-
-function clearAttempts() {
-  localStorage.removeItem(ATTEMPT_KEY)
 }
 
 function isLocked(): { locked: boolean; remaining: number } {
@@ -65,18 +84,23 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       if (res.ok) {
         clearAttempts()
         onLogin()
-      } else {
+      } else if (res.status === 401) {
+        // Só senha realmente incorreta conta para o bloqueio
         const { count } = recordFailedAttempt()
         const remaining = MAX_ATTEMPTS - count
         if (remaining <= 0) {
-          setError(`Conta bloqueada por ${LOCKOUT_MS / 60000} minutos após ${MAX_ATTEMPTS} tentativas.`)
+          setError(`Muitas tentativas. Aguarde ${LOCKOUT_MS / 60000} minutos para tentar de novo.`)
         } else {
           setError(`Usuário ou senha incorretos. ${remaining} tentativa${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`)
         }
         setLoading(false)
+      } else {
+        // Erro do servidor (ex.: 500/502) — não é senha errada, não penaliza o usuário
+        setError('Não foi possível entrar agora. Tente novamente em instantes.')
+        setLoading(false)
       }
     } catch {
-      setError('Erro de conexão. Tente novamente.')
+      setError('Erro de conexão. Verifique a internet e tente novamente.')
       setLoading(false)
     }
   }
