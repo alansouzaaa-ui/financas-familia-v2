@@ -12,11 +12,12 @@ interface Props {
 
 const SEM_CAT_COLOR = '#6B7280'
 
-const GROUP_META: { key: 'fixedCosts' | 'variableCosts' | 'cards' | 'loans'; label: string; emoji: string }[] = [
+const GROUP_META: { key: 'fixedCosts' | 'variableCosts' | 'cards' | 'loans' | 'renegociacoes'; label: string; emoji: string }[] = [
   { key: 'fixedCosts',    label: 'Custos fixos',   emoji: '🏠' },
   { key: 'variableCosts', label: 'Custos variáveis', emoji: '🛒' },
   { key: 'cards',         label: 'Cartões',        emoji: '💳' },
   { key: 'loans',         label: 'Empréstimos',    emoji: '🏦' },
+  { key: 'renegociacoes', label: 'Renegociações',  emoji: '🤝' },
 ]
 
 // "Para onde vai o dinheiro" em barras horizontais. Usa as categorias de gasto
@@ -40,13 +41,14 @@ export default function CategoryBars({ months, topN = 7 }: Props) {
     }
 
     // Breakdown por grupo contábil (sempre disponível a partir dos agregados)
-    const groupTotal = { fixedCosts: 0, variableCosts: 0, cards: 0, loans: 0 }
+    const groupTotal = { fixedCosts: 0, variableCosts: 0, cards: 0, loans: 0, renegociacoes: 0 }
     let groupSum = 0
     for (const m of months) {
       groupTotal.fixedCosts += m.fixedCosts
       groupTotal.variableCosts += m.variableCosts
       groupTotal.cards += m.cards
       groupTotal.loans += m.loans
+      groupTotal.renegociacoes += m.renegociacoes ?? 0
       groupSum += m.totalExpenses
     }
 

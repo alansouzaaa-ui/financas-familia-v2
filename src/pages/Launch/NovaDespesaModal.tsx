@@ -6,12 +6,13 @@ import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import type { MonthAbbr, MonthItem } from '@/types/finance'
 
-type Grupo = 'variableCosts' | 'fixedCosts' | 'loans' | 'cards' | 'revenue'
+type Grupo = 'variableCosts' | 'fixedCosts' | 'loans' | 'renegociacoes' | 'cards' | 'revenue'
 
 const GRUPOS: { id: Grupo; label: string; color: string }[] = [
   { id: 'variableCosts', label: 'Variável',    color: '#8B5CF6' },
   { id: 'fixedCosts',    label: 'Fixo',        color: '#378ADD' },
   { id: 'loans',         label: 'Empréstimo',  color: '#EF9F27' },
+  { id: 'renegociacoes', label: 'Renegociação', color: '#0E7C86' },
   { id: 'cards',         label: 'Cartão',      color: '#D85A30' },
   { id: 'revenue',       label: 'Receita',     color: '#1D9E75' },
 ]

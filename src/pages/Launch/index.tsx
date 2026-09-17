@@ -23,17 +23,18 @@ const MONTHS_LIST: { value: string; label: string }[] = [
 
 const YEAR_OPTIONS = [2023, 2024, 2025, 2026, 2027].map(y => ({ value: String(y), label: String(y) }))
 
-const CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans', 'cards'] as const
+const CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans', 'renegociacoes', 'cards'] as const
 type Category = typeof CATEGORIES[number]
 // Categorias editáveis no formulário. Cartões saíram daqui — são geridos na
 // aba Cartões; aqui aparecem só como um resumo (total da fatura).
-const EDIT_CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans'] as const
+const EDIT_CATEGORIES = ['revenue', 'fixedCosts', 'variableCosts', 'loans', 'renegociacoes'] as const
 
 const CATEGORY_ACCENT: Record<Category, string> = {
   revenue:       '#1D9E75',
   fixedCosts:    '#378ADD',
   variableCosts: '#8B5CF6',
   loans:         '#EF9F27',
+  renegociacoes: '#0E7C86',
   cards:         '#D85A30',
 }
 
@@ -280,6 +281,7 @@ export default function LaunchPage() {
       fixedCosts: sum('fixedCosts'),
       variableCosts: sum('variableCosts'),
       loans: sum('loans'),
+      renegociacoes: sum('renegociacoes'),
       cards: sum('cards'),
       source: 'manual',
       items: finalItems,
@@ -333,7 +335,7 @@ export default function LaunchPage() {
     if (i.category in catTotals) catTotals[i.category] += v
   }
   catTotals.cards = cardTotalStore
-  const totalExpenses = catTotals.fixedCosts + catTotals.variableCosts + catTotals.loans + catTotals.cards
+  const totalExpenses = catTotals.fixedCosts + catTotals.variableCosts + catTotals.loans + catTotals.renegociacoes + catTotals.cards
   const balance = catTotals.revenue - totalExpenses
   const consolidatedRev = formItems.filter(i => i.category === 'revenue' && i.isPaid).reduce((s, i) => s + (parseFloat(i.value) || 0), 0)
   const consolidatedExp =

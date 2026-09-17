@@ -3,7 +3,8 @@ import { monthLabel } from './formatters'
 
 export function toMonthPoint(r: MonthRecord): MonthPoint {
   const variableCosts = r.variableCosts ?? 0
-  const totalExpenses = r.fixedCosts + r.loans + r.cards + variableCosts
+  const renegociacoes = r.renegociacoes ?? 0
+  const totalExpenses = r.fixedCosts + r.loans + r.cards + variableCosts + renegociacoes
   const balance = r.revenue - totalExpenses
 
   // Consolidated = only paid items
@@ -19,6 +20,7 @@ export function toMonthPoint(r: MonthRecord): MonthPoint {
   return {
     ...r,
     variableCosts,
+    renegociacoes,
     totalExpenses,
     balance,
     consolidatedRevenue,
@@ -43,12 +45,13 @@ export function buildAnnualSummary(months: MonthPoint[]): AnnualSummary[] {
       const loans         = ms.reduce((s, m) => s + m.loans, 0)
       const cards         = ms.reduce((s, m) => s + m.cards, 0)
       const variableCosts = ms.reduce((s, m) => s + (m.variableCosts ?? 0), 0)
-      const totalExpenses = fixedCosts + loans + cards + variableCosts
+      const renegociacoes = ms.reduce((s, m) => s + (m.renegociacoes ?? 0), 0)
+      const totalExpenses = fixedCosts + loans + cards + variableCosts + renegociacoes
       const balance = revenue - totalExpenses
       return {
         year,
         monthCount: ms.length,
-        revenue, fixedCosts, loans, cards, variableCosts,
+        revenue, fixedCosts, loans, cards, variableCosts, renegociacoes,
         totalExpenses,
         balance,
         avgBalance: balance / ms.length,
@@ -98,6 +101,7 @@ export function calcAlerts(months: MonthPoint[], goals: FinancialGoal[]): Alert[
     loans:         prev.reduce((s, m) => s + m.loans, 0) / prev.length,
     cards:         prev.reduce((s, m) => s + m.cards, 0) / prev.length,
     variableCosts: prev.reduce((s, m) => s + (m.variableCosts ?? 0), 0) / prev.length,
+    renegociacoes: prev.reduce((s, m) => s + (m.renegociacoes ?? 0), 0) / prev.length,
   }
 
   const checks: Array<{ key: keyof typeof avg; label: string; higherIsBad: boolean }> = [
@@ -105,6 +109,7 @@ export function calcAlerts(months: MonthPoint[], goals: FinancialGoal[]): Alert[
     { key: 'loans',         label: 'Empréstimos',      higherIsBad: true },
     { key: 'fixedCosts',    label: 'Custos fixos',     higherIsBad: true },
     { key: 'variableCosts', label: 'Custos variáveis', higherIsBad: true },
+    { key: 'renegociacoes', label: 'Renegociações',    higherIsBad: true },
     { key: 'revenue',       label: 'Receita',          higherIsBad: false },
   ]
 

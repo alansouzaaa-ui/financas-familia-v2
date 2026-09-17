@@ -13,7 +13,7 @@ const TAG_LABELS: Record<string, string> = {
   investimentos: 'Investimentos', outros: 'Outros',
 }
 const GROUP_LABELS: Record<string, string> = {
-  fixedCosts: 'Custos fixos', variableCosts: 'Custos variáveis', cards: 'Cartões', loans: 'Empréstimos',
+  fixedCosts: 'Custos fixos', variableCosts: 'Custos variáveis', cards: 'Cartões', loans: 'Empréstimos', renegociacoes: 'Renegociações',
 }
 
 function brl(v: number): string {
@@ -46,7 +46,7 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
     return `📊 Resumo de ${monthName}\n\nAinda não há lançamentos neste mês.\nMande uma despesa aqui (ex: "mercado 150") ou lance no app.`
   }
 
-  const expenses = record.fixedCosts + record.loans + record.cards + record.variableCosts
+  const expenses = record.fixedCosts + record.loans + record.cards + record.variableCosts + (record.renegociacoes ?? 0)
   const balance = record.revenue - expenses
   const faltaPagar = items.filter(i => i.category !== 'revenue' && !i.isPaid).reduce((s, i) => s + i.value, 0)
   const pendentes = items.filter(i => i.category !== 'revenue' && !i.isPaid).length
@@ -65,7 +65,7 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
   } else {
     const groups: [string, number][] = [
       ['fixedCosts', record.fixedCosts], ['variableCosts', record.variableCosts],
-      ['cards', record.cards], ['loans', record.loans],
+      ['cards', record.cards], ['loans', record.loans], ['renegociacoes', record.renegociacoes ?? 0],
     ]
     for (const [g, v] of groups) if (v > topValue) { topValue = v; topLabel = GROUP_LABELS[g] }
   }
@@ -83,7 +83,7 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
   const pYear = monthIdx === 0 ? year - 1 : year
   const prev = payload?.manual_months?.find(m => m.month === MONTH_ABBRS[pIdx] && m.year === pYear)
   if (prev) {
-    const pExp = prev.fixedCosts + prev.loans + prev.cards + prev.variableCosts
+    const pExp = prev.fixedCosts + prev.loans + prev.cards + prev.variableCosts + (prev.renegociacoes ?? 0)
     if (pExp > 0) {
       const d = ((expenses - pExp) / pExp) * 100
       if (Math.abs(d) >= 5) lines.push(`${d > 0 ? '📈' : '📉'} Despesas ${d > 0 ? 'subiram' : 'caíram'} ${Math.abs(d).toFixed(0)}% vs ${MONTH_NAMES[pIdx]}`)

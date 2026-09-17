@@ -16,6 +16,7 @@ export interface MonthRecord {
   loans: number          // empréstimos
   cards: number          // cartões
   variableCosts: number  // custos variáveis
+  renegociacoes?: number // renegociações de dívidas (opcional p/ compat. com dados antigos)
   source: 'seed' | 'manual'
   items?: MonthItem[]    // lançamentos por item (meses manuais)
 }
@@ -24,7 +25,7 @@ export interface MonthItem {
   id: string
   description: string
   value: number
-  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'
+  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts' | 'renegociacoes'
   isPaid: boolean
   source?: 'manual' | 'telegram'
   occurredAt?: string   // ISO 8601
@@ -96,6 +97,7 @@ export interface AnnualSummary {
   loans: number
   cards: number
   variableCosts: number
+  renegociacoes: number
   totalExpenses: number
   balance: number
   avgBalance: number
@@ -103,7 +105,7 @@ export interface AnnualSummary {
 
 export interface FinancialGoal {
   id: string
-  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'
+  category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts' | 'renegociacoes'
   targetValue: number
 }
 
@@ -111,7 +113,7 @@ export interface RecurringItem {
   id: string
   description: string
   value: number
-  category: 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'cards'
+  category: 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'cards' | 'renegociacoes'
   isActive: boolean
 }
 
@@ -128,7 +130,7 @@ export interface HealthScore {
 export interface Alert {
   id: string
   type: 'warning' | 'danger'
-  category: 'cards' | 'loans' | 'fixedCosts' | 'variableCosts' | 'balance' | 'revenue'
+  category: 'cards' | 'loans' | 'fixedCosts' | 'variableCosts' | 'renegociacoes' | 'balance' | 'revenue'
   message: string
   deviation: number
 }
@@ -151,6 +153,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   loans: 'Empréstimos',
   cards: 'Cartões',
   variableCosts: 'Custos Variáveis',
+  renegociacoes: 'Renegociações',
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -159,4 +162,5 @@ export const CATEGORY_COLORS: Record<string, string> = {
   loans: '#EF9F27',
   cards: '#D85A30',
   variableCosts: '#8B5CF6',
+  renegociacoes: '#0E7C86',
 }

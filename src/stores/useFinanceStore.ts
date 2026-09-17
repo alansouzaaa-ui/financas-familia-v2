@@ -37,8 +37,8 @@ export function monthKey(year: number, month: string): number {
 
 const MONTHS_ORDER = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
-function totalsFromItems(items: MonthItem[]): Pick<MonthRecord, 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts'> {
-  const t = { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0 }
+function totalsFromItems(items: MonthItem[]): Pick<MonthRecord, 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts' | 'renegociacoes'> {
+  const t = { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, renegociacoes: 0 }
   for (const i of items) t[i.category] += i.value
   return t
 }

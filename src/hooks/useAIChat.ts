@@ -13,6 +13,7 @@ function buildContext(months: ReturnType<typeof useFinanceStore.getState>['allMo
   const lines = last12.map(m =>
     `${m.label}: receita=${m.revenue.toFixed(0)}, fixos=${m.fixedCosts.toFixed(0)}, ` +
     `variáveis=${(m.variableCosts ?? 0).toFixed(0)}, empréstimos=${m.loans.toFixed(0)}, ` +
+    `renegociações=${(m.renegociacoes ?? 0).toFixed(0)}, ` +
     `cartões=${m.cards.toFixed(0)}, balanço=${m.balance.toFixed(0)}`
   )
   const last = months[months.length - 1]

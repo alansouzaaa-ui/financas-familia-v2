@@ -10,12 +10,13 @@ import { fmtK } from '@/lib/formatters'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import { useChartColors } from '@/hooks/useChartColors'
 
-type CategoryKey = 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'cards'
+type CategoryKey = 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'renegociacoes' | 'cards'
 const CAT_PILLS: { key: CategoryKey; label: string }[] = [
   { key: 'revenue',       label: 'Receitas' },
   { key: 'fixedCosts',    label: 'Custos Fixos' },
   { key: 'variableCosts', label: 'Variáveis' },
   { key: 'loans',         label: 'Empréstimos' },
+  { key: 'renegociacoes', label: 'Renegociações' },
   { key: 'cards',         label: 'Cartões' },
 ]
 
@@ -52,6 +53,7 @@ export default function MonthlyPage() {
     fixedCosts:    monthsForYear.reduce((s, m) => s + m.fixedCosts, 0),
     variableCosts: monthsForYear.reduce((s, m) => s + m.variableCosts, 0),
     loans:         monthsForYear.reduce((s, m) => s + m.loans, 0),
+    renegociacoes: monthsForYear.reduce((s, m) => s + (m.renegociacoes ?? 0), 0),
     cards:         monthsForYear.reduce((s, m) => s + m.cards, 0),
     balance:       monthsForYear.reduce((s, m) => s + m.balance, 0),
   }), [monthsForYear])
@@ -122,7 +124,7 @@ export default function MonthlyPage() {
           />
         ) : (
           <div className="overflow-x-auto -mx-5">
-            <table className="w-full text-[13px] min-w-[680px]">
+            <table className="w-full text-[13px] min-w-[760px]">
               <thead>
                 <tr className="border-b border-[var(--color-border)]">
                   <th className="label px-4 py-2.5 text-left">Mês</th>
@@ -130,6 +132,7 @@ export default function MonthlyPage() {
                   <th className={numTh}>Fixos</th>
                   <th className={numTh}>Variáveis</th>
                   <th className={numTh}>Empréstimos</th>
+                  <th className={numTh}>Renegoc.</th>
                   <th className={numTh}>Cartões</th>
                   <th className={numTh}>Balanço</th>
                 </tr>
@@ -161,14 +164,15 @@ export default function MonthlyPage() {
                         <td className={`${numTd} text-[var(--color-text-muted)]`}>{fmtNum(m.fixedCosts)}</td>
                         <td className={`${numTd} text-[var(--color-text-muted)]`}>{fmtNum(m.variableCosts)}</td>
                         <td className={`${numTd} text-[var(--color-text-muted)]`}>{fmtNum(m.loans)}</td>
+                        <td className={`${numTd} text-[var(--color-text-muted)]`}>{fmtNum(m.renegociacoes ?? 0)}</td>
                         <td className={`${numTd} text-[var(--color-text-muted)]`}>{fmtNum(m.cards)}</td>
                         <td className={`${numTd} font-semibold ${m.balance >= 0 ? 'pos' : 'neg'}`}>{fmtNumSigned(m.balance)}</td>
                       </tr>
                       {isExpanded && hasItems && (
                         <tr key={`${key}-detail`}>
-                          <td colSpan={7} className="border-b border-[var(--hairline)] bg-[var(--color-surface-2)]">
+                          <td colSpan={8} className="border-b border-[var(--hairline)] bg-[var(--color-surface-2)]">
                             <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                              {(['revenue', 'fixedCosts', 'variableCosts', 'loans', 'cards'] as CategoryKey[]).map(cat => {
+                              {(['revenue', 'fixedCosts', 'variableCosts', 'loans', 'renegociacoes', 'cards'] as CategoryKey[]).map(cat => {
                                 const items = m.items!.filter(i => i.category === cat)
                                 if (!items.length) return null
                                 return (
@@ -204,6 +208,7 @@ export default function MonthlyPage() {
                   <td className="px-4 py-3 font-mono tnum text-right text-[var(--color-text-muted)]">{fmtNum(totals.fixedCosts)}</td>
                   <td className="px-4 py-3 font-mono tnum text-right text-[var(--color-text-muted)]">{fmtNum(totals.variableCosts)}</td>
                   <td className="px-4 py-3 font-mono tnum text-right text-[var(--color-text-muted)]">{fmtNum(totals.loans)}</td>
+                  <td className="px-4 py-3 font-mono tnum text-right text-[var(--color-text-muted)]">{fmtNum(totals.renegociacoes)}</td>
                   <td className="px-4 py-3 font-mono tnum text-right text-[var(--color-text-muted)]">{fmtNum(totals.cards)}</td>
                   <td className={`px-4 py-3 font-mono tnum text-right ${totals.balance >= 0 ? 'pos' : 'neg'}`}>{fmtNumSigned(totals.balance)}</td>
                 </tr>

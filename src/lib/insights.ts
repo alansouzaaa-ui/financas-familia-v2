@@ -74,6 +74,7 @@ export function buildInsights(allMonths: MonthPoint[], tagMap: Record<string, Ta
     const groups: [string, number, string][] = [
       ['Cartões', last.cards, '💳'], ['Custos fixos', last.fixedCosts, '🏠'],
       ['Empréstimos', last.loans, '🏦'], ['Custos variáveis', last.variableCosts, '🛒'],
+      ['Renegociações', last.renegociacoes ?? 0, '🤝'],
     ]
     const top = groups.filter(g => g[1] > 0).sort((a, b) => b[1] - a[1])[0]
     if (top) out.push({ emoji: top[2], text: `Maior gasto em ${last.label}: ${top[0]} — ${fmt(top[1])}.`, tone: 'neutral' })

@@ -96,7 +96,8 @@ export default function OverviewPage() {
 
   const catLabel = (c: string) =>
     c === 'balance' ? 'balanço' : c === 'cards' ? 'cartões'
-    : c === 'loans' ? 'empréstimos' : c === 'fixedCosts' ? 'fixos' : c === 'variableCosts' ? 'variáveis' : 'receita'
+    : c === 'loans' ? 'empréstimos' : c === 'fixedCosts' ? 'fixos' : c === 'variableCosts' ? 'variáveis'
+    : c === 'renegociacoes' ? 'renegociações' : 'receita'
 
   if (loadingFirst) {
     return (
