@@ -1,56 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const SESSION_DAYS = 7
-const MAX_ATTEMPTS = 5
-const LOCKOUT_MS = 5 * 60 * 1000 // 5 minutos
-
-// ─── rate limiting (UX only — actual auth is server-side) ─────────────────────
-const ATTEMPT_KEY = 'ff_attempts'
-const ATTEMPT_TTL = 15 * 60 * 1000 // esquece tentativas após 15 min sem atividade
-
-type AttemptState = { count: number; lockedUntil: number; ts: number }
-const EMPTY: AttemptState = { count: 0, lockedUntil: 0, ts: 0 }
-
-function clearAttempts() {
-  localStorage.removeItem(ATTEMPT_KEY)
-}
-
-function getAttemptState(): AttemptState {
-  let s: AttemptState
-  try {
-    s = JSON.parse(localStorage.getItem(ATTEMPT_KEY) || '') as AttemptState
-    if (!s || typeof s.count !== 'number') return EMPTY
-  } catch {
-    return EMPTY
-  }
-  const now = Date.now()
-  // Bloqueio expirou → limpa tudo (não recebe o usuário já "bloqueado" no load seguinte)
-  if (s.lockedUntil && now >= s.lockedUntil) {
-    clearAttempts()
-    return EMPTY
-  }
-  // Tentativas antigas decaem — não acumulam entre sessões distantes
-  if (!s.lockedUntil && s.ts && now - s.ts > ATTEMPT_TTL) {
-    clearAttempts()
-    return EMPTY
-  }
-  return { count: s.count || 0, lockedUntil: s.lockedUntil || 0, ts: s.ts || 0 }
-}
-
-function recordFailedAttempt() {
-  const state = getAttemptState()
-  const count = state.count + 1
-  const now = Date.now()
-  const lockedUntil = count >= MAX_ATTEMPTS ? now + LOCKOUT_MS : state.lockedUntil
-  localStorage.setItem(ATTEMPT_KEY, JSON.stringify({ count, lockedUntil, ts: now }))
-  return { count, lockedUntil }
-}
-
-function isLocked(): { locked: boolean; remaining: number } {
-  const { lockedUntil } = getAttemptState()
-  if (!lockedUntil || Date.now() >= lockedUntil) return { locked: false, remaining: 0 }
-  return { locked: true, remaining: Math.ceil((lockedUntil - Date.now()) / 1000) }
-}
 
 // ─── componente ───────────────────────────────────────────────────────────────
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
@@ -60,16 +10,15 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
 
+  // Limpa qualquer trava legada do rate-limit client-side (removido) — evita
+  // que um bloqueio antigo salvo no navegador impeça o login.
+  useEffect(() => {
+    try { localStorage.removeItem('ff_attempts') } catch { /* ignore */ }
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
-    const lockState = isLocked()
-    if (lockState.locked) {
-      setError(`Muitas tentativas. Aguarde ${lockState.remaining}s para tentar novamente.`)
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -78,24 +27,15 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         cache: 'no-store',
-        body: JSON.stringify({ user, pass }),
+        body: JSON.stringify({ user: user.trim(), pass }),
       })
 
       if (res.ok) {
-        clearAttempts()
         onLogin()
       } else if (res.status === 401) {
-        // Só senha realmente incorreta conta para o bloqueio
-        const { count } = recordFailedAttempt()
-        const remaining = MAX_ATTEMPTS - count
-        if (remaining <= 0) {
-          setError(`Muitas tentativas. Aguarde ${LOCKOUT_MS / 60000} minutos para tentar de novo.`)
-        } else {
-          setError(`Usuário ou senha incorretos. ${remaining} tentativa${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`)
-        }
+        setError('Usuário ou senha incorretos.')
         setLoading(false)
       } else {
-        // Erro do servidor (ex.: 500/502) — não é senha errada, não penaliza o usuário
         setError('Não foi possível entrar agora. Tente novamente em instantes.')
         setLoading(false)
       }
@@ -105,20 +45,18 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     }
   }
 
-  const lockState = isLocked()
-
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-text-primary)] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-primary)] mb-4">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
               <path d="M4 19L9 12l4.5 4.5L20 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M17 6h3v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className="text-[22px] font-semibold text-[var(--color-text-primary)]">Finanças</h1>
+          <h1 className="serif text-[24px] font-medium tracking-[-0.01em] text-[var(--color-text-primary)]">Finanças</h1>
           <p className="text-[13px] text-[var(--color-text-muted)] mt-1">Acesso restrito</p>
         </div>
 
@@ -134,8 +72,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
                 onChange={e => setUser(e.target.value)}
                 placeholder="seu usuário"
                 required
-                disabled={lockState.locked}
-                className="w-full px-3 py-2.5 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-text-primary)] disabled:opacity-50"
+                className="w-full px-3 py-2.5 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-primary)]"
               />
             </div>
 
@@ -149,8 +86,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
                   onChange={e => setPass(e.target.value)}
                   placeholder="••••••••"
                   required
-                  disabled={lockState.locked}
-                  className="w-full px-3 py-2.5 pr-10 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-text-primary)] disabled:opacity-50"
+                  className="w-full px-3 py-2.5 pr-10 text-[14px] font-sans bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-[10px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-colors focus:border-[var(--color-primary)]"
                 />
                 <button
                   type="button"
@@ -180,10 +116,10 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
 
             <button
               type="submit"
-              disabled={loading || lockState.locked}
-              className="w-full bg-[var(--color-text-primary)] text-[var(--color-surface)] text-[14px] font-medium py-2.5 rounded-[10px] transition-opacity hover:opacity-85 disabled:opacity-50 mt-1"
+              disabled={loading}
+              className="w-full bg-[var(--color-primary)] text-white text-[14px] font-medium py-2.5 rounded-[10px] transition-opacity hover:opacity-85 disabled:opacity-50 mt-1"
             >
-              {loading ? 'Verificando...' : lockState.locked ? `Bloqueado (${lockState.remaining}s)` : 'Entrar'}
+              {loading ? 'Verificando...' : 'Entrar'}
             </button>
           </form>
         </div>
