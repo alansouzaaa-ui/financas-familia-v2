@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import PeriodSegment from '@/components/filters/PeriodSegment'
 import CategoryReportBlock from '@/components/metrics/CategoryReportBlock'
+import PageHeader from '@/components/ui/PageHeader'
 
 export default function ReportsPage() {
   const { periodFilter, setPeriodFilter, filteredMonths } = useFinanceStore()
@@ -19,18 +20,12 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <header className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Relatórios</h1>
-          <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Para onde vai o dinheiro, por categoria de gasto.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <PeriodSegment filter={periodFilter} onChange={setPeriodFilter} />
-          <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
-            {manage ? 'Concluir' : '⚙ Categorias'}
-          </Button>
-        </div>
-      </header>
+      <PageHeader eyebrow="Categorias" title="Relatórios" subtitle="Para onde vai o dinheiro, por categoria de gasto.">
+        <PeriodSegment filter={periodFilter} onChange={setPeriodFilter} />
+        <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
+          {manage ? 'Concluir' : '⚙ Categorias'}
+        </Button>
+      </PageHeader>
 
       {/* Gerenciar categorias */}
       {manage && (

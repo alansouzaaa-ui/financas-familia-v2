@@ -6,6 +6,7 @@ import { fmt } from '@/lib/formatters'
 import type { MonthItem, MonthAbbr } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import PageHeader from '@/components/ui/PageHeader'
 import NovaDespesaModal from '@/pages/Launch/NovaDespesaModal'
 
 // Dias até o próximo vencimento (dia `dueDay`) a partir de hoje.
@@ -94,21 +95,18 @@ export default function CardsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5 gap-2">
-        <h1 className="text-[20px] font-semibold">Cartões</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
-            {manage ? 'Concluir' : '⚙ Gerenciar'}
-          </Button>
-          <button
-            onClick={() => { setModalCardId(''); setShowModal(true) }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-text-primary)] text-[var(--color-surface)] hover:opacity-90 transition-opacity"
-          >
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-            Nova despesa
-          </button>
-        </div>
-      </div>
+      <PageHeader eyebrow="Faturas" title="Cartões" subtitle="Faturas por titular, limite e vencimento.">
+        <Button variant="ghost" size="sm" onClick={() => setManage(m => !m)}>
+          {manage ? 'Concluir' : '⚙ Gerenciar'}
+        </Button>
+        <button
+          onClick={() => { setModalCardId(''); setShowModal(true) }}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity"
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          Nova despesa
+        </button>
+      </PageHeader>
 
       {showModal && (
         <NovaDespesaModal

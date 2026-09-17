@@ -6,6 +6,7 @@ import Money from '@/components/ui/Money'
 import Card from '@/components/ui/Card'
 import AnnualChart from '@/components/charts/AnnualChart'
 import EmptyState from '@/components/ui/EmptyState'
+import PageHeader from '@/components/ui/PageHeader'
 
 export default function AnnualPage() {
   const rawMonths = useFinanceStore(s => s.allMonths)
@@ -19,10 +20,11 @@ export default function AnnualPage() {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Resumo Anual</h1>
-        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Resultado consolidado de cada ano e a comparação entre eles.</p>
-      </header>
+      <PageHeader
+        eyebrow="Ano a ano"
+        title="Resumo anual"
+        subtitle="Resultado consolidado de cada ano e a comparação entre eles."
+      />
 
       {summary.length === 0 ? (
         <Card>

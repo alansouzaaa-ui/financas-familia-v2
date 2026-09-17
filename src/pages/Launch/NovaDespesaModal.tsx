@@ -209,7 +209,7 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
               Cancelar
             </button>
             <button onClick={save} disabled={!canSave}
-              className="flex-1 py-2.5 rounded-[10px] text-[14px] font-semibold bg-[var(--color-text-primary)] text-[var(--color-surface)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
+              className="flex-1 py-2.5 rounded-[10px] text-[14px] font-semibold bg-[var(--color-primary)] text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
               Salvar em {monthLabel}
             </button>
           </div>

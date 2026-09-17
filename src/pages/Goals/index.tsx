@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
+import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
 
 const STREAMINGS = [
@@ -62,10 +63,11 @@ export default function GoalsPage() {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Metas Financeiras</h1>
-        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Defina limites por categoria e acompanhe o quanto já foi consumido.</p>
-      </header>
+      <PageHeader
+        eyebrow="Orçamento"
+        title="Metas financeiras"
+        subtitle="Defina limites por categoria e acompanhe o quanto já foi consumido."
+      />
 
       {/* Médias de referência */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

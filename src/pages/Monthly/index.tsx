@@ -5,6 +5,7 @@ import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
+import PageHeader from '@/components/ui/PageHeader'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { fmtK } from '@/lib/formatters'
 import ChartTooltip from '@/components/charts/ChartTooltip'
@@ -63,10 +64,11 @@ export default function MonthlyPage() {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Detalhamento Mensal</h1>
-        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5">Evolução mês a mês e composição de cada mês em {currentYear}.</p>
-      </header>
+      <PageHeader
+        eyebrow="Mês a mês"
+        title="Detalhamento mensal"
+        subtitle={`Evolução mês a mês e composição de cada mês em ${currentYear}.`}
+      />
 
       {/* Seletor de ano */}
       <div className="flex flex-wrap gap-1.5 mb-5">

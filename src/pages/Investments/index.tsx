@@ -379,11 +379,12 @@ export default function InvestmentsPage() {
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[22px] font-semibold text-[var(--color-text-primary)]">Carteira</h1>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="section-head label">Patrimônio</p>
+          <h1 className="display text-[clamp(22px,3.4vw,27px)] tracking-[-0.015em] mt-1.5">Carteira</h1>
           {lastUpdated && (
-            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 font-mono">
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-1 font-mono">
               Atualizado às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}

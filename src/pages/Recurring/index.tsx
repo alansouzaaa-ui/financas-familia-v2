@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
+import PageHeader from '@/components/ui/PageHeader'
 
 const CAT_OPTIONS = [
   { value: 'revenue',    label: 'Receitas' },
@@ -45,12 +46,11 @@ export default function RecurringPage() {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-[21px] font-semibold tracking-[-0.01em]">Itens Recorrentes</h1>
-        <p className="text-[12.5px] text-[var(--color-text-muted)] mt-0.5 max-w-[60ch]">
-          Itens que se repetem todo mês. Ao abrir um mês novo, eles são preenchidos automaticamente.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Todo mês"
+        title="Itens recorrentes"
+        subtitle="Itens que se repetem todo mês. Ao abrir um mês novo, eles são preenchidos automaticamente."
+      />
 
       {/* Add form */}
       <Card title="Novo item recorrente" className="mb-4">

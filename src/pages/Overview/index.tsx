@@ -136,8 +136,8 @@ export default function OverviewPage() {
       {/* ── Header editorial ───────────────────────────────── */}
       <header className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
         <div>
-          <p className="label">Visão Geral · {currentLabel}</p>
-          <h1 className="text-[clamp(22px,4vw,28px)] font-semibold tracking-[-0.015em] mt-1.5">{greeting}</h1>
+          <p className="section-head label">Visão Geral · {currentLabel}</p>
+          <h1 className="display text-[clamp(22px,4vw,28px)] tracking-[-0.015em] mt-1.5">{greeting}</h1>
           <p className="text-[13px] text-[var(--color-text-muted)] mt-1.5 max-w-[56ch]">{verdict}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

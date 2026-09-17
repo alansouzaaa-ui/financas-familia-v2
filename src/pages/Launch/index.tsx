@@ -10,6 +10,7 @@ import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import PageHeader from '@/components/ui/PageHeader'
 import NovaDespesaModal from './NovaDespesaModal'
 
 const MONTHS_LIST: { value: string; label: string }[] = [
@@ -347,16 +348,15 @@ export default function LaunchPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5 gap-3">
-        <h1 className="text-[20px] font-semibold">Lançar Mês</h1>
+      <PageHeader eyebrow="Entrada" title="Lançar mês" subtitle="Registre receitas e despesas do mês; salva sozinho ao editar.">
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-text-primary)] text-[var(--color-surface)] hover:opacity-90 transition-opacity"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity"
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
           Nova despesa
         </button>
-      </div>
+      </PageHeader>
 
       {showModal && (
         <NovaDespesaModal
