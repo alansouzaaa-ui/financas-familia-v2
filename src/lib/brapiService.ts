@@ -33,15 +33,13 @@ export async function fetchQuotes(tickers: string[]): Promise<BrapiQuote[]> {
   return results.filter(isValidQuote) as BrapiQuote[]
 }
 
+// IBOV vem da nossa Edge Function /api/ibov (Yahoo server-side): a brapi gratuita
+// bloqueia índices sem token. Em dev (sem /api) simplesmente retorna null.
 export async function fetchIbov(): Promise<BrapiQuote | null> {
   try {
-    const res = await fetchWithTimeout(
-      `${BASE}/quote/%5EBVSP?fundamental=false&dividends=false`,
-      TIMEOUT_MS
-    )
+    const res = await fetchWithTimeout('/api/ibov', TIMEOUT_MS)
     if (!res.ok) return null
-    const json = await res.json()
-    const q = json.results?.[0]
+    const q = await res.json()
     return isValidQuote(q) ? q : null
   } catch {
     return null
