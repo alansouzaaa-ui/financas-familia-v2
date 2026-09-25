@@ -9,7 +9,7 @@ import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition } from '@/types/investment'
-import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS } from '@/types/investment'
+import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS } from '@/types/investment'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -26,6 +26,7 @@ interface FormState {
   assetType: AssetType
   notes: string
   manualValue: string   // saldo atual (poupança)
+  broker: string        // banco / corretora
 }
 
 const EMPTY_FORM: FormState = {
@@ -36,6 +37,7 @@ const EMPTY_FORM: FormState = {
   assetType: 'acao',
   notes: '',
   manualValue: '',
+  broker: '',
 }
 
 function pct(value: number) {
@@ -115,6 +117,14 @@ function PositionCard({
           {pos.quote?.shortName && (
             <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 truncate max-w-[200px]">
               {pos.quote.shortName}
+            </div>
+          )}
+          {pos.broker && (
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-1 flex items-center gap-1 truncate max-w-[200px]">
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
+                <path d="M2 5.5L7 2l5 3.5M2.5 6v5M11.5 6v5M5 6v5M9 6v5M1.5 12h11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {pos.broker}
             </div>
           )}
         </div>
@@ -323,6 +333,7 @@ export default function InvestmentsPage() {
       assetType: pos.assetType,
       notes: pos.notes ?? '',
       manualValue: pos.manualValue != null ? String(pos.manualValue) : '',
+      broker: pos.broker ?? '',
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -352,6 +363,7 @@ export default function InvestmentsPage() {
         buyDate: form.buyDate,
         assetType: 'poupanca' as AssetType,
         notes: form.notes.trim().slice(0, 200) || undefined,
+        broker: form.broker.trim().slice(0, 40) || undefined,
       }
       if (editingId) updatePosition(editingId, data)
       else addPosition(data)
@@ -379,6 +391,7 @@ export default function InvestmentsPage() {
       buyDate: form.buyDate,
       assetType: form.assetType,
       notes: form.notes.trim().slice(0, 200) || undefined,
+      broker: form.broker.trim().slice(0, 40) || undefined,
     }
 
     if (editingId) {
@@ -572,6 +585,16 @@ export default function InvestmentsPage() {
               />
                 </>
               )}
+              <Input
+                label="Banco / corretora (opcional)"
+                list="ff-brokers"
+                placeholder="XP, Nubank, Inter…"
+                value={form.broker}
+                onChange={(e) => setForm((f) => ({ ...f, broker: e.target.value }))}
+              />
+              <datalist id="ff-brokers">
+                {INVESTMENT_BROKERS.map((b) => <option key={b} value={b} />)}
+              </datalist>
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={cancelForm}>

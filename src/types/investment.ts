@@ -31,7 +31,41 @@ export interface InvestmentPosition {
   assetType: AssetType
   notes?: string
   manualValue?: number // saldo atual informado à mão (ex: poupança, sem cotação)
+  broker?: string      // banco / corretora onde o investimento está custodiado
 }
+
+// Principais bancos e corretoras (BR) para o seletor — o usuário pode digitar
+// um fora da lista (datalist), então não é exaustivo.
+export const INVESTMENT_BROKERS: string[] = [
+  'XP Investimentos',
+  'Rico',
+  'Clear',
+  'BTG Pactual',
+  'NuInvest (Nubank)',
+  'Inter',
+  'C6 Bank',
+  'Itaú',
+  'Bradesco',
+  'Santander',
+  'Banco do Brasil',
+  'Caixa',
+  'Ágora',
+  'Genial',
+  'Órama',
+  'Toro',
+  'Warren',
+  'Modalmais',
+  'Guide',
+  'Avenue',
+  'Nomad',
+  'PagBank',
+  'Mercado Pago',
+  'Safra',
+  'Sicredi',
+  'Sicoob',
+  'Binance',
+  'Mercado Bitcoin',
+]
 
 export interface BrapiQuote {
   symbol: string
