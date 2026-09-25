@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
-import { fetchQuotes, fetchIbov } from '@/lib/brapiService'
+import { fetchQuotes, fetchIbovData, type IbovHistoryPoint } from '@/lib/brapiService'
+import { compareToIbov } from '@/lib/ibovCompare'
 import { fetchTesouroTitles, type TesouroTitle } from '@/lib/tesouroService'
 import { fmtFull, fmtPct } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
@@ -237,6 +238,7 @@ export default function InvestmentsPage() {
   const { positions, addPosition, updatePosition, removePosition } = useInvestmentStore()
   const [quotes, setQuotes] = useState<Record<string, BrapiQuote>>({})
   const [ibov, setIbov] = useState<BrapiQuote | null>(null)
+  const [ibovHistory, setIbovHistory] = useState<IbovHistoryPoint[]>([])
   const [loading, setLoading] = useState(false)
   const [quotesError, setQuotesError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -255,13 +257,17 @@ export default function InvestmentsPage() {
     try {
       // Só ativos de mercado vão para a brapi (Tesouro é valorizado à parte)
       const tickers = positions.filter(p => p.assetType !== 'tesouro').map((p) => p.ticker)
-      const [quoteList, ibovData] = await Promise.all([fetchQuotes(tickers), fetchIbov()])
+      // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
+      const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
+      const [quoteList, ibovData] = await Promise.all([fetchQuotes(tickers), fetchIbovData(earliest)])
       const map: Record<string, BrapiQuote> = {}
       quoteList.forEach((q) => {
         map[q.symbol] = q
       })
       setQuotes(map)
-      setIbov(ibovData)
+      setIbov(ibovData.quote)
+      setIbovHistory(ibovData.history)
       setLastUpdated(new Date())
       // Re-busca os preços do Tesouro também (permite retry pelo botão Atualizar)
       fetchTesouroTitles().then(setTesouroTitles).catch(() => {})
@@ -314,6 +320,21 @@ export default function InvestmentsPage() {
       }))
       .sort((a, b) => b.value - a.value)
   }, [enriched])
+
+  // Carteira × IBOV no mesmo período (ponderado por valor e data de cada aporte)
+  const ibovCompare = useMemo(() => {
+    if (!ibov) return null
+    return compareToIbov(
+      enriched.map(p => ({
+        totalInvested: p.totalInvested,
+        currentValue: p.currentValue,
+        buyDate: p.buyDate,
+        valued: p.quote !== null || p.manualValue != null,
+      })),
+      ibovHistory,
+      ibov.regularMarketPrice,
+    )
+  }, [enriched, ibovHistory, ibov])
 
   // ── form handlers ───────────────────────────────────────────────────────
 
@@ -666,6 +687,39 @@ export default function InvestmentsPage() {
             subTrend={ibov?.regularMarketChangePercent}
             loading={loading && !ibov}
           />
+        </div>
+      )}
+
+      {/* ── Carteira × IBOV (mesmo período) ── */}
+      {ibovCompare && (
+        <div className="card">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-8">
+            <div className="section-head label lg:w-[170px] flex-shrink-0">Carteira × IBOV · mesmo período</div>
+            <div className="flex items-center gap-8 flex-wrap flex-1">
+              <div>
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Sua carteira</div>
+                <div className={`text-[20px] font-semibold ${trendClass(ibovCompare.carteiraReturnPct)}`}>{pct(ibovCompare.carteiraReturnPct)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">IBOV</div>
+                <div className={`text-[20px] font-semibold ${trendClass(ibovCompare.ibovReturnPct)}`}>{pct(ibovCompare.ibovReturnPct)}</div>
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold"
+                  style={{
+                    background: `color-mix(in srgb, ${ibovCompare.deltaPp >= 0 ? 'var(--color-pos)' : 'var(--color-neg)'} 14%, transparent)`,
+                    color: ibovCompare.deltaPp >= 0 ? 'var(--color-pos)' : 'var(--color-neg)',
+                  }}
+                >
+                  {ibovCompare.deltaPp >= 0 ? '▲' : '▼'} {Math.abs(ibovCompare.deltaPp).toFixed(1)} pp {ibovCompare.deltaPp >= 0 ? 'acima' : 'abaixo'} do índice
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-3 pt-3 border-t border-[var(--hairline)]">
+            Simula o mesmo dinheiro aplicado no IBOV nas datas dos seus aportes. Considera {ibovCompare.coverageCount} {ibovCompare.coverageCount === 1 ? 'posição' : 'posições'} com data e valor.
+          </p>
         </div>
       )}
 

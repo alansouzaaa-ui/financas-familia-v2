@@ -33,15 +33,31 @@ export async function fetchQuotes(tickers: string[]): Promise<BrapiQuote[]> {
   return results.filter(isValidQuote) as BrapiQuote[]
 }
 
+export interface IbovHistoryPoint { date: string; close: number }
+export interface IbovData { quote: BrapiQuote | null; history: IbovHistoryPoint[] }
+
 // IBOV vem da nossa Edge Function /api/ibov (Yahoo server-side): a brapi gratuita
-// bloqueia índices sem token. Em dev (sem /api) simplesmente retorna null.
-export async function fetchIbov(): Promise<BrapiQuote | null> {
+// bloqueia índices sem token. `from` (YYYY-MM-DD) traz também o histórico diário,
+// para comparar o rendimento no mesmo período dos aportes. Em dev (sem /api) → vazio.
+export async function fetchIbovData(from?: string): Promise<IbovData> {
   try {
-    const res = await fetchWithTimeout('/api/ibov', TIMEOUT_MS)
-    if (!res.ok) return null
-    const q = await res.json()
-    return isValidQuote(q) ? q : null
+    const qs = from ? `?from=${encodeURIComponent(from)}` : ''
+    const res = await fetchWithTimeout(`/api/ibov${qs}`, TIMEOUT_MS)
+    if (!res.ok) return { quote: null, history: [] }
+    const j = await res.json()
+    const quote = isValidQuote(j) ? j : null
+    const history: IbovHistoryPoint[] = Array.isArray(j?.history)
+      ? j.history.filter((h: unknown): h is IbovHistoryPoint => {
+          const p = h as Record<string, unknown>
+          return typeof p?.date === 'string' && typeof p?.close === 'number' && isFinite(p.close as number)
+        })
+      : []
+    return { quote, history }
   } catch {
-    return null
+    return { quote: null, history: [] }
   }
+}
+
+export async function fetchIbov(): Promise<BrapiQuote | null> {
+  return (await fetchIbovData()).quote
 }
