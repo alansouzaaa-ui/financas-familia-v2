@@ -254,28 +254,37 @@ export default function InvestmentsPage() {
     if (!positions.length) return
     setLoading(true)
     setQuotesError(null)
-    try {
-      // Só ativos de mercado vão para a brapi (Tesouro é valorizado à parte)
-      const tickers = positions.filter(p => p.assetType !== 'tesouro').map((p) => p.ticker)
-      // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
-      const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
-      const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
-      const [quoteList, ibovData] = await Promise.all([fetchQuotes(tickers), fetchIbovData(earliest)])
-      const map: Record<string, BrapiQuote> = {}
-      quoteList.forEach((q) => {
-        map[q.symbol] = q
-      })
-      setQuotes(map)
-      setIbov(ibovData.quote)
-      setIbovHistory(ibovData.history)
-      setLastUpdated(new Date())
-      // Re-busca os preços do Tesouro também (permite retry pelo botão Atualizar)
-      fetchTesouroTitles().then(setTesouroTitles).catch(() => {})
-    } catch {
-      setQuotesError('Não foi possível buscar cotações. Verifique sua conexão.')
-    } finally {
-      setLoading(false)
+
+    // Só tipos com cotação na brapi (Tesouro tem PU próprio; poupança/renda fixa/
+    // outro são valorizados à mão e o "ticker" não é um símbolo da B3).
+    const MARKET_TYPES = new Set<AssetType>(['acao', 'fii', 'etf', 'cripto'])
+    const tickers = positions.filter(p => MARKET_TYPES.has(p.assetType)).map((p) => p.ticker)
+    // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
+    const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
+
+    // Cotações das ações — falha aqui NÃO deve derrubar o IBOV nem o resto.
+    if (tickers.length > 0) {
+      try {
+        const quoteList = await fetchQuotes(tickers)
+        const map: Record<string, BrapiQuote> = {}
+        quoteList.forEach((q) => { map[q.symbol] = q })
+        setQuotes(map)
+      } catch {
+        setQuotesError('Não foi possível buscar as cotações das ações. Verifique sua conexão.')
+      }
     }
+
+    // IBOV + histórico — independente das ações (fetchIbovData nunca lança).
+    const ibovData = await fetchIbovData(earliest)
+    setIbov(ibovData.quote)
+    setIbovHistory(ibovData.history)
+
+    // Tesouro (independente) — permite retry pelo botão Atualizar.
+    fetchTesouroTitles().then(setTesouroTitles).catch(() => {})
+
+    setLastUpdated(new Date())
+    setLoading(false)
   }, [positions])
 
   useEffect(() => {
