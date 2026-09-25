@@ -25,6 +25,7 @@ interface FormState {
   buyDate: string
   assetType: AssetType
   notes: string
+  manualValue: string   // saldo atual (poupança)
 }
 
 const EMPTY_FORM: FormState = {
@@ -34,6 +35,7 @@ const EMPTY_FORM: FormState = {
   buyDate: new Date().toISOString().slice(0, 10),
   assetType: 'acao',
   notes: '',
+  manualValue: '',
 }
 
 function pct(value: number) {
@@ -93,6 +95,7 @@ function PositionCard({
   onRemove: () => void
 }) {
   const hasQuote = pos.quote !== null
+  const valued = hasQuote || pos.manualValue != null   // tem valor atual (cotação OU saldo manual)
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -157,12 +160,12 @@ function PositionCard({
         <div>
           <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Atual</div>
           <div className="font-medium text-[var(--color-text-primary)]">
-            {hasQuote ? fmtFull(pos.currentValue) : '—'}
+            {valued ? fmtFull(pos.currentValue) : '—'}
           </div>
         </div>
         <div>
           <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Rentab.</div>
-          {hasQuote ? (
+          {valued ? (
             <div className={`font-semibold ${trendClass(pos.pnl)}`}>
               {pct(pos.pnlPercent)}
             </div>
@@ -209,7 +212,9 @@ function enrichPositions(
       }
     }
     const totalInvested = safe(p.quantity * p.avgPrice)
-    const currentValue  = quote ? safe(p.quantity * quote.regularMarketPrice) : totalInvested
+    const currentValue  = quote
+      ? safe(p.quantity * quote.regularMarketPrice)
+      : (p.manualValue != null ? safe(p.manualValue) : totalInvested)
     const pnl           = safe(currentValue - totalInvested)
     const pnlPercent    = totalInvested > 0 ? safe((pnl / totalInvested) * 100) : 0
     return { ...p, quote, totalInvested, currentValue, pnl, pnlPercent }
@@ -317,6 +322,7 @@ export default function InvestmentsPage() {
       buyDate: pos.buyDate,
       assetType: pos.assetType,
       notes: pos.notes ?? '',
+      manualValue: pos.manualValue != null ? String(pos.manualValue) : '',
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -330,6 +336,29 @@ export default function InvestmentsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // Poupança / saldo manual: nome + saldo atual (+ total depositado opcional)
+    if (form.assetType === 'poupanca') {
+      const nome = form.ticker.trim().slice(0, 60)
+      const saldo = Number(form.manualValue.replace(',', '.'))
+      if (!nome || !isFinite(saldo) || saldo < 0 || saldo > 1_000_000_000) return
+      const dep = form.avgPrice ? Number(form.avgPrice.replace(',', '.')) : saldo
+      const depositado = isFinite(dep) && dep >= 0 ? dep : saldo
+      const data = {
+        ticker: nome,
+        quantity: 1,
+        avgPrice: Math.round(depositado * 100) / 100,
+        manualValue: Math.round(saldo * 100) / 100,
+        buyDate: form.buyDate,
+        assetType: 'poupanca' as AssetType,
+        notes: form.notes.trim().slice(0, 200) || undefined,
+      }
+      if (editingId) updatePosition(editingId, data)
+      else addPosition(data)
+      cancelForm()
+      return
+    }
+
     const isTesouro = form.assetType === 'tesouro'
     // Tesouro: o "ticker" é o nome do título (com espaços); demais: símbolo B3
     const ticker = isTesouro ? form.ticker.trim() : form.ticker.trim().toUpperCase()
@@ -373,7 +402,7 @@ export default function InvestmentsPage() {
   const hasQuotes = Object.keys(quotes).length > 0
   // Há valorização se qualquer posição tem cotação — inclui Tesouro (PU),
   // que não entra no mapa `quotes` da brapi.
-  const hasValuation = enriched.some(p => p.quote !== null)
+  const hasValuation = enriched.some(p => p.quote !== null || p.manualValue != null)
 
   return (
     <div className="space-y-6">
@@ -435,6 +464,51 @@ export default function InvestmentsPage() {
                 value={form.assetType}
                 onChange={(e) => setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '' }))}
               />
+              {form.assetType === 'poupanca' ? (
+                <>
+                  <div className="sm:col-span-2">
+                    <Input
+                      label="Instituição / apelido"
+                      placeholder="Poupança Caixa"
+                      value={form.ticker}
+                      onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <Input
+                    label="Saldo atual (R$)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="5000.00"
+                    value={form.manualValue}
+                    onChange={(e) => setForm((f) => ({ ...f, manualValue: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Total depositado (opcional)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="para calcular o rendimento"
+                    value={form.avgPrice}
+                    onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
+                  />
+                  <Input
+                    label="Desde (opcional)"
+                    type="date"
+                    value={form.buyDate}
+                    onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
+                  />
+                  <Input
+                    label="Observação (opcional)"
+                    placeholder="Reserva de emergência…"
+                    value={form.notes}
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </>
+              ) : (
+                <>
               {form.assetType === 'tesouro' ? (
                 <div className="sm:col-span-2">
                   {tesouroTitles.length > 0 ? (
@@ -496,6 +570,8 @@ export default function InvestmentsPage() {
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
+                </>
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={cancelForm}>
