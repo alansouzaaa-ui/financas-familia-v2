@@ -84,6 +84,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/dividas',
+    label: 'Dívidas',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2v16M6 5h5.5a2.5 2.5 0 0 1 0 5H6m0 0h6.5a2.5 2.5 0 0 1 0 5H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/lancar',
     label: 'Lançar',
     icon: (
