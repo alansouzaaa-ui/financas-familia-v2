@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { fetchQuotes, fetchIbovData, type IbovHistoryPoint } from '@/lib/brapiService'
 import { compareToIbov } from '@/lib/ibovCompare'
-import { fetchTesouroTitles, type TesouroTitle } from '@/lib/tesouroService'
+import { fetchTesouroTitles, fetchTesouroPuOnDate, type TesouroTitle } from '@/lib/tesouroService'
 import { fmtFull, fmtPct } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
@@ -26,8 +26,9 @@ interface FormState {
   buyDate: string
   assetType: AssetType
   notes: string
-  manualValue: string   // saldo atual (poupança)
-  broker: string        // banco / corretora
+  manualValue: string     // saldo atual (poupança)
+  broker: string          // banco / corretora
+  investedAmount: string  // valor investido (Tesouro) → calcula as cotas
 }
 
 const EMPTY_FORM: FormState = {
@@ -39,6 +40,7 @@ const EMPTY_FORM: FormState = {
   notes: '',
   manualValue: '',
   broker: '',
+  investedAmount: '',
 }
 
 function pct(value: number) {
@@ -247,6 +249,10 @@ export default function InvestmentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
+  const [tesouroPuLoading, setTesouroPuLoading] = useState(false)
+  const [tesouroPuError, setTesouroPuError] = useState<string | null>(null)
+  const [tesouroPuDate, setTesouroPuDate] = useState<string | null>(null)
+  const lastPuKey = useRef<string>('')
 
   // ── quote fetching ──────────────────────────────────────────────────────
 
@@ -295,6 +301,35 @@ export default function InvestmentsPage() {
   useEffect(() => {
     fetchTesouroTitles().then(setTesouroTitles).catch(() => setTesouroTitles([]))
   }, [])
+
+  // Tesouro: ao escolher título + data, busca o PU na data e auto-preenche
+  // (o valor investido ÷ PU vira a quantidade de cotas).
+  useEffect(() => {
+    if (!showForm || form.assetType !== 'tesouro') return
+    const titulo = tesouroTitles.find(t => t.name === form.ticker)
+    if (!titulo || !titulo.maturity || !/^\d{4}-\d{2}-\d{2}$/.test(form.buyDate)) return
+    const key = `${form.ticker}|${form.buyDate}`
+    if (key === lastPuKey.current) return
+    lastPuKey.current = key
+
+    let cancelled = false
+    setTesouroPuLoading(true)
+    setTesouroPuError(null)
+    const timer = setTimeout(() => {
+      fetchTesouroPuOnDate(titulo.tipo, titulo.maturity!, form.buyDate).then(res => {
+        if (cancelled) return
+        setTesouroPuLoading(false)
+        if (res) {
+          setTesouroPuDate(res.date)
+          setForm(f => ({ ...f, avgPrice: String(res.pu) }))
+        } else {
+          setTesouroPuDate(null)
+          setTesouroPuError('Não encontrei o PU nessa data. Informe o PU manualmente abaixo.')
+        }
+      })
+    }, 400)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [showForm, form.assetType, form.ticker, form.buyDate, tesouroTitles])
 
   // ── derived data ────────────────────────────────────────────────────────
 
@@ -350,6 +385,9 @@ export default function InvestmentsPage() {
   function openAdd() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    lastPuKey.current = ''
+    setTesouroPuError(null)
+    setTesouroPuDate(null)
     setShowForm(true)
   }
 
@@ -364,7 +402,14 @@ export default function InvestmentsPage() {
       notes: pos.notes ?? '',
       manualValue: pos.manualValue != null ? String(pos.manualValue) : '',
       broker: pos.broker ?? '',
+      investedAmount: pos.assetType === 'tesouro'
+        ? String(Math.round(pos.quantity * pos.avgPrice * 100) / 100)
+        : '',
     })
+    // Não deixa o auto-preenchimento do PU sobrescrever a posição em edição.
+    lastPuKey.current = `${pos.ticker}|${pos.buyDate}`
+    setTesouroPuError(null)
+    setTesouroPuDate(null)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -401,9 +446,35 @@ export default function InvestmentsPage() {
       return
     }
 
-    const isTesouro = form.assetType === 'tesouro'
-    // Tesouro: o "ticker" é o nome do título (com espaços); demais: símbolo B3
-    const ticker = isTesouro ? form.ticker.trim() : form.ticker.trim().toUpperCase()
+    // Tesouro: valor investido ÷ PU na data = quantidade de cotas
+    if (form.assetType === 'tesouro') {
+      const titulo = form.ticker.trim()
+      const pu = Number(form.avgPrice.replace(',', '.'))
+      const valor = Number(form.investedAmount.replace(',', '.'))
+      if (!titulo || titulo.length > 60) return
+      if (!isFinite(pu) || pu <= 0 || !isFinite(valor) || valor <= 0) return
+      const quantity = valor / pu
+      if (!isFinite(quantity) || quantity <= 0 || quantity > 1_000_000_000) return
+      const data = {
+        ticker: titulo,
+        quantity: Math.round(quantity * 100) / 100,   // Tesouro fraciona em 0,01 de título
+        avgPrice: Math.round(pu * 100) / 100,
+        buyDate: form.buyDate,
+        assetType: 'tesouro' as AssetType,
+        notes: form.notes.trim().slice(0, 200) || undefined,
+        broker: form.broker.trim().slice(0, 40) || undefined,
+      }
+      if (editingId) updatePosition(editingId, data)
+      else addPosition(data)
+      cancelForm()
+      return
+    }
+
+    // Demais tipos (Tesouro e poupança já foram tratados acima).
+    // Ativos com cotação na B3 → símbolo em maiúsculas e validado; renda fixa/outro
+    // aceitam um nome livre.
+    const isMarket = ['acao', 'fii', 'etf', 'cripto'].includes(form.assetType)
+    const ticker = isMarket ? form.ticker.trim().toUpperCase() : form.ticker.trim()
     if (!ticker || !form.quantity || !form.avgPrice) return
 
     const quantity = Number(form.quantity)
@@ -411,11 +482,11 @@ export default function InvestmentsPage() {
 
     if (!isFinite(quantity) || quantity <= 0 || quantity > 1_000_000_000) return
     if (!isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 1_000_000_000) return
-    if (!isTesouro && !/^[A-Z0-9^]{1,12}$/.test(ticker)) return
-    if (isTesouro && ticker.length > 60) return
+    if (isMarket && !/^[A-Z0-9^]{1,12}$/.test(ticker)) return
+    if (ticker.length > 60) return
 
     const data = {
-      ticker,
+      ticker: ticker.slice(0, 60),
       quantity: Math.round(quantity * 1000) / 1000,
       avgPrice: Math.round(avgPrice * 100) / 100,
       buyDate: form.buyDate,
@@ -505,7 +576,12 @@ export default function InvestmentsPage() {
                 label="Tipo"
                 options={ASSET_OPTIONS}
                 value={form.assetType}
-                onChange={(e) => setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '' }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '', avgPrice: '', quantity: '', investedAmount: '', manualValue: '' }))
+                  lastPuKey.current = ''
+                  setTesouroPuError(null)
+                  setTesouroPuDate(null)
+                }}
               />
               {form.assetType === 'poupanca' ? (
                 <>
@@ -550,69 +626,122 @@ export default function InvestmentsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   />
                 </>
+              ) : form.assetType === 'tesouro' ? (
+                <>
+                  <div className="sm:col-span-2">
+                    {tesouroTitles.length > 0 ? (
+                      <Select
+                        label="Título do Tesouro"
+                        options={[{ value: '', label: 'Selecione o título…' }, ...tesouroTitles.map(t => ({ value: t.name, label: t.name }))]}
+                        value={form.ticker}
+                        onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                      />
+                    ) : (
+                      <Input
+                        label="Título do Tesouro"
+                        placeholder="Ex: Tesouro Selic 2029"
+                        value={form.ticker}
+                        onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                        required
+                      />
+                    )}
+                  </div>
+                  <Input
+                    label="Data da compra"
+                    type="date"
+                    value={form.buyDate}
+                    onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Valor investido (R$)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="1000.00"
+                    value={form.investedAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, investedAmount: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label={tesouroPuLoading ? 'PU na data (buscando…)' : 'PU na data (R$)'}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="automático"
+                    value={form.avgPrice}
+                    onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Observação (opcional)"
+                    placeholder="Aposentadoria, meta…"
+                    value={form.notes}
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                  <div className="col-span-2 sm:col-span-3 text-[12px] -mt-1">
+                    {tesouroPuLoading ? (
+                      <span className="text-[var(--color-text-muted)]">Buscando o PU do título na data da compra…</span>
+                    ) : tesouroPuError ? (
+                      <span className="neg">{tesouroPuError}</span>
+                    ) : (() => {
+                      const puN = Number((form.avgPrice || '').replace(',', '.'))
+                      const valorN = Number((form.investedAmount || '').replace(',', '.'))
+                      if (!(puN > 0) || !(valorN > 0)) return null
+                      const cotas = Math.round((valorN / puN) * 100) / 100
+                      return (
+                        <span className="text-[var(--color-text-muted)]">
+                          PU {tesouroPuDate ? `em ${tesouroPuDate.split('-').reverse().join('/')}` : 'informado'}:{' '}
+                          <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(puN)}</span>
+                          {' · '}≈ <span className="font-mono text-[var(--color-text-primary)]">{cotas.toFixed(2)}</span> cotas
+                          {' · '}investido <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(cotas * puN)}</span>
+                        </span>
+                      )
+                    })()}
+                  </div>
+                </>
               ) : (
                 <>
-              {form.assetType === 'tesouro' ? (
-                <div className="sm:col-span-2">
-                  {tesouroTitles.length > 0 ? (
-                    <Select
-                      label="Título do Tesouro"
-                      options={[{ value: '', label: 'Selecione o título…' }, ...tesouroTitles.map(t => ({ value: t.name, label: t.name }))]}
-                      value={form.ticker}
-                      onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
-                    />
-                  ) : (
-                    <Input
-                      label="Título do Tesouro"
-                      placeholder="Ex: Tesouro Selic 2029"
-                      value={form.ticker}
-                      onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
-                      required
-                    />
-                  )}
-                </div>
-              ) : (
-                <Input
-                  label="Ticker"
-                  placeholder="PETR4"
-                  value={form.ticker}
-                  onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
-                  required
-                  className="font-mono uppercase"
-                />
-              )}
-              <Input
-                label="Quantidade"
-                type="number"
-                min="0"
-                step={form.assetType === 'tesouro' ? '0.01' : '1'}
-                placeholder={form.assetType === 'tesouro' ? '0,5' : '100'}
-                value={form.quantity}
-                onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-                required
-              />
-              <Input
-                label="Preço médio (R$)"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="35.00"
-                value={form.avgPrice}
-                onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
-                required
-              />
-              <Input
-                label="Data de compra"
-                type="date"
-                value={form.buyDate}
-                onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
-              />
-              <Input
-                label="Observação (opcional)"
-                placeholder="PGBL, Prev…"
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              />
+                  <Input
+                    label="Ticker"
+                    placeholder="PETR4"
+                    value={form.ticker}
+                    onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
+                    required
+                    className="font-mono uppercase"
+                  />
+                  <Input
+                    label="Quantidade"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="100"
+                    value={form.quantity}
+                    onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Preço médio (R$)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="35.00"
+                    value={form.avgPrice}
+                    onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Data de compra"
+                    type="date"
+                    value={form.buyDate}
+                    onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
+                  />
+                  <Input
+                    label="Observação (opcional)"
+                    placeholder="PGBL, Prev…"
+                    value={form.notes}
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
                 </>
               )}
               <Input

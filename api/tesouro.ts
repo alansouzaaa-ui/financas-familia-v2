@@ -26,7 +26,7 @@ function brNum(s: string | undefined): number | null {
   return isFinite(n) ? n : null
 }
 
-interface Title { name: string; pu: number; buyPu: number | null; sellRate: number | null; maturity: string | null }
+interface Title { name: string; tipo: string; pu: number; buyPu: number | null; sellRate: number | null; maturity: string | null }
 
 export default async function handler(): Promise<Response> {
   try {
@@ -75,7 +75,7 @@ export default async function handler(): Promise<Response> {
         let displayYear = parseInt(vencYear, 10)
         if (/educa\+/i.test(tipo)) displayYear -= 4
         else if (/renda\+/i.test(tipo)) displayYear -= 19
-        titles.push({ name: `${tipo} ${displayYear}`, pu: puVenda, buyPu: brNum(c[5]), sellRate: brNum(c[4]), maturity: venc })
+        titles.push({ name: `${tipo} ${displayYear}`, tipo, pu: puVenda, buyPu: brNum(c[5]), sellRate: brNum(c[4]), maturity: venc })
       }
 
       if (done) break
