@@ -37,7 +37,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const token = await createSession(AUTH_SECRET, Date.now())
-  const cookie = getSessionCookie(token, Date.now())
+  const cookie = getSessionCookie(token)
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

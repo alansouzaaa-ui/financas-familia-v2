@@ -259,7 +259,7 @@ describe('POST /api/telegram — callback confirm', () => {
           category: 'variableCosts',
           isPaid: true,
           source: 'telegram',
-          occurredAt: new Date().toISOString(),
+          occurredAt: '2026-09-15T12:00:00.000Z',
           externalId: existingExternalId,
         }],
       }],
@@ -273,7 +273,7 @@ describe('POST /api/telegram — callback confirm', () => {
       v: 200,
       c: 'v',
       id: existingExternalId,
-      at: new Date().toISOString(),
+      at: '2026-09-15T12:00:00.000Z',
     }
     const token = await signPayload(compact, AUTH_SECRET)
     const msgText = `💰 mercado — R$ 200,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n${token}`

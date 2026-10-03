@@ -294,6 +294,7 @@ export default function InvestmentsPage() {
   }, [positions])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadQuotes()
   }, [loadQuotes])
 
@@ -313,8 +314,10 @@ export default function InvestmentsPage() {
     lastPuKey.current = key
 
     let cancelled = false
+    /* eslint-disable react-hooks/set-state-in-effect */
     setTesouroPuLoading(true)
     setTesouroPuError(null)
+    /* eslint-enable react-hooks/set-state-in-effect */
     const timer = setTimeout(() => {
       fetchTesouroPuOnDate(titulo.tipo, titulo.maturity!, form.buyDate).then(res => {
         if (cancelled) return

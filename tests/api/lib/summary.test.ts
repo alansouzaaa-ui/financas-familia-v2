@@ -7,7 +7,7 @@ const NOW = '2026-09-15T12:00:00.000Z' // Set/2026 em SP
 function payloadWith(items: SyncPayload['manual_months'][number]['items']): SyncPayload {
   const record = {
     month: 'Set' as const, year: 2026,
-    revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0,
+    revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, renegociacoes: 0,
     source: 'manual' as const, items,
   }
   for (const it of items ?? []) record[it.category] += it.value

@@ -20,7 +20,7 @@ describe('getSessionCookie', () => {
   it('includes all required cookie directives', async () => {
     const now = 1_700_000_000_000
     const token = await createSession('secret', now)
-    const cookie = getSessionCookie(token, now)
+    const cookie = getSessionCookie(token)
     expect(cookie).toContain('ff_session=')
     expect(cookie).toContain('HttpOnly')
     expect(cookie).toContain('Secure')
