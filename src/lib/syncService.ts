@@ -35,12 +35,14 @@ export async function pullSync(): Promise<SyncPayload | null | false | 'unauthor
 export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 'manual_months' | 'updated_at'>): Promise<boolean> {
   try {
     const manual_months = months.filter(m => m.source === 'manual').map(stripComputed)
+    // NÃO usar keepalive: o corpo passa de 64KB (limite do keepalive) e o
+    // navegador rejeitaria a requisição → sync pararia. O flush no
+    // visibilitychange (useSyncManager) já cobre o caso de troca/fechamento.
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ manual_months, ...payload }),
-      keepalive: true,   // garante o envio mesmo se a aba for fechada/recarregada
     })
     return res.ok
   } catch {
