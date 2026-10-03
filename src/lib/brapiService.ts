@@ -58,6 +58,3 @@ export async function fetchIbovData(from?: string): Promise<IbovData> {
   }
 }
 
-export async function fetchIbov(): Promise<BrapiQuote | null> {
-  return (await fetchIbovData()).quote
-}
