@@ -40,6 +40,7 @@ export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ manual_months, ...payload }),
+      keepalive: true,   // garante o envio mesmo se a aba for fechada/recarregada
     })
     return res.ok
   } catch {

@@ -15,6 +15,7 @@ export function useSyncManager() {
   const [status, setStatus] = useState<SyncStatus>(isSupabaseConfigured ? 'idle' : 'offline')
   const [lastSync, setLastSync] = useState<Date | null>(null)
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPush = useRef(false)
   // Prevents push before first pull completes (avoids overwriting newer remote data)
   const hasPulled = useRef(false)
   const isPulling = useRef(false)
@@ -114,10 +115,31 @@ export function useSyncManager() {
   // Debounced auto-push whenever store data changes
   useEffect(() => {
     if (!isSupabaseConfigured || !hasPulled.current || isPulling.current) return
+    pendingPush.current = true
     if (pushTimer.current) clearTimeout(pushTimer.current)
-    pushTimer.current = setTimeout(doPush, 2500)
+    pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
   }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff])
+
+  // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
+  // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante
+  // o envio durante o unload.
+  useEffect(() => {
+    const flush = () => {
+      if (!isSupabaseConfigured || !hasPulled.current || isPulling.current || !pendingPush.current) return
+      if (pushTimer.current) { clearTimeout(pushTimer.current); pushTimer.current = null }
+      pendingPush.current = false
+      doPush()
+    }
+    const onVis = () => { if (document.visibilityState === 'hidden') flush() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', flush)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return { status, lastSync, pull: doPull, push: doPush }
 }

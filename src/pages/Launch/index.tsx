@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useFinanceStore } from '@/stores/useFinanceStore'
+import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
@@ -344,7 +344,18 @@ export default function LaunchPage() {
     storeCardItems.filter(i => i.isPaid).reduce((s, i) => s + i.value, 0)
   const consolidatedBalance = consolidatedRev - consolidatedExp
 
-  const manualMonths = useFinanceStore.getState().visibleMonths().filter(m => m.source === 'manual').slice().reverse()
+  // "Meses lançados" — janela ao redor do mês atual (1 anterior + atual + próximos),
+  // em ordem cronológica. Evita mostrar só os meses mais distantes de um
+  // parcelamento longo (ex: renegociação 60x que chega a 2031).
+  const manualMonths = useMemo(() => {
+    const MA = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    const nd = new Date()
+    const nowKey = monthKey(nd.getFullYear(), MA[nd.getMonth()])
+    const asc = useFinanceStore.getState().visibleMonths().filter(m => m.source === 'manual')
+    const firstFut = asc.findIndex(m => monthKey(m.year, m.month) >= nowKey)
+    const start = firstFut < 0 ? Math.max(0, asc.length - 10) : Math.max(0, firstFut - 1)
+    return asc.slice(start, start + 12)
+  }, [allMonths])
 
   return (
     <div>
@@ -638,7 +649,7 @@ export default function LaunchPage() {
               <div className="text-[12px] text-[var(--color-text-muted)]">Nenhum mês lançado ainda.</div>
             ) : (
               <div className="flex flex-col divide-y divide-[var(--color-border)]">
-                {manualMonths.slice(0, 8).map(m => {
+                {manualMonths.map(m => {
                   const isEditing = m.month === selectedMonth && m.year === parseInt(selectedYear)
                   return (
                     <div key={`${m.year}-${m.month}`} className={`py-2.5 first:pt-0 last:pb-0 ${isEditing ? 'opacity-60' : ''}`}>
