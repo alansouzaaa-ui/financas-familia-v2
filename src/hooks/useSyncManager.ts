@@ -6,6 +6,7 @@ import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
+import { useDebtsStore } from '@/stores/useDebtsStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
@@ -27,6 +28,7 @@ export function useSyncManager() {
   const positions = useInvestmentStore(s => s.positions)
   const cardAccounts = useCardsStore(s => s.accounts)
   const expenseTags = useCategoriesStore(s => s.tags)
+  const debts = useDebtsStore(s => s.items)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -80,6 +82,11 @@ export function useSyncManager() {
     if (remote.history_cutoff !== undefined) {
       useFinanceStore.getState().setHistoryCutoff(remote.history_cutoff)
     }
+    // Dívidas: substitui quando o remoto já tem o campo (mesmo vazio = intencional);
+    // se o Gist ainda não tiver dívidas (pré-feature), mantém o que há localmente.
+    if (Array.isArray(remote.debts)) {
+      useDebtsStore.getState().replaceAll(remote.debts, remote.debts_reference_month)
+    }
     setStatus('synced')
     setLastSync(new Date())
     settle()
@@ -101,6 +108,8 @@ export function useSyncManager() {
       card_accounts: useCardsStore.getState().accounts,
       expense_tags: useCategoriesStore.getState().tags,
       history_cutoff: useFinanceStore.getState().historyCutoff,
+      debts: useDebtsStore.getState().items,
+      debts_reference_month: useDebtsStore.getState().referenceMonth,
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -119,7 +128,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts])
 
   // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
   // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante

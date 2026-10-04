@@ -1,5 +1,6 @@
 import type { MonthRecord, FinancialGoal, RecurringItem, CardAccount, ExpenseTag } from '@/types/finance'
 import type { InvestmentPosition } from '@/types/investment'
+import type { DebtItem } from '@/types/debt'
 import type { MonthPoint } from '@/types/finance'
 
 export interface SyncPayload {
@@ -10,6 +11,8 @@ export interface SyncPayload {
   card_accounts?: CardAccount[]
   expense_tags?: ExpenseTag[]
   history_cutoff?: string | null
+  debts?: DebtItem[]
+  debts_reference_month?: string
   updated_at?: string
 }
 
