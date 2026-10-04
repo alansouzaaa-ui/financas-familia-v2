@@ -11,6 +11,7 @@ export interface DebtItem {
   detail: string        // subcategoria do SCR (ex: "Cartão de crédito - não migrado")
   status: DebtStatus
   value: number
+  paid?: boolean        // quitada → fica fora do montante
 }
 
 export const MODALITY_LABELS: Record<DebtModality, string> = {

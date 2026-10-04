@@ -44,13 +44,19 @@ export default function DebtsPage() {
   const [form, setForm] = useState<FormState>(EMPTY)
 
   const totals = useMemo(() => {
-    let emDia = 0, vencida = 0
+    let emDia = 0, vencida = 0, quitado = 0
     const banks = new Set<string>()
     for (const it of items) {
-      if (it.status === 'vencida') vencida += it.value; else emDia += it.value
       banks.add(it.bank)
+      if (it.paid) { quitado += it.value; continue }   // pagas ficam fora do montante
+      if (it.status === 'vencida') vencida += it.value; else emDia += it.value
     }
-    return { emDia, vencida, total: emDia + vencida, bankCount: banks.size, opCount: items.length }
+    return {
+      emDia, vencida, quitado,
+      total: emDia + vencida,
+      bankCount: banks.size,
+      opCount: items.filter(i => !i.paid).length,
+    }
   }, [items])
 
   // Agrupamento por banco ou por modalidade
@@ -63,9 +69,12 @@ export default function DebtsPage() {
     }
     return [...map.entries()]
       .map(([key, list]) => {
-        const emDia = list.filter(i => i.status === 'em_dia').reduce((s, i) => s + i.value, 0)
-        const vencida = list.filter(i => i.status === 'vencida').reduce((s, i) => s + i.value, 0)
-        return { key, list: list.slice().sort((a, b) => b.value - a.value), emDia, vencida, total: emDia + vencida }
+        const open = list.filter(i => !i.paid)
+        const emDia = open.filter(i => i.status === 'em_dia').reduce((s, i) => s + i.value, 0)
+        const vencida = open.filter(i => i.status === 'vencida').reduce((s, i) => s + i.value, 0)
+        // pagas vão para o fim; dentro de cada grupo, maior valor primeiro
+        const sorted = list.slice().sort((a, b) => (a.paid === b.paid ? b.value - a.value : a.paid ? 1 : -1))
+        return { key, list: sorted, emDia, vencida, total: emDia + vencida, allPaid: open.length === 0 }
       })
       .sort((a, b) => b.total - a.total)
   }, [items, view])
@@ -120,9 +129,9 @@ export default function DebtsPage() {
         style={{ borderRadius: 'var(--r-card)', background: 'var(--color-border)', boxShadow: 'var(--shadow-card)' }}
       >
         <div className="bg-[var(--color-surface)] p-4">
-          <div className="label">Dívida total</div>
+          <div className="label">Dívida em aberto</div>
           <div className="font-mono font-semibold text-[22px] leading-none tracking-[-0.01em] mt-2.5 neg">{fmt(totals.total)}</div>
-          <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">{totals.bankCount} bancos · {totals.opCount} operações</div>
+          <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">{totals.bankCount} bancos · {totals.opCount} em aberto</div>
         </div>
         <div className="bg-[var(--color-surface)] p-4">
           <div className="label">Em dia</div>
@@ -132,17 +141,21 @@ export default function DebtsPage() {
         <div className="bg-[var(--color-surface)] p-4">
           <div className="label">Vencida</div>
           <div className="font-mono font-semibold text-[22px] leading-none tracking-[-0.01em] mt-2.5 neg">{fmt(totals.vencida)}</div>
-          <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">{totals.total > 0 ? `${Math.round((totals.vencida / totals.total) * 100)}% do total` : '—'}</div>
+          <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">{totals.total > 0 ? `${Math.round((totals.vencida / totals.total) * 100)}% do aberto` : '—'}</div>
         </div>
-        <div className="bg-[var(--color-surface)] p-4 flex flex-col">
-          <div className="label">Atenção</div>
-          <div className="text-[12.5px] text-[var(--color-text-primary)] mt-2 leading-snug">
-            {totals.vencida > 0
-              ? <>Priorize quitar as <span className="neg font-medium">vencidas</span> — juros e negativação correm sobre elas.</>
-              : 'Nenhuma dívida vencida. 🎉'}
+        <div className="bg-[var(--color-surface)] p-4">
+          <div className="label" style={{ color: 'var(--color-pos)' }}>Quitado</div>
+          <div className="font-mono font-semibold text-[22px] leading-none tracking-[-0.01em] mt-2.5 pos">{fmt(totals.quitado)}</div>
+          <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
+            {totals.quitado + totals.total > 0 ? `${Math.round((totals.quitado / (totals.quitado + totals.total)) * 100)}% da dívida` : 'nada quitado ainda'}
           </div>
         </div>
       </div>
+      {totals.vencida > 0 && (
+        <p className="text-[12px] text-[var(--color-text-muted)] -mt-2 mb-5 flex items-center gap-1.5">
+          <span className="neg">⚠︎</span> Priorize quitar as <span className="neg font-medium">vencidas</span> — juros e negativação correm sobre elas.
+        </p>
+      )}
 
       {/* Form de gestão */}
       {manage && (
@@ -182,25 +195,44 @@ export default function DebtsPage() {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="font-mono font-semibold text-[15px] neg">{fmt(g.total)}</div>
-                  <div className="flex items-center gap-1.5 justify-end mt-0.5 text-[10px]">
-                    {g.emDia > 0 && <span className="pos">✓ {fmt(g.emDia)}</span>}
-                    {g.vencida > 0 && <span className="neg">⚠︎ {fmt(g.vencida)}</span>}
-                  </div>
+                  {g.allPaid ? (
+                    <div className="font-semibold text-[14px] pos">✓ Quitado</div>
+                  ) : (
+                    <>
+                      <div className="font-mono font-semibold text-[15px] neg">{fmt(g.total)}</div>
+                      <div className="flex items-center gap-1.5 justify-end mt-0.5 text-[10px]">
+                        {g.emDia > 0 && <span className="pos">✓ {fmt(g.emDia)}</span>}
+                        {g.vencida > 0 && <span className="neg">⚠︎ {fmt(g.vencida)}</span>}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Linhas */}
               <div className="flex flex-col divide-y divide-[var(--hairline)]">
                 {g.list.map(it => (
-                  <div key={it.id} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
+                  <div key={it.id} className={`flex items-center gap-2 py-2 first:pt-0 last:pb-0 ${it.paid ? 'opacity-60' : ''}`}>
+                    <button
+                      onClick={() => updateDebt(it.id, { paid: !it.paid })}
+                      title={it.paid ? 'Marcar como não paga' : 'Marcar como paga (sai do montante)'}
+                      className={`w-[20px] h-[20px] rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${it.paid ? 'border-transparent' : 'border-[var(--color-border)] hover:border-[var(--color-pos)]'}`}
+                      style={it.paid ? { background: 'var(--color-pos)' } : {}}
+                      aria-label={it.paid ? 'Marcar como não paga' : 'Marcar como paga'}
+                    >
+                      {it.paid && <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </button>
                     <span className="flex-shrink-0 text-[13px]" title={MODALITY_LABELS[it.modality]}>{view === 'banco' ? MODALITY_EMOJI[it.modality] : ''}</span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] text-[var(--color-text-primary)] truncate">{view === 'banco' ? it.detail : it.bank}</div>
+                      <div className={`text-[13px] text-[var(--color-text-primary)] truncate ${it.paid ? 'line-through' : ''}`}>{view === 'banco' ? it.detail : it.bank}</div>
                       {view === 'modalidade' && <div className="text-[11px] text-[var(--color-text-muted)] truncate">{it.detail}</div>}
                     </div>
-                    <StatusChip status={it.status} />
-                    <span className="font-mono text-[13px] font-medium neg flex-shrink-0 w-[92px] text-right">{fmt(it.value)}</span>
+                    {it.paid ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: 'color-mix(in srgb, var(--color-pos) 13%, transparent)', color: 'var(--color-pos)' }}>✓ Paga</span>
+                    ) : (
+                      <StatusChip status={it.status} />
+                    )}
+                    <span className={`font-mono text-[13px] font-medium flex-shrink-0 w-[92px] text-right ${it.paid ? 'text-[var(--color-text-muted)] line-through' : 'neg'}`}>{fmt(it.value)}</span>
                     {manage && (
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         <button onClick={() => startEdit(it)} title="Editar" className="w-7 h-7 flex items-center justify-center rounded-[7px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)]">
