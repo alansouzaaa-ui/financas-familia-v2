@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useReserveStore } from '@/stores/useReserveStore'
 import { fmtFull } from '@/lib/formatters'
 import Input from '@/components/ui/Input'
@@ -85,10 +86,18 @@ function inferPillar(assetType: AssetType): ReservePillar | null {
 }
 
 interface ReservePos {
+  ticker?: string
+  broker?: string
   purpose?: string
   assetType: AssetType
   reservePillar?: ReservePillar
   currentValue: number
+}
+
+export interface ReserveAsset {
+  ticker: string
+  broker?: string
+  value: number
 }
 
 // Pilar efetivo de uma posição: o escolhido à mão, senão o inferido pelo tipo.
@@ -96,20 +105,26 @@ export function pillarOf(p: { assetType: AssetType; reservePillar?: ReservePilla
   return p.reservePillar ?? inferPillar(p.assetType)
 }
 
-// Soma o valor atual das posições-reserva, no total e por pilar.
+// Soma o valor atual das posições-reserva, no total, por pilar e lista os ativos.
 export function reserveBreakdown(positions: ReservePos[]): {
   total: number
   byPillar: Record<ReservePillar, number>
+  assets: Record<ReservePillar, ReserveAsset[]>
 } {
   const byPillar: Record<ReservePillar, number> = { imediato: 0, selic: 0, rendafixa: 0 }
+  const assets: Record<ReservePillar, ReserveAsset[]> = { imediato: [], selic: [], rendafixa: [] }
   let total = 0
   for (const p of positions) {
     if (!isReserve(p.purpose)) continue
     total += p.currentValue
     const pillar = pillarOf(p)
-    if (pillar) byPillar[pillar] += p.currentValue
+    if (pillar) {
+      byPillar[pillar] += p.currentValue
+      assets[pillar].push({ ticker: p.ticker ?? '—', broker: p.broker, value: p.currentValue })
+    }
   }
-  return { total, byPillar }
+  for (const k of Object.keys(assets) as ReservePillar[]) assets[k].sort((a, b) => b.value - a.value)
+  return { total, byPillar, assets }
 }
 
 // KPI compacto da reserva para a faixa de destaque no topo da página.
@@ -163,15 +178,18 @@ export function ReserveSummaryCard({
 export default function ReserveCard({
   current,
   byPillar,
+  assets,
   open,
   onToggle,
 }: {
   current: number
   byPillar: Record<ReservePillar, number>
+  assets: Record<ReservePillar, ReserveAsset[]>
   open: boolean
   onToggle: () => void
 }) {
   const { monthlyCost, months, setMonthlyCost, setMonths } = useReserveStore()
+  const [expandedPillar, setExpandedPillar] = useState<ReservePillar | null>(null)
 
   const target = monthlyCost * months
   const hasTarget = target > 0
@@ -283,30 +301,47 @@ export default function ReserveCard({
                 const pillarPct = pillarTarget > 0 ? Math.min((pillarCurrent / pillarTarget) * 100, 100) : 0
                 const pillarGap = pillarTarget - pillarCurrent
                 const done = pillarGap <= 0
+                const list = assets[s.id] ?? []
+                const isOpen = expandedPillar === s.id
                 return (
                   <div
                     key={s.id}
                     className="rounded-xl border border-[var(--color-border)] p-3.5 bg-[var(--color-surface-2)]/40"
                   >
-                    <div className="flex items-center justify-between gap-3 mb-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                          style={{ background: s.color }}
-                        />
-                        <span className="font-semibold text-[14px] text-[var(--color-text-primary)]">
-                          {s.label}
-                        </span>
-                        <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                          {(s.pct * 100).toFixed(0)}%
+                    {/* Cabeçalho do pilar — clique abre a lista de ativos */}
+                    <button
+                      onClick={() => setExpandedPillar(isOpen ? null : s.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                            style={{ background: s.color }}
+                          />
+                          <span className="font-semibold text-[14px] text-[var(--color-text-primary)]">
+                            {s.label}
+                          </span>
+                          <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
+                            {(s.pct * 100).toFixed(0)}%
+                          </span>
+                          <span className="text-[11px] text-[var(--color-text-muted)]">
+                            · {list.length} {list.length === 1 ? 'ativo' : 'ativos'}
+                          </span>
+                          <svg
+                            width="12" height="12" viewBox="0 0 14 14" fill="none"
+                            className={`flex-shrink-0 text-[var(--color-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                          >
+                            <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                        <span className="font-mono font-semibold text-[14px] text-[var(--color-text-primary)] flex-shrink-0">
+                          {fmtFull(pillarTarget)}
                         </span>
                       </div>
-                      <span className="font-mono font-semibold text-[14px] text-[var(--color-text-primary)] flex-shrink-0">
-                        {fmtFull(pillarTarget)}
-                      </span>
-                    </div>
-                    <div className="text-[12px] text-[var(--color-text-primary)] pl-[18px]">{s.vehicle}</div>
-                    <div className="text-[11px] text-[var(--color-text-muted)] pl-[18px] mt-0.5 mb-2.5">{s.note}</div>
+                      <div className="text-[12px] text-[var(--color-text-primary)] pl-[18px]">{s.vehicle}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)] pl-[18px] mt-0.5 mb-2.5">{s.note}</div>
+                    </button>
 
                     {/* Barra do pilar */}
                     <div className="pl-[18px]">
@@ -330,14 +365,48 @@ export default function ReserveCard({
                         </span>
                       </div>
                     </div>
+
+                    {/* Lista de ativos do pilar (expandida) */}
+                    {isOpen && (
+                      <div className="pl-[18px] mt-3 pt-3 border-t border-[var(--hairline)] flex flex-col gap-1.5">
+                        {list.length === 0 ? (
+                          <div className="text-[12px] text-[var(--color-text-muted)]">
+                            Nenhum ativo neste pilar ainda. Marque uma posição como Reserva e escolha este pilar.
+                          </div>
+                        ) : (
+                          <>
+                            {list.map((a, i) => (
+                              <div key={i} className="flex items-center justify-between gap-3 text-[12px]">
+                                <span className="text-[var(--color-text-primary)] truncate min-w-0">
+                                  <span className="font-mono">{a.ticker}</span>
+                                  {a.broker && (
+                                    <span className="text-[var(--color-text-muted)]"> · {a.broker}</span>
+                                  )}
+                                </span>
+                                <span className="font-mono font-medium text-[var(--color-text-primary)] flex-shrink-0">
+                                  {fmtFull(a.value)}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between gap-3 text-[12px] pt-1.5 mt-0.5 border-t border-[var(--hairline)]">
+                              <span className="text-[var(--color-text-muted)]">Total no pilar</span>
+                              <span className="font-mono font-semibold text-[var(--color-text-primary)]">
+                                {fmtFull(pillarCurrent)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)] mt-3">
-              Cada posição marcada como <strong className="text-[var(--color-text-primary)]">Reserva de emergência</strong> entra
-              no pilar escolhido no cadastro — ou, se em branco, no pilar detectado pelo tipo do ativo
-              (Tesouro → Selic; ETF/Renda fixa → renda fixa líquida; Poupança/Outro → acesso imediato).
+              Toque num pilar para ver os ativos que o compõem. Cada posição marcada como{' '}
+              <strong className="text-[var(--color-text-primary)]">Reserva de emergência</strong> entra no pilar
+              escolhido no cadastro — ou, se em branco, no detectado pelo tipo do ativo (Tesouro → Selic;
+              ETF/Renda fixa → renda fixa líquida; Poupança/Outro → acesso imediato).
             </p>
           </div>
 

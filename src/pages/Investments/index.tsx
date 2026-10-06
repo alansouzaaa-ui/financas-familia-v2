@@ -890,6 +890,7 @@ export default function InvestmentsPage() {
         <ReserveCard
           current={reserve.total}
           byPillar={reserve.byPillar}
+          assets={reserve.assets}
           open={reserveOpen}
           onToggle={() => setReserveOpen((o) => !o)}
         />
