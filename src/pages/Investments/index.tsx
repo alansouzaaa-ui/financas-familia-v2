@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import ReserveCard, { reserveCurrentValue } from './ReserveCard'
 import type { BrapiQuote, AssetType, InvestmentPosition } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 
@@ -401,6 +402,9 @@ export default function InvestmentsPage() {
     const total = rows.reduce((s, r) => s + r.value, 0)
     return { rows, total }
   }, [enriched])
+
+  // Quanto da carteira já está marcado como reserva de emergência (valor atual)
+  const reserveCurrent = useMemo(() => reserveCurrentValue(enriched), [enriched])
 
   // ── form handlers ───────────────────────────────────────────────────────
 
@@ -802,6 +806,9 @@ export default function InvestmentsPage() {
           </form>
         </div>
       )}
+
+      {/* ── Reserva de emergência (recomendação) ── */}
+      <ReserveCard current={reserveCurrent} />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
