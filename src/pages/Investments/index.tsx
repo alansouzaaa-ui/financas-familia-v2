@@ -11,7 +11,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
-import ReserveCard, { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf } from './ReserveCard'
+import ReserveCard, { ReserveSummaryCard, reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf } from './ReserveCard'
 
 // Casa "Reserva de emergência", "reserva", "emergencia"… (igual ao ReserveCard)
 function purposeIsReserve(purpose?: string): boolean {
@@ -268,6 +268,8 @@ export default function InvestmentsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const [showForm, setShowForm] = useState(false)
+  const [reserveOpen, setReserveOpen] = useState(false)
+  const reserveRef = useRef<HTMLDivElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
@@ -564,6 +566,11 @@ export default function InvestmentsPage() {
     }
   }
 
+  function openReserve() {
+    setReserveOpen(true)
+    setTimeout(() => reserveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }
+
   // ── render ──────────────────────────────────────────────────────────────
 
   const hasPositions = positions.length > 0
@@ -609,6 +616,40 @@ export default function InvestmentsPage() {
             Adicionar
           </Button>
         </div>
+      </div>
+
+      {/* ── KPIs em destaque (bater o olho) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <ReserveSummaryCard current={reserve.total} onClick={openReserve} />
+        <SummaryCard
+          label="Total Investido"
+          main={fmtFull(totals.totalInvested)}
+        />
+        <SummaryCard
+          label="Patrimônio"
+          main={hasValuation ? fmtFull(totals.currentValue) : '—'}
+          sub={hasQuotes && totals.dayChange !== 0
+            ? `${totals.dayChange >= 0 ? '+' : ''}${fmtFull(totals.dayChange)} hoje`
+            : undefined}
+          subTrend={totals.dayChange}
+          loading={loading && !hasValuation}
+        />
+        <SummaryCard
+          label="Rentabilidade"
+          main={hasValuation ? fmtFull(totals.pnl) : '—'}
+          sub={hasValuation ? pct(totals.pnlPercent) : undefined}
+          subTrend={totals.pnl}
+          loading={loading && !hasValuation}
+        />
+        <SummaryCard
+          label="IBOV Hoje"
+          main={ibov ? `${ibov.regularMarketChangePercent.toFixed(2)}%` : '—'}
+          sub={ibov
+            ? ibov.regularMarketPrice.toLocaleString('pt-BR', { minimumFractionDigits: 0 }) + ' pts'
+            : undefined}
+          subTrend={ibov?.regularMarketChangePercent}
+          loading={loading && !ibov}
+        />
       </div>
 
       {/* ── Error ── */}
@@ -844,8 +885,15 @@ export default function InvestmentsPage() {
         </div>
       )}
 
-      {/* ── Reserva de emergência (recomendação) ── */}
-      <ReserveCard current={reserve.total} byPillar={reserve.byPillar} />
+      {/* ── Reserva de emergência (recomendação, recolhível) ── */}
+      <div ref={reserveRef} className="scroll-mt-4">
+        <ReserveCard
+          current={reserve.total}
+          byPillar={reserve.byPillar}
+          open={reserveOpen}
+          onToggle={() => setReserveOpen((o) => !o)}
+        />
+      </div>
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
@@ -869,42 +917,6 @@ export default function InvestmentsPage() {
             </svg>
             Adicionar primeira posição
           </Button>
-        </div>
-      )}
-
-      {/* ── Summary cards ── */}
-      {hasPositions && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryCard
-            label="Total Investido"
-            main={fmtFull(totals.totalInvested)}
-            loading={false}
-          />
-          <SummaryCard
-            label="Valor Atual"
-            main={hasValuation ? fmtFull(totals.currentValue) : '—'}
-            sub={hasQuotes && totals.dayChange !== 0
-              ? `${totals.dayChange >= 0 ? '+' : ''}${fmtFull(totals.dayChange)} hoje`
-              : undefined}
-            subTrend={totals.dayChange}
-            loading={loading && !hasValuation}
-          />
-          <SummaryCard
-            label="Rentabilidade"
-            main={hasValuation ? fmtFull(totals.pnl) : '—'}
-            sub={hasValuation ? pct(totals.pnlPercent) : undefined}
-            subTrend={totals.pnl}
-            loading={loading && !hasValuation}
-          />
-          <SummaryCard
-            label="IBOV Hoje"
-            main={ibov ? `${ibov.regularMarketChangePercent.toFixed(2)}%` : '—'}
-            sub={ibov
-              ? ibov.regularMarketPrice.toLocaleString('pt-BR', { minimumFractionDigits: 0 }) + ' pts'
-              : undefined}
-            subTrend={ibov?.regularMarketChangePercent}
-            loading={loading && !ibov}
-          />
         </div>
       )}
 

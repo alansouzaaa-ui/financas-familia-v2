@@ -112,12 +112,64 @@ export function reserveBreakdown(positions: ReservePos[]): {
   return { total, byPillar }
 }
 
+// KPI compacto da reserva para a faixa de destaque no topo da página.
+export function ReserveSummaryCard({
+  current,
+  onClick,
+}: {
+  current: number
+  onClick: () => void
+}) {
+  const { monthlyCost, months } = useReserveStore()
+  const target = monthlyCost * months
+  const has = target > 0
+  const progress = has ? Math.min((current / target) * 100, 100) : 0
+  return (
+    <button
+      onClick={onClick}
+      className="text-left bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)] hover:border-[color-mix(in_srgb,var(--color-primary)_45%,transparent)] transition-colors"
+    >
+      <div className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+        Reserva
+      </div>
+      {has ? (
+        <>
+          <div className="text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight">
+            {fmtFull(current)}
+          </div>
+          <div className="text-[12px] text-[var(--color-text-muted)] mt-0.5 font-medium">
+            de {fmtFull(target)} · {progress.toFixed(0)}%
+          </div>
+          <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden mt-2">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progress}%`,
+                background: progress >= 100 ? 'var(--color-pos)' : 'var(--color-primary)',
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight">—</div>
+          <div className="text-[12px] text-[var(--color-primary)] mt-0.5 font-medium">Definir meta →</div>
+        </>
+      )}
+    </button>
+  )
+}
+
 export default function ReserveCard({
   current,
   byPillar,
+  open,
+  onToggle,
 }: {
   current: number
   byPillar: Record<ReservePillar, number>
+  open: boolean
+  onToggle: () => void
 }) {
   const { monthlyCost, months, setMonthlyCost, setMonths } = useReserveStore()
 
@@ -128,19 +180,29 @@ export default function ReserveCard({
 
   return (
     <div className="card">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
+      {/* Header — clicável para expandir/recolher */}
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-3 text-left">
+        <div className="min-w-0">
           <p className="section-head label">Proteção</p>
           <h2 className="serif text-[clamp(18px,2.6vw,22px)] tracking-[-0.01em] mt-1">
             Reserva de emergência
           </h2>
           <p className="text-[12px] text-[var(--color-text-muted)] mt-0.5">
-            Carteira sugerida com base nos conceitos da AUVP
+            {hasTarget
+              ? `Meta ${fmtFull(target)} · ${progress.toFixed(0)}% concluído — carteira e pilares`
+              : 'Defina sua meta e veja a carteira sugerida (AUVP)'}
           </p>
         </div>
-      </div>
+        <svg
+          width="18" height="18" viewBox="0 0 14 14" fill="none"
+          className={`flex-shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
 
+      {!open ? null : (
+      <>
       {/* Inputs */}
       <div className="grid grid-cols-2 gap-3 mt-4 max-w-[380px]">
         <Input
@@ -292,6 +354,8 @@ export default function ReserveCard({
             </ul>
           </div>
         </>
+      )}
+      </>
       )}
     </div>
   )
