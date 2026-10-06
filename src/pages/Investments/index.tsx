@@ -10,7 +10,7 @@ import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition } from '@/types/investment'
-import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS } from '@/types/investment'
+import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ interface FormState {
   manualValue: string     // saldo atual (poupança)
   broker: string          // banco / corretora
   investedAmount: string  // valor investido (Tesouro) → calcula as cotas
+  purpose: string         // objetivo/categoria
 }
 
 const EMPTY_FORM: FormState = {
@@ -41,6 +42,7 @@ const EMPTY_FORM: FormState = {
   manualValue: '',
   broker: '',
   investedAmount: '',
+  purpose: '',
 }
 
 function pct(value: number) {
@@ -116,6 +118,11 @@ function PositionCard({
             >
               {ASSET_TYPE_LABELS[pos.assetType]}
             </span>
+            {pos.purpose && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)]">
+                {pos.purpose}
+              </span>
+            )}
           </div>
           {pos.quote?.shortName && (
             <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 truncate max-w-[200px]">
@@ -383,6 +390,18 @@ export default function InvestmentsPage() {
     )
   }, [enriched, ibovHistory, ibov])
 
+  // Quanto há em cada objetivo/categoria (pelo valor atual)
+  const purposeBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of enriched) {
+      if (!p.purpose) continue
+      map.set(p.purpose, (map.get(p.purpose) ?? 0) + p.currentValue)
+    }
+    const rows = [...map.entries()].map(([purpose, value]) => ({ purpose, value })).sort((a, b) => b.value - a.value)
+    const total = rows.reduce((s, r) => s + r.value, 0)
+    return { rows, total }
+  }, [enriched])
+
   // ── form handlers ───────────────────────────────────────────────────────
 
   function openAdd() {
@@ -408,6 +427,7 @@ export default function InvestmentsPage() {
       investedAmount: pos.assetType === 'tesouro'
         ? String(Math.round(pos.quantity * pos.avgPrice * 100) / 100)
         : '',
+      purpose: pos.purpose ?? '',
     })
     // Não deixa o auto-preenchimento do PU sobrescrever a posição em edição.
     lastPuKey.current = `${pos.ticker}|${pos.buyDate}`
@@ -442,6 +462,7 @@ export default function InvestmentsPage() {
         assetType: 'poupanca' as AssetType,
         notes: form.notes.trim().slice(0, 200) || undefined,
         broker: form.broker.trim().slice(0, 40) || undefined,
+        purpose: form.purpose.trim().slice(0, 40) || undefined,
       }
       if (editingId) updatePosition(editingId, data)
       else addPosition(data)
@@ -466,6 +487,7 @@ export default function InvestmentsPage() {
         assetType: 'tesouro' as AssetType,
         notes: form.notes.trim().slice(0, 200) || undefined,
         broker: form.broker.trim().slice(0, 40) || undefined,
+        purpose: form.purpose.trim().slice(0, 40) || undefined,
       }
       if (editingId) updatePosition(editingId, data)
       else addPosition(data)
@@ -496,6 +518,7 @@ export default function InvestmentsPage() {
       assetType: form.assetType,
       notes: form.notes.trim().slice(0, 200) || undefined,
       broker: form.broker.trim().slice(0, 40) || undefined,
+      purpose: form.purpose.trim().slice(0, 40) || undefined,
     }
 
     if (editingId) {
@@ -757,6 +780,16 @@ export default function InvestmentsPage() {
               <datalist id="ff-brokers">
                 {INVESTMENT_BROKERS.map((b) => <option key={b} value={b} />)}
               </datalist>
+              <Input
+                label="Categoria (opcional)"
+                list="ff-purposes"
+                placeholder="Reserva, Aposentadoria…"
+                value={form.purpose}
+                onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
+              />
+              <datalist id="ff-purposes">
+                {INVESTMENT_PURPOSES.map((p) => <option key={p} value={p} />)}
+              </datalist>
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={cancelForm}>
@@ -861,6 +894,32 @@ export default function InvestmentsPage() {
           <p className="text-[11px] text-[var(--color-text-muted)] mt-3 pt-3 border-t border-[var(--hairline)]">
             Simula o mesmo dinheiro aplicado no IBOV nas datas dos seus aportes. Considera {ibovCompare.coverageCount} {ibovCompare.coverageCount === 1 ? 'posição' : 'posições'} com data e valor.
           </p>
+        </div>
+      )}
+
+      {/* ── Por objetivo/categoria ── */}
+      {purposeBreakdown.rows.length > 0 && (
+        <div className="card">
+          <div className="section-head label mb-3">Por objetivo</div>
+          <div className="flex flex-col gap-2.5">
+            {purposeBreakdown.rows.map(r => {
+              const pc = purposeBreakdown.total > 0 ? (r.value / purposeBreakdown.total) * 100 : 0
+              return (
+                <div key={r.purpose}>
+                  <div className="flex items-center justify-between text-[13px] mb-1">
+                    <span className="text-[var(--color-text-primary)]">{r.purpose}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[11px] text-[var(--color-text-muted)] font-mono">{pc.toFixed(0)}%</span>
+                      <span className="font-mono font-medium text-[var(--color-text-primary)]">{fmtFull(r.value)}</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pc}%`, background: 'var(--color-primary)' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

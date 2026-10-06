@@ -32,7 +32,20 @@ export interface InvestmentPosition {
   notes?: string
   manualValue?: number // saldo atual informado à mão (ex: poupança, sem cotação)
   broker?: string      // banco / corretora onde o investimento está custodiado
+  purpose?: string     // objetivo/categoria (ex: Reserva de emergência, Aposentadoria)
 }
+
+// Objetivos/categorias de investimento para o seletor — o usuário pode digitar
+// um fora da lista (datalist).
+export const INVESTMENT_PURPOSES: string[] = [
+  'Reserva de emergência',
+  'Aposentadoria',
+  'Investimento',
+  'Objetivo de curto prazo',
+  'Objetivo de médio prazo',
+  'Objetivo de longo prazo',
+  'Outro',
+]
 
 // Principais bancos e corretoras (BR) para o seletor — o usuário pode digitar
 // um fora da lista (datalist), então não é exaustivo.

@@ -13,8 +13,12 @@ import InvestmentsPage from '@/pages/Investments'
 import DebtsPage from '@/pages/Debts'
 import LoginPage from '@/pages/Login'
 import { checkSession, clearSession } from '@/pages/Login/auth'
+import { useVersionCheck } from '@/hooks/useVersionCheck'
 
 export default function App() {
+  // Auto-update: recarrega quando houver versão nova no servidor.
+  useVersionCheck()
+
   // null = loading, true = authenticated, false = not authenticated
   const [authed, setAuthed] = useState<boolean | null>(null)
 
