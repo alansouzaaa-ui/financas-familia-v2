@@ -9,9 +9,16 @@ import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
-import ReserveCard, { reserveCurrentValue } from './ReserveCard'
-import type { BrapiQuote, AssetType, InvestmentPosition } from '@/types/investment'
+import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
+import ReserveCard, { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf } from './ReserveCard'
+
+// Casa "Reserva de emergência", "reserva", "emergencia"… (igual ao ReserveCard)
+function purposeIsReserve(purpose?: string): boolean {
+  if (!purpose) return false
+  const n = purpose.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return n.includes('reserva') || n.includes('emergenc')
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -31,6 +38,7 @@ interface FormState {
   broker: string          // banco / corretora
   investedAmount: string  // valor investido (Tesouro) → calcula as cotas
   purpose: string         // objetivo/categoria
+  reservePillar: string   // pilar da reserva ('' = auto pelo tipo)
 }
 
 const EMPTY_FORM: FormState = {
@@ -44,6 +52,7 @@ const EMPTY_FORM: FormState = {
   broker: '',
   investedAmount: '',
   purpose: '',
+  reservePillar: '',
 }
 
 function pct(value: number) {
@@ -122,6 +131,11 @@ function PositionCard({
             {pos.purpose && (
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)]">
                 {pos.purpose}
+              </span>
+            )}
+            {purposeIsReserve(pos.purpose) && pillarOf(pos) && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                {RESERVE_PILLAR_LABELS[pillarOf(pos)!]}
               </span>
             )}
           </div>
@@ -403,8 +417,8 @@ export default function InvestmentsPage() {
     return { rows, total }
   }, [enriched])
 
-  // Quanto da carteira já está marcado como reserva de emergência (valor atual)
-  const reserveCurrent = useMemo(() => reserveCurrentValue(enriched), [enriched])
+  // Reserva de emergência: total e por pilar (acesso imediato / Selic / renda fixa)
+  const reserve = useMemo(() => reserveBreakdown(enriched), [enriched])
 
   // ── form handlers ───────────────────────────────────────────────────────
 
@@ -432,6 +446,7 @@ export default function InvestmentsPage() {
         ? String(Math.round(pos.quantity * pos.avgPrice * 100) / 100)
         : '',
       purpose: pos.purpose ?? '',
+      reservePillar: pos.reservePillar ?? '',
     })
     // Não deixa o auto-preenchimento do PU sobrescrever a posição em edição.
     lastPuKey.current = `${pos.ticker}|${pos.buyDate}`
@@ -450,6 +465,12 @@ export default function InvestmentsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
+    // Pilar da reserva só é guardado quando a categoria é "Reserva" e foi escolhido.
+    const reservePillarValue: ReservePillar | undefined =
+      purposeIsReserve(form.purpose) && form.reservePillar
+        ? (form.reservePillar as ReservePillar)
+        : undefined
+
     // Poupança / saldo manual: nome + saldo atual (+ total depositado opcional)
     if (form.assetType === 'poupanca') {
       const nome = form.ticker.trim().slice(0, 60)
@@ -467,6 +488,7 @@ export default function InvestmentsPage() {
         notes: form.notes.trim().slice(0, 200) || undefined,
         broker: form.broker.trim().slice(0, 40) || undefined,
         purpose: form.purpose.trim().slice(0, 40) || undefined,
+        reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
       else addPosition(data)
@@ -492,6 +514,7 @@ export default function InvestmentsPage() {
         notes: form.notes.trim().slice(0, 200) || undefined,
         broker: form.broker.trim().slice(0, 40) || undefined,
         purpose: form.purpose.trim().slice(0, 40) || undefined,
+        reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
       else addPosition(data)
@@ -523,6 +546,7 @@ export default function InvestmentsPage() {
       notes: form.notes.trim().slice(0, 200) || undefined,
       broker: form.broker.trim().slice(0, 40) || undefined,
       purpose: form.purpose.trim().slice(0, 40) || undefined,
+      reservePillar: reservePillarValue,
     }
 
     if (editingId) {
@@ -794,6 +818,19 @@ export default function InvestmentsPage() {
               <datalist id="ff-purposes">
                 {INVESTMENT_PURPOSES.map((p) => <option key={p} value={p} />)}
               </datalist>
+              {purposeIsReserve(form.purpose) && (
+                <Select
+                  label="Pilar da reserva"
+                  options={[
+                    { value: '', label: 'Automático (pelo tipo)' },
+                    { value: 'imediato', label: RESERVE_PILLAR_LABELS.imediato },
+                    { value: 'selic', label: RESERVE_PILLAR_LABELS.selic },
+                    { value: 'rendafixa', label: RESERVE_PILLAR_LABELS.rendafixa },
+                  ]}
+                  value={form.reservePillar}
+                  onChange={(e) => setForm((f) => ({ ...f, reservePillar: e.target.value }))}
+                />
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={cancelForm}>
@@ -808,7 +845,7 @@ export default function InvestmentsPage() {
       )}
 
       {/* ── Reserva de emergência (recomendação) ── */}
-      <ReserveCard current={reserveCurrent} />
+      <ReserveCard current={reserve.total} byPillar={reserve.byPillar} />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (

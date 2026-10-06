@@ -22,6 +22,10 @@ export const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   outro: '#94A3B8',
 }
 
+// Pilar da reserva de emergência — usado para acompanhar o progresso de cada
+// perna da carteira sugerida (acesso imediato / Tesouro Selic / renda fixa líquida).
+export type ReservePillar = 'imediato' | 'selic' | 'rendafixa'
+
 export interface InvestmentPosition {
   id: string
   ticker: string
@@ -33,6 +37,7 @@ export interface InvestmentPosition {
   manualValue?: number // saldo atual informado à mão (ex: poupança, sem cotação)
   broker?: string      // banco / corretora onde o investimento está custodiado
   purpose?: string     // objetivo/categoria (ex: Reserva de emergência, Aposentadoria)
+  reservePillar?: ReservePillar // pilar da reserva (vazio = auto-detecta pelo tipo)
 }
 
 // Objetivos/categorias de investimento para o seletor — o usuário pode digitar

@@ -1,6 +1,7 @@
 import { useReserveStore } from '@/stores/useReserveStore'
 import { fmtFull } from '@/lib/formatters'
 import Input from '@/components/ui/Input'
+import type { AssetType, ReservePillar } from '@/types/investment'
 
 // ─── Modelo de carteira da reserva de emergência ────────────────────────────
 // Baseado no conceito do vídeo da AUVP (Raul Sena): "Onde deixar sua reserva de
@@ -12,7 +13,7 @@ import Input from '@/components/ui/Input'
 // LFTS11 ou CDB de liquidez diária com FGC).
 
 interface Slice {
-  id: string
+  id: ReservePillar
   label: string
   pct: number
   vehicle: string
@@ -47,6 +48,12 @@ const ALLOCATION: Slice[] = [
   },
 ]
 
+export const RESERVE_PILLAR_LABELS: Record<ReservePillar, string> = {
+  imediato: 'Acesso imediato',
+  selic: 'Tesouro Selic',
+  rendafixa: 'Renda fixa líquida',
+}
+
 const PRINCIPLES = [
   'É um seguro, não um investimento: o objetivo é proteção, não a maior rentabilidade.',
   'Dimensione pelo custo fixo mensal (aluguel, saúde, contas, comida) — não pelo salário.',
@@ -61,13 +68,57 @@ function isReserve(purpose?: string): boolean {
   return n.includes('reserva') || n.includes('emergenc')
 }
 
-export function reserveCurrentValue(
-  positions: { purpose?: string; currentValue: number }[]
-): number {
-  return positions.reduce((s, p) => (isReserve(p.purpose) ? s + p.currentValue : s), 0)
+// Detecta o pilar quando não foi escolhido à mão, a partir do tipo do ativo.
+function inferPillar(assetType: AssetType): ReservePillar | null {
+  switch (assetType) {
+    case 'tesouro':
+      return 'selic'
+    case 'etf':
+    case 'renda_fixa':
+      return 'rendafixa'
+    case 'poupanca':
+    case 'outro':
+      return 'imediato'
+    default:
+      return null // ação/FII/cripto não compõem a reserva
+  }
 }
 
-export default function ReserveCard({ current }: { current: number }) {
+interface ReservePos {
+  purpose?: string
+  assetType: AssetType
+  reservePillar?: ReservePillar
+  currentValue: number
+}
+
+// Pilar efetivo de uma posição: o escolhido à mão, senão o inferido pelo tipo.
+export function pillarOf(p: { assetType: AssetType; reservePillar?: ReservePillar }): ReservePillar | null {
+  return p.reservePillar ?? inferPillar(p.assetType)
+}
+
+// Soma o valor atual das posições-reserva, no total e por pilar.
+export function reserveBreakdown(positions: ReservePos[]): {
+  total: number
+  byPillar: Record<ReservePillar, number>
+} {
+  const byPillar: Record<ReservePillar, number> = { imediato: 0, selic: 0, rendafixa: 0 }
+  let total = 0
+  for (const p of positions) {
+    if (!isReserve(p.purpose)) continue
+    total += p.currentValue
+    const pillar = pillarOf(p)
+    if (pillar) byPillar[pillar] += p.currentValue
+  }
+  return { total, byPillar }
+}
+
+export default function ReserveCard({
+  current,
+  byPillar,
+}: {
+  current: number
+  byPillar: Record<ReservePillar, number>
+}) {
   const { monthlyCost, months, setMonthlyCost, setMonths } = useReserveStore()
 
   const target = monthlyCost * months
@@ -120,7 +171,7 @@ export default function ReserveCard({ current }: { current: number }) {
         </p>
       ) : (
         <>
-          {/* Meta + progresso */}
+          {/* Meta + progresso geral */}
           <div className="mt-5 pt-4 border-t border-[var(--hairline)] grid sm:grid-cols-2 gap-5">
             <div>
               <div className="text-[11px] text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
@@ -160,12 +211,16 @@ export default function ReserveCard({ current }: { current: number }) {
             </div>
           </div>
 
-          {/* Carteira recomendada */}
+          {/* Carteira recomendada — progresso por pilar */}
           <div className="mt-5">
-            <div className="section-head label mb-3">Como dividir essa reserva</div>
+            <div className="section-head label mb-3">Progresso por pilar</div>
             <div className="flex flex-col gap-3">
               {ALLOCATION.map((s) => {
-                const value = target * s.pct
+                const pillarTarget = target * s.pct
+                const pillarCurrent = byPillar[s.id] ?? 0
+                const pillarPct = pillarTarget > 0 ? Math.min((pillarCurrent / pillarTarget) * 100, 100) : 0
+                const pillarGap = pillarTarget - pillarCurrent
+                const done = pillarGap <= 0
                 return (
                   <div
                     key={s.id}
@@ -185,15 +240,43 @@ export default function ReserveCard({ current }: { current: number }) {
                         </span>
                       </div>
                       <span className="font-mono font-semibold text-[14px] text-[var(--color-text-primary)] flex-shrink-0">
-                        {fmtFull(value)}
+                        {fmtFull(pillarTarget)}
                       </span>
                     </div>
                     <div className="text-[12px] text-[var(--color-text-primary)] pl-[18px]">{s.vehicle}</div>
-                    <div className="text-[11px] text-[var(--color-text-muted)] pl-[18px] mt-0.5">{s.note}</div>
+                    <div className="text-[11px] text-[var(--color-text-muted)] pl-[18px] mt-0.5 mb-2.5">{s.note}</div>
+
+                    {/* Barra do pilar */}
+                    <div className="pl-[18px]">
+                      <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${pillarPct}%`,
+                            background: done ? 'var(--color-pos)' : s.color,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] mt-1">
+                        <span className="font-mono text-[var(--color-text-muted)]">
+                          {fmtFull(pillarCurrent)} de {fmtFull(pillarTarget)}
+                        </span>
+                        <span className={`font-medium ${done ? 'pos' : 'text-[var(--color-text-muted)]'}`}>
+                          {done
+                            ? (pillarGap < 0 ? `✓ +${fmtFull(-pillarGap)}` : '✓ completo')
+                            : `${pillarPct.toFixed(0)}% · faltam ${fmtFull(pillarGap)}`}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
             </div>
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-3">
+              Cada posição marcada como <strong className="text-[var(--color-text-primary)]">Reserva de emergência</strong> entra
+              no pilar escolhido no cadastro — ou, se em branco, no pilar detectado pelo tipo do ativo
+              (Tesouro → Selic; ETF/Renda fixa → renda fixa líquida; Poupança/Outro → acesso imediato).
+            </p>
           </div>
 
           {/* Princípios */}
