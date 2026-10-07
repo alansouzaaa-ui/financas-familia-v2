@@ -13,6 +13,7 @@ import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 import AporteCard from './AporteCard'
 import ChecklistCard from './ChecklistCard'
+import DividendsCard from './DividendsCard'
 import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
 import { tierOf } from '@/lib/checklist'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
@@ -299,6 +300,7 @@ export default function InvestmentsPage() {
   const reserveRef = useRef<HTMLDivElement>(null)
   const [aporteOpen, setAporteOpen] = useState(false)
   const [checklistOpen, setChecklistOpen] = useState(false)
+  const [dividendsOpen, setDividendsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
@@ -1039,6 +1041,7 @@ export default function InvestmentsPage() {
 
       <AporteCard positions={enriched} open={aporteOpen} onToggle={() => setAporteOpen((o) => !o)} />
       <ChecklistCard positions={enriched} open={checklistOpen} onToggle={() => setChecklistOpen((o) => !o)} />
+      <DividendsCard positions={enriched} open={dividendsOpen} onToggle={() => setDividendsOpen((o) => !o)} />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
