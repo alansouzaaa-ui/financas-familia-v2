@@ -12,6 +12,9 @@ import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 import AporteCard from './AporteCard'
+import ChecklistCard from './ChecklistCard'
+import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
+import { tierOf } from '@/lib/checklist'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
 import { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf, isReservePurpose } from '@/lib/reserve'
 
@@ -99,10 +102,12 @@ function SummaryCard({
 
 function PositionCard({
   pos,
+  score,
   onEdit,
   onRemove,
 }: {
   pos: ReturnType<typeof enrichPositions>[number]
+  score?: number | null
   onEdit: () => void
   onRemove: () => void
 }) {
@@ -126,6 +131,17 @@ function PositionCard({
             {pos.purpose && (
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)]">
                 {pos.purpose}
+              </span>
+            )}
+            {score != null && (
+              <span
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full font-mono"
+                style={{
+                  background: `color-mix(in srgb, ${TIER_COLORS[tierOf(score, 1)]} 16%, transparent)`,
+                  color: TIER_COLORS[tierOf(score, 1)],
+                }}
+              >
+                Nota {fmtScore(score)}
               </span>
             )}
             {isReservePurpose(pos.purpose) && pillarOf(pos) && (
@@ -282,6 +298,7 @@ export default function InvestmentsPage() {
   const [reserveOpen, setReserveOpen] = useState(false)
   const reserveRef = useRef<HTMLDivElement>(null)
   const [aporteOpen, setAporteOpen] = useState(false)
+  const [checklistOpen, setChecklistOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
@@ -426,6 +443,7 @@ export default function InvestmentsPage() {
 
   const tesouroPu = useMemo(() => new Map(tesouroTitles.map(t => [t.name, t.pu])), [tesouroTitles])
   const enriched = useMemo(() => enrichPositions(positions, quotes, tesouroPu), [positions, quotes, tesouroPu])
+  const { scores: assetScores } = useAssetScores(enriched)
 
   const totals = useMemo(() => {
     const totalInvested = enriched.reduce((s, p) => s + p.totalInvested, 0)
@@ -1020,6 +1038,7 @@ export default function InvestmentsPage() {
       </div>
 
       <AporteCard positions={enriched} open={aporteOpen} onToggle={() => setAporteOpen((o) => !o)} />
+      <ChecklistCard positions={enriched} open={checklistOpen} onToggle={() => setChecklistOpen((o) => !o)} />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
@@ -1118,6 +1137,7 @@ export default function InvestmentsPage() {
               <PositionCard
                 key={pos.id}
                 pos={pos}
+                score={assetScores[pos.ticker.trim().toUpperCase()]}
                 onEdit={() => openEdit(pos)}
                 onRemove={() => handleRemove(pos.id)}
               />

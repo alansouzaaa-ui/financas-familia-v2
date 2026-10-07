@@ -67,6 +67,7 @@ export interface AssetSuggestion {
   amount: number
   shares: number | null
   price: number | null
+  score?: number | null
 }
 
 export interface ClassResult {
@@ -78,6 +79,7 @@ export interface ClassResult {
   gap: number
   amount: number
   assets: AssetSuggestion[]
+  blockedByScore?: boolean
 }
 
 export interface AporteResult {
@@ -114,7 +116,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 export function computeAporte(
   assets: { id: string; ticker: string; assetType: AssetType; value: number; price: number | null }[],
   targets: Record<AllocClass, number>,
-  aporte: number
+  aporte: number,
+  scores?: Record<string, number | null>
 ): AporteResult {
   const A = aporte > 0 ? aporte : 0
 
@@ -162,8 +165,29 @@ export function computeAporte(
     const list = byClass[cls]
     const amount = amounts[cls]
     let suggestions: AssetSuggestion[] = []
+    let blockedByScore = false
     if (amount > 0 && list.length > 0) {
-      const slices = waterFill(list.map((a) => a.value), amount)
+      const scoreOfAsset = (a: AporteAsset): number | null => {
+        const v = scores?.[a.ticker.toUpperCase()]
+        return typeof v === 'number' && Number.isFinite(v) ? v : null
+      }
+      const hasScores = !!scores && list.some((a) => scoreOfAsset(a) !== null)
+      let slices: number[]
+      if (hasScores) {
+        const w = list.map((a) => Math.max(scoreOfAsset(a) ?? 0, 0))
+        const wSum = w.reduce((x, y) => x + y, 0)
+        if (wSum <= 0) {
+          slices = list.map(() => 0)
+          blockedByScore = true
+        } else {
+          const classAfter = current[cls] + amount
+          const gaps = list.map((a, i) => Math.max(0, (classAfter * w[i]) / wSum - a.value))
+          const gSum = gaps.reduce((x, y) => x + y, 0)
+          slices = gSum > 0 ? gaps.map((g) => (amount * g) / gSum) : w.map((x) => (amount * x) / wSum)
+        }
+      } else {
+        slices = waterFill(list.map((a) => a.value), amount)
+      }
       suggestions = list
         .map((a, i) => {
           const slice = slices[i]
@@ -174,11 +198,14 @@ export function computeAporte(
                 ? Math.floor((slice / a.price) * 10000 + 1e-9) / 10000
                 : Math.floor(slice / a.price + 1e-9)
           }
-          return { id: a.id, ticker: a.ticker, amount: round2(slice), shares, price: a.price, raw: slice }
+          return { id: a.id, ticker: a.ticker, amount: round2(slice), shares, price: a.price, raw: slice, sc: scoreOfAsset(a) }
         })
         .filter((s) => s.raw > 0)
         .sort((x, y) => y.amount - x.amount)
-        .map((s) => ({ id: s.id, ticker: s.ticker, amount: s.amount, shares: s.shares, price: s.price }))
+        .map((s) => {
+          const base: AssetSuggestion = { id: s.id, ticker: s.ticker, amount: s.amount, shares: s.shares, price: s.price }
+          return hasScores ? { ...base, score: s.sc } : base
+        })
     }
     return {
       cls,
@@ -189,6 +216,7 @@ export function computeAporte(
       gap: gap[cls],
       amount,
       assets: suggestions,
+      ...(blockedByScore ? { blockedByScore: true } : {}),
     }
   })
 

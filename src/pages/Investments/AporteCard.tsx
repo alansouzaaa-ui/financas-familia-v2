@@ -5,10 +5,12 @@ import {
   ALLOC_CLASSES,
   ALLOC_CLASS_LABELS,
   ALLOC_CLASS_COLORS,
+  classOf,
 } from '@/lib/aporte'
 import { isReservePurpose } from '@/lib/reserve'
 import { fmtFull } from '@/lib/formatters'
 import Input from '@/components/ui/Input'
+import { useAssetScores, fmtScore } from './useAssetScores'
 import type { InvestmentPosition } from '@/types/investment'
 
 type AportePos = InvestmentPosition & {
@@ -27,6 +29,9 @@ export default function AporteCard({
 }) {
   const { targets, aporte, setTarget, setAporte, resetTargets } = useAllocationStore()
 
+  const nonReserve = useMemo(() => positions.filter((p) => !isReservePurpose(p.purpose)), [positions])
+  const { scores } = useAssetScores(nonReserve)
+
   const result = useMemo(
     () =>
       computeAporte(
@@ -40,12 +45,24 @@ export default function AporteCard({
             price: p.quote?.regularMarketPrice ?? null,
           })),
         targets,
-        aporte
+        aporte,
+        scores
       ),
-    [positions, targets, aporte]
+    [positions, targets, aporte, scores]
   )
 
   const sumTargets = ALLOC_CLASSES.reduce((s, c) => s + (targets[c] || 0), 0)
+  const unscoredByClass = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const c of result.classes) {
+      const tickers = new Set(
+        nonReserve.filter((p) => classOf(p.assetType) === c.cls).map((p) => p.ticker.trim().toUpperCase())
+      )
+      const evaluated = [...tickers].some((t) => typeof scores[t] === 'number')
+      out[c.cls] = evaluated ? [...tickers].filter((t) => typeof scores[t] !== 'number').length : 0
+    }
+    return out
+  }, [result, nonReserve, scores])
   const funded = result.classes.filter((c) => c.amount > 0).sort((a, b) => b.amount - a.amount)
   const above = result.classes.filter((c) => c.amount <= 0 && c.gap <= 0 && c.targetPct > 0)
 
@@ -172,14 +189,23 @@ export default function AporteCard({
                       estava {c.currentPct.toFixed(0)}% → alvo {c.targetPct.toFixed(0)}%
                     </div>
                     <div className="pl-[18px] mt-2.5 pt-2.5 border-t border-[var(--hairline)] flex flex-col gap-1.5">
-                      {c.assets.length === 0 ? (
+                      {c.blockedByScore ? (
+                        <div className="text-[12px] neg">
+                          Nenhum ativo desta classe com nota positiva — avalie ou escolha um ativo novo.
+                        </div>
+                      ) : c.assets.length === 0 ? (
                         <div className="text-[12px] text-[var(--color-text-muted)]">
                           Nenhum ativo nesta classe ainda — escolha um novo ativo para começar.
                         </div>
                       ) : (
                         c.assets.map((a) => (
                           <div key={a.id} className="flex items-center justify-between gap-3 text-[12px]">
-                            <span className="font-mono text-[var(--color-text-primary)] truncate min-w-0">{a.ticker}</span>
+                            <span className="truncate min-w-0">
+                              <span className="font-mono text-[var(--color-text-primary)]">{a.ticker}</span>
+                              {typeof a.score === 'number' && (
+                                <span className="text-[var(--color-text-muted)]"> · nota {fmtScore(a.score)}</span>
+                              )}
+                            </span>
                             <span className="text-right flex-shrink-0">
                               <span className="font-mono font-medium text-[var(--color-text-primary)]">{fmtFull(a.amount)}</span>
                               {a.shares != null && (
@@ -191,6 +217,11 @@ export default function AporteCard({
                             </span>
                           </div>
                         ))
+                      )}
+                      {!c.blockedByScore && unscoredByClass[c.cls] > 0 && (
+                        <div className="text-[11px] text-[var(--color-text-muted)]">
+                          {unscoredByClass[c.cls]} {unscoredByClass[c.cls] === 1 ? 'ativo sem nota ficou' : 'ativos sem nota ficaram'} de fora — avalie em Nota dos ativos.
+                        </div>
                       )}
                     </div>
                   </div>

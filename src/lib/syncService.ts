@@ -3,6 +3,7 @@ import type { InvestmentPosition } from '@/types/investment'
 import type { DebtItem } from '@/types/debt'
 import type { MonthPoint } from '@/types/finance'
 import type { AllocClass } from '@/lib/aporte'
+import type { ChecklistKind, ChecklistQuestion, Answers } from '@/lib/checklist'
 import type { PayoffStrategy, PayoffScope } from '@/lib/journey'
 
 export interface SyncPayload {
@@ -19,6 +20,7 @@ export interface SyncPayload {
   reserve_settings?: { monthlyCost: number; months: number; incomeType?: 'estavel' | 'variavel' }
   journey_settings?: { strategy: PayoffStrategy; scope: PayoffScope; budgetOverride: number | null }
   budget?: { limits: Record<string, number> }
+  checklist?: { questions: Record<ChecklistKind, ChecklistQuestion[]>; answers: Record<string, Answers> }
   updated_at?: string
 }
 

@@ -117,3 +117,54 @@ describe('sanitizeTargets', () => {
     expect(r.fiis).toBe(DEFAULT_TARGETS.fiis)
   })
 })
+
+describe('computeAporte com scores (peso pela nota)', () => {
+  const t = { rendafixa: 0, acoes: 100, fiis: 0, etfs: 0, cripto: 0, outros: 0 } as Record<AllocClass, number>
+  const acoes = (c: ReturnType<typeof computeAporte>) => c.classes.find((x) => x.cls === 'acoes')!
+
+  it('distribui pelo gap do peso: A(8, R$1000) e B(2, R$0) com aporte 1000 → A 600 / B 400', () => {
+    const assets = [
+      { id: '1', ticker: 'AAAA3', assetType: 'acao' as const, value: 1000, price: null },
+      { id: '2', ticker: 'BBBB3', assetType: 'acao' as const, value: 0, price: null },
+    ]
+    // classAfter 2000 → alvo A 1600, B 400 → gaps 600 e 400
+    const r = computeAporte(assets, t, 1000, { AAAA3: 8, BBBB3: 2 })
+    const c = acoes(r)
+    expect(c.assets.find((a) => a.ticker === 'AAAA3')!.amount).toBeCloseTo(600, 2)
+    expect(c.assets.find((a) => a.ticker === 'BBBB3')!.amount).toBeCloseTo(400, 2)
+    expect(c.assets.find((a) => a.ticker === 'AAAA3')!.score).toBe(8)
+    expect(c.blockedByScore).toBeUndefined()
+  })
+  it('ativo com score <= 0 ou sem score (quando há outros com score) recebe 0', () => {
+    const assets = [
+      { id: '1', ticker: 'AAAA3', assetType: 'acao' as const, value: 0, price: null },
+      { id: '2', ticker: 'BBBB3', assetType: 'acao' as const, value: 0, price: null },
+      { id: '3', ticker: 'CCCC3', assetType: 'acao' as const, value: 0, price: null },
+    ]
+    const r = computeAporte(assets, t, 900, { AAAA3: 5, BBBB3: -2 })
+    const c = acoes(r)
+    expect(c.assets).toHaveLength(1)
+    expect(c.assets[0].ticker).toBe('AAAA3')
+    expect(c.assets[0].amount).toBeCloseTo(900, 2)
+  })
+  it('classe só com ativos sem score segue waterFill', () => {
+    const assets = [
+      { id: '1', ticker: 'AAAA3', assetType: 'acao' as const, value: 100, price: null },
+      { id: '2', ticker: 'BBBB3', assetType: 'acao' as const, value: 0, price: null },
+    ]
+    const com = computeAporte(assets, t, 50, { OUTRO3: 9 })
+    const sem = computeAporte(assets, t, 50)
+    expect(com.classes).toEqual(sem.classes)
+    expect(acoes(com).assets[0].ticker).toBe('BBBB3')
+    expect(acoes(com).assets[0].amount).toBe(50)
+  })
+  it('todos com score <= 0 → assets [] e blockedByScore', () => {
+    const assets = [
+      { id: '1', ticker: 'AAAA3', assetType: 'acao' as const, value: 100, price: null },
+      { id: '2', ticker: 'BBBB3', assetType: 'acao' as const, value: 0, price: null },
+    ]
+    const c = acoes(computeAporte(assets, t, 500, { AAAA3: 0, BBBB3: -3 }))
+    expect(c.assets).toEqual([])
+    expect(c.blockedByScore).toBe(true)
+  })
+})
