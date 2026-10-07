@@ -37,7 +37,14 @@ function merge(r: Partial<BcbRates> | null): Rates {
   }
 }
 
+// Ordem: 1) BCB direto do navegador — o firewall do BCB bloqueia IPs de
+// datacenter (a Edge Function da Vercel recebe tudo null, mesmo em gru1), mas
+// libera CORS e a rede do usuário; 2) /api/rates; 3) valores de referência.
 export async function fetchRates(): Promise<Rates> {
+  try {
+    const direct = await fetchBcbRates()
+    if (typeof direct.selic === 'number') return merge(direct)
+  } catch { /* tenta o proxy */ }
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 10000)
@@ -50,11 +57,6 @@ export async function fetchRates(): Promise<Rates> {
     } finally {
       clearTimeout(timer)
     }
-  } catch { /* cai no BCB direto */ }
-  try {
-    // Dev local (sem /api): o BCB libera CORS.
-    return merge(await fetchBcbRates())
-  } catch {
-    return { ...DEFAULT_RATES }
-  }
+  } catch { /* cai nos valores de referência */ }
+  return { ...DEFAULT_RATES }
 }
