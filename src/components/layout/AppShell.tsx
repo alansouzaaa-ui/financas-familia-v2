@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, NavLink } from 'react-router-dom'
 import { clearSession } from '@/pages/Login/auth'
 import { useDarkMode } from '@/hooks/useDarkMode'
@@ -89,6 +89,17 @@ const NAV_ITEMS = [
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M10 2v16M6 5h5.5a2.5 2.5 0 0 1 0 5H6m0 0h6.5a2.5 2.5 0 0 1 0 5H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    to: '/simuladores',
+    label: 'Simular',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="6.5" y="4.5" width="7" height="3" rx=".6" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M7 11h.01M10 11h.01M13 11h.01M7 14.5h.01M10 14.5h.01M13 14.5h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -210,19 +221,35 @@ function SidebarNav({ onLogout, syncStatus, lastSync, onPull }: { onLogout: () =
 }
 
 function BottomNav() {
+  const location = useLocation()
+  const navRef = useRef<HTMLDivElement>(null)
+
+  // Mantém o item ativo visível na barra rolável.
+  // Calcula o scrollLeft direto (scrollIntoView rodava antes do layout assentar
+  // e ainda podia rolar a página). setTimeout (não rAF): rAF pausa em aba oculta.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const bar = navRef.current
+      const el = bar?.querySelector<HTMLElement>('a[aria-current="page"]')
+      if (!bar || !el) return
+      bar.scrollLeft = el.offsetLeft - (bar.clientWidth - el.offsetWidth) / 2
+    }, 50)
+    return () => clearTimeout(id)
+  }, [location.pathname])
+
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-surface)] border-t border-[var(--color-border)] transition-colors duration-200"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex">
+      <div ref={navRef} className="flex overflow-x-auto no-scrollbar">
         {NAV_ITEMS.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors ` +
+              `flex-1 min-w-[64px] shrink-0 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors ` +
               (isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]')
             }
           >

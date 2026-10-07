@@ -206,3 +206,6 @@
   /* Safe area padding for mobile bottom nav */
   .pb-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
