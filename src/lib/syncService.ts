@@ -18,6 +18,7 @@ export interface SyncPayload {
   allocation?: { targets: Record<AllocClass, number>; aporte: number }
   reserve_settings?: { monthlyCost: number; months: number; incomeType?: 'estavel' | 'variavel' }
   journey_settings?: { strategy: PayoffStrategy; scope: PayoffScope; budgetOverride: number | null }
+  budget?: { limits: Record<string, number> }
   updated_at?: string
 }
 

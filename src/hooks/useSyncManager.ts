@@ -10,6 +10,7 @@ import { useDebtsStore } from '@/stores/useDebtsStore'
 import { useAllocationStore } from '@/stores/useAllocationStore'
 import { useReserveStore } from '@/stores/useReserveStore'
 import { useJourneyStore } from '@/stores/useJourneyStore'
+import { useBudgetStore } from '@/stores/useBudgetStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
@@ -40,6 +41,7 @@ export function useSyncManager() {
   const journeyStrategy = useJourneyStore(s => s.strategy)
   const journeyScope = useJourneyStore(s => s.scope)
   const journeyBudget = useJourneyStore(s => s.budgetOverride)
+  const budgetLimits = useBudgetStore(s => s.limits)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -109,6 +111,9 @@ export function useSyncManager() {
     if (remote.journey_settings && typeof remote.journey_settings === 'object') {
       useJourneyStore.getState().hydrate(remote.journey_settings)
     }
+    if (remote.budget && typeof remote.budget === 'object') {
+      useBudgetStore.getState().hydrate(remote.budget)
+    }
     setStatus('synced')
     setLastSync(new Date())
     settle()
@@ -146,6 +151,7 @@ export function useSyncManager() {
         scope: useJourneyStore.getState().scope,
         budgetOverride: useJourneyStore.getState().budgetOverride,
       },
+      budget: { limits: useBudgetStore.getState().limits },
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -164,7 +170,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths, reserveIncomeType, journeyStrategy, journeyScope, journeyBudget])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths, reserveIncomeType, journeyStrategy, journeyScope, journeyBudget, budgetLimits])
 
   // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
   // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante

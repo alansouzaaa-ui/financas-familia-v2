@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
+import BudgetCard from '@/components/metrics/BudgetCard'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { fmtK } from '@/lib/formatters'
 import ChartTooltip from '@/components/charts/ChartTooltip'
@@ -69,6 +70,8 @@ export default function MonthlyPage() {
         title="Detalhamento mensal"
         subtitle={`Evolução mês a mês e composição de cada mês em ${currentYear}.`}
       />
+
+      <BudgetCard />
 
       {/* Seletor de ano */}
       <div className="flex flex-wrap gap-1.5 mb-5">
