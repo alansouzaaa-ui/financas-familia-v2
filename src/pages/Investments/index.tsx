@@ -253,6 +253,22 @@ function enrichPositions(
 
 // ─── main page ───────────────────────────────────────────────────────────────
 
+interface QuoteLookup {
+  key: string
+  status: 'idle' | 'loading' | 'found' | 'notfound' | 'error'
+  price?: number
+  name?: string
+  changePct?: number
+}
+const IDLE_LOOKUP: QuoteLookup = { key: '', status: 'idle' }
+const TICKER_PLACEHOLDER: Partial<Record<AssetType, string>> = { acao: 'PETR4', fii: 'MXRF11', etf: 'BOVA11', cripto: 'BTC' }
+
+/** Preço como string de input: 2 casas (cripto < 1: até 8 significativas), sem notação científica. */
+function priceToInput(price: number, crypto: boolean): string {
+  if (!crypto || price >= 1) return (Math.round(price * 100) / 100).toFixed(2)
+  return Number(price.toPrecision(8)).toFixed(12).replace(/0+$/, '').replace(/\.$/, '')
+}
+
 export default function InvestmentsPage() {
   const { positions, addPosition, updatePosition, removePosition } = useInvestmentStore()
   const [quotes, setQuotes] = useState<Record<string, BrapiQuote>>({})
@@ -273,6 +289,8 @@ export default function InvestmentsPage() {
   const [tesouroPuError, setTesouroPuError] = useState<string | null>(null)
   const [tesouroPuDate, setTesouroPuDate] = useState<string | null>(null)
   const lastPuKey = useRef<string>('')
+  const [quoteLookup, setQuoteLookup] = useState<QuoteLookup>(IDLE_LOOKUP)
+  const lastQuoteKey = useRef<string>('')
 
   // ── quote fetching ──────────────────────────────────────────────────────
 
@@ -356,6 +374,54 @@ export default function InvestmentsPage() {
     return () => { cancelled = true; clearTimeout(timer) }
   }, [showForm, form.assetType, form.ticker, form.buyDate, tesouroTitles])
 
+  // Ações/FIIs/ETFs/cripto: ao digitar o ticker, busca a cotação atual e
+  // sugere o preço médio (nunca sobrescreve o que o usuário digitou).
+  useEffect(() => {
+    const type = form.assetType
+    if (!showForm || !(type === 'acao' || type === 'fii' || type === 'etf' || type === 'cripto')) return
+    const isCrypto = type === 'cripto'
+    const t = form.ticker.trim().toUpperCase()
+    const valid = (isCrypto ? /^[A-Z0-9]{2,10}$/ : /^[A-Z0-9]{4,12}$/).test(t)
+    const key = `${type}|${t}`
+    if (!valid) {
+      lastQuoteKey.current = ''
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setQuoteLookup(prev => (prev.status === 'idle' ? prev : IDLE_LOOKUP))
+      return
+    }
+    if (key === lastQuoteKey.current) return
+    lastQuoteKey.current = key
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setQuoteLookup({ key, status: 'loading' })
+      const req = isCrypto ? fetchQuotes([], { crypto: [t] }) : fetchQuotes([t])
+      req.then(list => {
+        if (cancelled) return
+        const q = list.find(x => x.symbol?.toUpperCase() === t)
+        if (q && q.regularMarketPrice > 0) {
+          const price = q.regularMarketPrice
+          setQuoteLookup({ key, status: 'found', price, name: q.shortName, changePct: q.regularMarketChangePercent })
+          if (!editingId) {
+            setForm(f => (f.avgPrice.trim() === '' && f.assetType === type && f.ticker.trim().toUpperCase() === t
+              ? { ...f, avgPrice: priceToInput(price, isCrypto) }
+              : f))
+          }
+        } else {
+          setQuoteLookup({ key, status: 'notfound' })
+        }
+      }).catch(() => {
+        if (!cancelled) setQuoteLookup({ key, status: 'error' })
+      })
+    }, 500)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      // Efeito cancelado antes de concluir: permite nova busca da mesma chave.
+      if (lastQuoteKey.current === key) lastQuoteKey.current = ''
+    }
+  }, [showForm, form.assetType, form.ticker, editingId])
+
   // ── derived data ────────────────────────────────────────────────────────
 
   const tesouroPu = useMemo(() => new Map(tesouroTitles.map(t => [t.name, t.pu])), [tesouroTitles])
@@ -426,6 +492,8 @@ export default function InvestmentsPage() {
     setEditingId(null)
     setForm(EMPTY_FORM)
     lastPuKey.current = ''
+    lastQuoteKey.current = ''
+    setQuoteLookup(IDLE_LOOKUP)
     setTesouroPuError(null)
     setTesouroPuDate(null)
     setShowForm(true)
@@ -450,6 +518,8 @@ export default function InvestmentsPage() {
     })
     // Não deixa o auto-preenchimento do PU sobrescrever a posição em edição.
     lastPuKey.current = `${pos.ticker}|${pos.buyDate}`
+    lastQuoteKey.current = ''
+    setQuoteLookup(IDLE_LOOKUP)
     setTesouroPuError(null)
     setTesouroPuDate(null)
     setShowForm(true)
@@ -460,6 +530,8 @@ export default function InvestmentsPage() {
     setShowForm(false)
     setEditingId(null)
     setForm(EMPTY_FORM)
+    lastQuoteKey.current = ''
+    setQuoteLookup(IDLE_LOOKUP)
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -672,6 +744,8 @@ export default function InvestmentsPage() {
                 onChange={(e) => {
                   setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '', avgPrice: '', quantity: '', investedAmount: '', manualValue: '' }))
                   lastPuKey.current = ''
+                  lastQuoteKey.current = ''
+                  setQuoteLookup(IDLE_LOOKUP)
                   setTesouroPuError(null)
                   setTesouroPuDate(null)
                 }}
@@ -797,7 +871,7 @@ export default function InvestmentsPage() {
                 <>
                   <Input
                     label="Ticker"
-                    placeholder="PETR4"
+                    placeholder={TICKER_PLACEHOLDER[form.assetType] ?? 'PETR4'}
                     value={form.ticker}
                     onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
                     required
@@ -814,7 +888,7 @@ export default function InvestmentsPage() {
                     required
                   />
                   <Input
-                    label="Preço médio (R$)"
+                    label="Preço médio (R$) — preço que você pagou"
                     type="number"
                     min="0"
                     step="0.01"
@@ -835,6 +909,57 @@ export default function InvestmentsPage() {
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   />
+                  <div className="col-span-2 sm:col-span-3 text-[12px] -mt-1">
+                    {(() => {
+                      const t = form.ticker.trim().toUpperCase()
+                      const isCrypto = form.assetType === 'cripto'
+                      const qL = quoteLookup
+                      const cur = `${form.assetType}|${t}`
+                      const avgN = Number((form.avgPrice || '').replace(',', '.'))
+                      const qtyN = Number((form.quantity || '').replace(',', '.'))
+                      const total = avgN > 0 && qtyN > 0 ? (
+                        <span className="text-[var(--color-text-muted)] block">
+                          Total investido: <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(qtyN * avgN)}</span>
+                        </span>
+                      ) : null
+                      let status: React.ReactNode = null
+                      if (qL.status !== 'idle' && qL.key === cur) {
+                        if (qL.status === 'loading') {
+                          status = <span className="text-[var(--color-text-muted)]">Buscando cotação de {t}…</span>
+                        } else if (qL.status === 'notfound') {
+                          status = <span className="neg">Não encontrei {t}. Confira o código (ex.: PETR4, MXRF11, BOVA11).</span>
+                        } else if (qL.status === 'error') {
+                          status = <span className="text-[var(--color-text-muted)]">Não consegui buscar a cotação agora — informe o preço manualmente.</span>
+                        } else if (qL.status === 'found' && qL.price != null) {
+                          const pct = qL.changePct ?? 0
+                          const price = qL.price
+                          const differs = !(Math.abs(avgN - price) < 0.005)
+                          status = (
+                            <span className="text-[var(--color-text-muted)]">
+                              {qL.name ? `${qL.name} · ` : ''}cotação atual{' '}
+                              <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(price)}</span>{' '}
+                              <span className={pct >= 0 ? 'pos' : 'neg'}>({pct >= 0 ? '+' : ''}{pct.toFixed(2).replace('.', ',')}% hoje)</span>
+                              {differs && (
+                                <>
+                                  {' · '}
+                                  <button
+                                    type="button"
+                                    className="underline cursor-pointer"
+                                    style={{ color: 'var(--color-primary)' }}
+                                    onClick={() => setForm((f) => ({ ...f, avgPrice: priceToInput(price, isCrypto) }))}
+                                  >
+                                    usar como preço médio
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          )
+                        }
+                      }
+                      if (!status && !total) return null
+                      return <>{status && <span className="block">{status}</span>}{total}</>
+                    })()}
+                  </div>
                 </>
               )}
               <Input

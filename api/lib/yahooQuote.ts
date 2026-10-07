@@ -70,6 +70,16 @@ function previousClose(result: Record<string, unknown>, meta: Record<string, unk
   return NaN
 }
 
+function cleanName(v: unknown, stripCurrency = false): string {
+  let n = String(v ?? '').replace(/\s+/g, ' ').trim()
+  if (stripCurrency) n = n.replace(/\s+(USD|BRL)$/i, '').trim()
+  return n
+}
+
+function stripCryptoName(q: QuoteOut): QuoteOut {
+  return { ...q, shortName: cleanName(q.shortName, true), longName: cleanName(q.longName, true) }
+}
+
 export function parseYahooChart(json: unknown, originalTicker: string): QuoteOut | null {
   try {
     const result = (json as { chart?: { result?: Record<string, unknown>[] | null } })?.chart?.result?.[0]
@@ -82,11 +92,12 @@ export function parseYahooChart(json: unknown, originalTicker: string): QuoteOut
     const change = hasPrev ? price - prev : 0
     const pct = hasPrev ? (change / prev) * 100 : 0
     const symbol = originalTicker.trim().toUpperCase()
-    const shortName = String(meta.shortName || meta.longName || symbol)
+    const isCrypto = /-(USD|BRL)$/i.test(String(meta.symbol || ''))
+    const shortName = cleanName(meta.shortName || meta.longName || symbol, isCrypto)
     return {
       symbol,
       shortName,
-      longName: String(meta.longName || shortName),
+      longName: cleanName(meta.longName || shortName, isCrypto),
       currency: String(meta.currency || 'BRL'),
       regularMarketPrice: price,
       regularMarketChange: change,
@@ -119,6 +130,7 @@ export async function fetchYahooQuote(
 ): Promise<QuoteOut | null> {
   const t = ticker.trim().toUpperCase()
   const direct = await fetchChart(toYahooSymbol(t, kind), t, fetchImpl)
+  if (kind === 'crypto' && direct) return stripCryptoName(direct)
   if (direct || kind !== 'crypto' || t.includes('-')) return direct
 
   // O Yahoo não tem pares X-BRL (ex.: BTC-BRL → 404). Fallback: X-USD × USD/BRL.
@@ -129,13 +141,13 @@ export async function fetchYahooQuote(
   ])
   if (!usd || !fx) return null
   const rate = fx.regularMarketPrice
-  return {
+  return stripCryptoName({
     ...usd,
     currency: 'BRL',
     regularMarketPrice: usd.regularMarketPrice * rate,
     regularMarketChange: usd.regularMarketChange * rate,
     regularMarketPreviousClose: usd.regularMarketPreviousClose * rate,
-  }
+  })
 }
 
 export async function fetchManyQuotes(

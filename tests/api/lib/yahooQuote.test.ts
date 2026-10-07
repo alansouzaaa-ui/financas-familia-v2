@@ -69,6 +69,20 @@ describe('parseYahooChart', () => {
     expect(q.regularMarketChange).toBeCloseTo(0.13, 5)
   })
 
+  it('colapsa espaços múltiplos nos nomes', () => {
+    const q = parseYahooChart(itsa4, 'itsa4')!
+    expect(q.shortName).toBe('ITAUSA PN N1')
+  })
+
+  it('remove sufixo de moeda do nome de cripto', () => {
+    const json = {
+      chart: { result: [{ meta: { symbol: 'BTC-USD', shortName: 'Bitcoin   USD', longName: 'Bitcoin USD', regularMarketPrice: 100 } }] },
+    }
+    const q = parseYahooChart(json, 'BTC')!
+    expect(q.shortName).toBe('Bitcoin')
+    expect(q.longName).toBe('Bitcoin')
+  })
+
   it('retorna null para JSON inválido ou sem preço', () => {
     expect(parseYahooChart(null, 'X')).toBeNull()
     expect(parseYahooChart({}, 'X')).toBeNull()
@@ -80,7 +94,7 @@ describe('parseYahooChart', () => {
 describe('fetchYahooQuote / fetchManyQuotes', () => {
   it('faz fallback X-USD × BRL=X para cripto sem par BRL', async () => {
     const mk = (price: number, close: number[], cur: string) => ({
-      chart: { result: [{ meta: { currency: cur, gmtoffset: 0, regularMarketTime: 1791377358, regularMarketPrice: price }, timestamp: [1791244800, 1791331200], indicators: { quote: [{ close }] } }] },
+      chart: { result: [{ meta: { currency: cur, shortName: 'Bitcoin   USD', gmtoffset: 0, regularMarketTime: 1791377358, regularMarketPrice: price }, timestamp: [1791244800, 1791331200], indicators: { quote: [{ close }] } }] },
     })
     const fetchImpl = async (url: string) => {
       if (url.includes('BTC-BRL')) return new Response('{}', { status: 404 })
@@ -92,6 +106,7 @@ describe('fetchYahooQuote / fetchManyQuotes', () => {
     expect(q?.regularMarketPrice).toBe(500)
     expect(q?.regularMarketPreviousClose).toBe(450)
     expect(q?.currency).toBe('BRL')
+    expect(q?.shortName).toBe('Bitcoin')
   })
 
   it('deduplica e ignora falhas sem derrubar os outros', async () => {
