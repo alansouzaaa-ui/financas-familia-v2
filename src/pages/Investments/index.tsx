@@ -11,6 +11,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
+import AporteCard from './AporteCard'
 import ReserveCard, { ReserveSummaryCard, reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf } from './ReserveCard'
 
 // Casa "Reserva de emergência", "reserva", "emergencia"… (igual ao ReserveCard)
@@ -270,6 +271,7 @@ export default function InvestmentsPage() {
   const [showForm, setShowForm] = useState(false)
   const [reserveOpen, setReserveOpen] = useState(false)
   const reserveRef = useRef<HTMLDivElement>(null)
+  const [aporteOpen, setAporteOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
@@ -895,6 +897,8 @@ export default function InvestmentsPage() {
           onToggle={() => setReserveOpen((o) => !o)}
         />
       </div>
+
+      <AporteCard positions={enriched} open={aporteOpen} onToggle={() => setAporteOpen((o) => !o)} />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
