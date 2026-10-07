@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useReserveStore } from '@/stores/useReserveStore'
 import { fmtFull } from '@/lib/formatters'
 import Input from '@/components/ui/Input'
-import type { AssetType, ReservePillar } from '@/types/investment'
+import { useJourneyPlan } from '@/hooks/useJourneyPlan'
+import { addMonthsLabel } from '@/lib/journey'
+import type { ReservePillar } from '@/types/investment'
+import type { ReserveAsset } from '@/lib/reserve'
 
 // ─── Modelo de carteira da reserva de emergência ────────────────────────────
 // Baseado no conceito do vídeo da AUVP (Raul Sena): "Onde deixar sua reserva de
@@ -49,83 +52,12 @@ const ALLOCATION: Slice[] = [
   },
 ]
 
-export const RESERVE_PILLAR_LABELS: Record<ReservePillar, string> = {
-  imediato: 'Acesso imediato',
-  selic: 'Tesouro Selic',
-  rendafixa: 'Renda fixa líquida',
-}
-
 const PRINCIPLES = [
   'É um seguro, não um investimento: o objetivo é proteção, não a maior rentabilidade.',
   'Dimensione pelo custo fixo mensal (aluguel, saúde, contas, comida) — não pelo salário.',
   'Três funções inegociáveis: segurança, liquidez e acesso rápido (até no fim de semana).',
   'Monte a reserva antes de ir para ações, FIIs ou investimentos de risco.',
 ]
-
-// normaliza para casar "Reserva de emergência", "reserva", "emergencia" etc.
-function isReserve(purpose?: string): boolean {
-  if (!purpose) return false
-  const n = purpose.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  return n.includes('reserva') || n.includes('emergenc')
-}
-
-// Detecta o pilar quando não foi escolhido à mão, a partir do tipo do ativo.
-function inferPillar(assetType: AssetType): ReservePillar | null {
-  switch (assetType) {
-    case 'tesouro':
-      return 'selic'
-    case 'etf':
-    case 'renda_fixa':
-      return 'rendafixa'
-    case 'poupanca':
-    case 'outro':
-      return 'imediato'
-    default:
-      return null // ação/FII/cripto não compõem a reserva
-  }
-}
-
-interface ReservePos {
-  ticker?: string
-  broker?: string
-  purpose?: string
-  assetType: AssetType
-  reservePillar?: ReservePillar
-  currentValue: number
-}
-
-export interface ReserveAsset {
-  ticker: string
-  broker?: string
-  value: number
-}
-
-// Pilar efetivo de uma posição: o escolhido à mão, senão o inferido pelo tipo.
-export function pillarOf(p: { assetType: AssetType; reservePillar?: ReservePillar }): ReservePillar | null {
-  return p.reservePillar ?? inferPillar(p.assetType)
-}
-
-// Soma o valor atual das posições-reserva, no total, por pilar e lista os ativos.
-export function reserveBreakdown(positions: ReservePos[]): {
-  total: number
-  byPillar: Record<ReservePillar, number>
-  assets: Record<ReservePillar, ReserveAsset[]>
-} {
-  const byPillar: Record<ReservePillar, number> = { imediato: 0, selic: 0, rendafixa: 0 }
-  const assets: Record<ReservePillar, ReserveAsset[]> = { imediato: [], selic: [], rendafixa: [] }
-  let total = 0
-  for (const p of positions) {
-    if (!isReserve(p.purpose)) continue
-    total += p.currentValue
-    const pillar = pillarOf(p)
-    if (pillar) {
-      byPillar[pillar] += p.currentValue
-      assets[pillar].push({ ticker: p.ticker ?? '—', broker: p.broker, value: p.currentValue })
-    }
-  }
-  for (const k of Object.keys(assets) as ReservePillar[]) assets[k].sort((a, b) => b.value - a.value)
-  return { total, byPillar, assets }
-}
 
 // KPI compacto da reserva para a faixa de destaque no topo da página.
 export function ReserveSummaryCard({
@@ -188,7 +120,8 @@ export default function ReserveCard({
   open: boolean
   onToggle: () => void
 }) {
-  const { monthlyCost, months, setMonthlyCost, setMonths } = useReserveStore()
+  const { monthlyCost, months, incomeType, setMonthlyCost, setMonths, setIncomeType } = useReserveStore()
+  const jp = useJourneyPlan({ reserveCurrent: current })
   const [expandedPillar, setExpandedPillar] = useState<ReservePillar | null>(null)
 
   const target = monthlyCost * months
@@ -221,6 +154,29 @@ export default function ReserveCard({
 
       {!open ? null : (
       <>
+      {/* Tipo de renda */}
+      <div className="mt-4 max-w-[380px]">
+        <div className="label mb-1.5">Tipo de renda</div>
+        <div className="flex rounded-xl border border-[var(--color-border)] overflow-hidden">
+          {([
+            { value: 'estavel', label: 'Estável · 6 meses' },
+            { value: 'variavel', label: 'Variável · 12 meses' },
+          ] as const).map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setIncomeType(o.value)}
+              className={`flex-1 px-3 py-2 text-[12px] font-medium transition-colors ${incomeType === o.value ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
+          Autônomos e renda variável: 12 meses (AUVP).
+        </p>
+      </div>
+
       {/* Inputs */}
       <div className="grid grid-cols-2 gap-3 mt-4 max-w-[380px]">
         <Input
@@ -288,6 +244,15 @@ export default function ReserveCard({
                   <span className="pos">✓ Reserva completa — excedente de {fmtFull(-gap)}</span>
                 )}
               </div>
+              {gap > 0 && (
+                <div className="text-[12px] text-[var(--color-text-muted)] mt-1.5">
+                  {jp.overdueDebt > 0 && jp.debtMonths !== null && jp.reserveDoneInMonths !== null && jp.reserveMonthsAfterDebts !== null
+                    ? `Depois de quitar as dívidas (~${jp.debtMonths} meses), você fecha a reserva em ~${jp.reserveMonthsAfterDebts} meses — ${addMonthsLabel(jp.now, jp.reserveDoneInMonths)}`
+                    : jp.overdueDebt <= 0 && jp.reserveMonthsAfterDebts !== null
+                      ? `No ritmo da sua sobra (${fmtFull(jp.budget)}/mês), você fecha a reserva em ~${jp.reserveMonthsAfterDebts} meses — ${addMonthsLabel(jp.now, jp.reserveMonthsAfterDebts)}`
+                      : 'Sem previsão com a sobra atual — ajuste o orçamento.'}
+                </div>
+              )}
             </div>
           </div>
 

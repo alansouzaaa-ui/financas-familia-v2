@@ -9,6 +9,7 @@ import { exportToCSV } from '@/lib/csvExport'
 import Kpi from '@/components/metrics/Kpi'
 import SafeToSpend from '@/components/metrics/SafeToSpend'
 import InsightsCard from '@/components/metrics/InsightsCard'
+import JourneyCard from '@/components/metrics/JourneyCard'
 import CashFlowProjection from '@/components/metrics/CashFlowProjection'
 import HealthScoreCard from '@/components/metrics/HealthScoreCard'
 import NetWorthCard from '@/components/metrics/NetWorthCard'
@@ -201,6 +202,7 @@ export default function OverviewPage() {
       </div>
 
       {/* ── Insights narrativos ────────────────────────────── */}
+      <JourneyCard />
       <InsightsCard months={allMonths} />
 
       {/* ── Nível 2 · Fluxo + A pagar/receber ──────────────── */}

@@ -12,6 +12,7 @@ export interface DebtItem {
   status: DebtStatus
   value: number
   paid?: boolean        // quitada → fica fora do montante
+  monthlyRate?: number  // juros % ao mês informados pelo usuário
 }
 
 export const MODALITY_LABELS: Record<DebtModality, string> = {
@@ -41,4 +42,13 @@ export const MODALITY_COLORS: Record<DebtModality, string> = {
 export const STATUS_LABELS: Record<DebtStatus, string> = {
   em_dia: 'Em dia',
   vencida: 'Vencida',
+}
+
+// Estimativas médias de mercado (% ao mês), usadas quando o usuário não informa a taxa.
+export const DEFAULT_MONTHLY_RATE: Record<DebtModality, number> = {
+  cartao: 14,
+  cheque_especial: 8,
+  emprestimo: 4,
+  financiamento: 1.8,
+  outros: 4,
 }

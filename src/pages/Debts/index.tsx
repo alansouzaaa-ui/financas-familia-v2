@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useDebtsStore } from '@/stores/useDebtsStore'
-import { fmt } from '@/lib/formatters'
+import { fmt, fmtFull } from '@/lib/formatters'
 import type { DebtItem, DebtModality, DebtStatus } from '@/types/debt'
-import { MODALITY_LABELS, MODALITY_EMOJI, MODALITY_COLORS, STATUS_LABELS } from '@/types/debt'
+import { MODALITY_LABELS, MODALITY_EMOJI, MODALITY_COLORS, STATUS_LABELS, DEFAULT_MONTHLY_RATE } from '@/types/debt'
+import { useJourneyStore } from '@/stores/useJourneyStore'
+import { useJourneyPlan } from '@/hooks/useJourneyPlan'
+import { addMonthsLabel, type PayoffStrategy, type PayoffScope } from '@/lib/journey'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -18,8 +21,155 @@ const STATUS_OPTIONS: { value: DebtStatus; label: string }[] = [
   { value: 'vencida', label: 'Vencida' },
 ]
 
-interface FormState { bank: string; modality: DebtModality; detail: string; status: DebtStatus; value: string }
-const EMPTY: FormState = { bank: '', modality: 'cartao', detail: '', status: 'em_dia', value: '' }
+interface FormState { bank: string; modality: DebtModality; detail: string; status: DebtStatus; value: string; rate: string }
+const EMPTY: FormState = { bank: '', modality: 'cartao', detail: '', status: 'em_dia', value: '', rate: '' }
+
+function Segmented<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div>
+      <div className="label mb-1.5">{label}</div>
+      <div className="flex rounded-xl border border-[var(--color-border)] overflow-hidden">
+        {options.map(o => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={`flex-1 px-3 py-2 text-[12px] font-medium transition-colors ${value === o.value ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const STRATEGY_OPTIONS: { value: PayoffStrategy; label: string }[] = [
+  { value: 'avalanche', label: 'Avalanche — maior juros primeiro' },
+  { value: 'snowball', label: 'Bola de neve — menor saldo primeiro' },
+]
+const SCOPE_OPTIONS: { value: PayoffScope; label: string }[] = [
+  { value: 'vencidas', label: 'Só vencidas' },
+  { value: 'todas', label: 'Todas em aberto' },
+]
+
+function PayoffPlanCard() {
+  const { strategy, scope, budgetOverride, setStrategy, setScope, setBudgetOverride } = useJourneyStore()
+  const p = useJourneyPlan()
+  const { plan, altPlan, now } = p
+  const diff = altPlan.feasible && plan.feasible ? altPlan.totalInterest - plan.totalInterest : 0
+
+  return (
+    <div className="card mb-5">
+      <p className="section-head label">Estratégia</p>
+      <h2 className="serif text-[clamp(18px,2.6vw,22px)] tracking-[-0.01em] mt-1">Plano de quitação</h2>
+
+      <div className="grid gap-4 mt-4 sm:grid-cols-2">
+        <div>
+          <Segmented label="Estratégia" value={strategy} options={STRATEGY_OPTIONS} onChange={setStrategy} />
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
+            {strategy === 'avalanche'
+              ? 'Ataca primeiro a dívida com maior taxa: paga menos juros no total.'
+              : 'Quita primeiro o menor saldo: vitórias rápidas e menos contas para controlar.'}
+          </p>
+        </div>
+        <div>
+          <Segmented label="Incluir" value={scope} options={SCOPE_OPTIONS} onChange={setScope} />
+          {scope === 'todas' && (
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
+              As parcelas das dívidas em dia já estão nas suas despesas — incluí-las aqui considera pagamento extra.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 max-w-[320px]">
+        <Input
+          label="Quanto posso pagar por mês (R$)"
+          type="number"
+          min="0"
+          step="50"
+          placeholder={`sobra média: ${p.surplus.avg < 0 ? '−' : ''}${fmtFull(p.surplus.avg)}`}
+          value={budgetOverride ?? ''}
+          onChange={e => {
+            const v = e.target.value
+            if (v === '') setBudgetOverride(null)
+            else setBudgetOverride(Number(v.replace(',', '.')) || 0)
+          }}
+        />
+        {budgetOverride !== null && (
+          <button type="button" onClick={() => setBudgetOverride(null)} className="text-[12px] mt-1.5 font-medium" style={{ color: 'var(--color-primary)' }}>
+            usar sobra média
+          </button>
+        )}
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-[var(--hairline)]">
+        {plan.lines.length === 0 ? (
+          <p className="text-[13px] text-[var(--color-text-primary)]">Nenhuma dívida no plano 🎉</p>
+        ) : p.budget <= 0 ? (
+          <p className="text-[13px] neg">
+            {p.surplus.avg < 0
+              ? `Sua sobra média dos últimos meses foi negativa (−${fmtFull(p.surplus.avg)}/mês). Informe acima quanto consegue destinar por mês às dívidas para ver o plano.`
+              : 'Informe acima quanto consegue destinar por mês às dívidas para ver o plano.'}
+          </p>
+        ) : !plan.feasible ? (
+          <p className="text-[13px] neg">
+            Com {fmtFull(p.budget)}/mês os juros ({fmtFull(plan.firstMonthInterest)}/mês) crescem mais rápido que o pagamento.
+          </p>
+        ) : (
+          <>
+            <div className="serif text-[clamp(20px,3.4vw,26px)] tracking-[-0.01em] text-[var(--color-text-primary)]">
+              Livre das dívidas em {plan.months} {plan.months === 1 ? 'mês' : 'meses'}{' '}
+              <span className="text-[14px] text-[var(--color-text-muted)]">({addMonthsLabel(now, plan.months)})</span>
+            </div>
+            <div className="text-[12px] text-[var(--color-text-muted)] mt-1">
+              Juros no período: <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(plan.totalInterest)}</span> · Total pago:{' '}
+              <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(plan.totalPaid)}</span>
+            </div>
+            {diff > 0.01 && (
+              <div className="text-[12px] pos mt-1.5 font-medium">Esta estratégia economiza {fmtFull(diff)} em juros vs. a outra</div>
+            )}
+            {diff < -0.01 && (
+              <div className="text-[12px] text-[var(--color-text-muted)] mt-1.5">A outra estratégia pagaria {fmtFull(-diff)} a menos em juros</div>
+            )}
+          </>
+        )}
+      </div>
+
+      {plan.lines.length > 0 && (
+        <div className="mt-5">
+          <div className="section-head label mb-2">Ordem de pagamento</div>
+          <div className="flex flex-col divide-y divide-[var(--hairline)]">
+            {plan.lines.map((l, i) => (
+              <div key={l.id} className="flex items-start gap-2.5 py-2 first:pt-0 last:pb-0">
+                <span className="font-mono text-[12px] text-[var(--color-text-muted)] w-5 flex-shrink-0 pt-0.5">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] text-[var(--color-text-primary)] truncate">{l.label}</div>
+                  <div className="text-[11px] text-[var(--color-text-muted)] flex flex-wrap items-center gap-x-1.5">
+                    <span className="font-mono">{fmtFull(l.balance)}</span>
+                    <span>·</span>
+                    <span className="font-mono">{l.monthlyRate}% a.m.</span>
+                    {l.estimatedRate && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">estimado</span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[12px] text-[var(--color-text-muted)] text-right flex-shrink-0">
+                  {l.payoffMonth > 0 ? `quitada em ${addMonthsLabel(now, l.payoffMonth)}` : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-[11px] text-[var(--color-text-muted)] mt-4 pt-3 border-t border-[var(--hairline)]">
+        Juros estimados por modalidade quando não informados (edite a dívida para colocar a taxa real). Simulação com juros compostos mensais; valores aproximados.
+      </p>
+    </div>
+  )
+}
 
 function StatusChip({ status }: { status: DebtStatus }) {
   const vencida = status === 'vencida'
@@ -88,7 +238,7 @@ export default function DebtsPage() {
   }
   function startEdit(it: DebtItem) {
     setEditingId(it.id)
-    setForm({ bank: it.bank, modality: it.modality, detail: it.detail, status: it.status, value: String(it.value) })
+    setForm({ bank: it.bank, modality: it.modality, detail: it.detail, status: it.status, value: String(it.value), rate: it.monthlyRate != null ? String(it.monthlyRate) : '' })
     setManage(true)
   }
   function submit(e: React.FormEvent) {
@@ -96,7 +246,9 @@ export default function DebtsPage() {
     const bank = form.bank.trim()
     const value = Math.round(Number(form.value.replace(',', '.')) * 100) / 100
     if (!bank || !isFinite(value) || value <= 0) return
-    const data = { bank, modality: form.modality, detail: form.detail.trim() || MODALITY_LABELS[form.modality], status: form.status, value }
+    const rate = Number(form.rate.replace(',', '.'))
+    const monthlyRate = form.rate.trim() !== '' && Number.isFinite(rate) && rate > 0 ? rate : undefined
+    const data = { bank, modality: form.modality, detail: form.detail.trim() || MODALITY_LABELS[form.modality], status: form.status, value, monthlyRate }
     if (editingId) updateDebt(editingId, data)
     else addDebt(data)
     setForm(EMPTY)
@@ -157,6 +309,8 @@ export default function DebtsPage() {
         </p>
       )}
 
+      <PayoffPlanCard />
+
       {/* Form de gestão */}
       {manage && (
         <Card title={editingId ? 'Editar dívida' : 'Adicionar dívida'} className="mb-5">
@@ -169,6 +323,7 @@ export default function DebtsPage() {
             <Select label="Situação" options={STATUS_OPTIONS} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as DebtStatus }))} />
             <Input label="Detalhe (opcional)" placeholder="Cartão de crédito…" value={form.detail} onChange={e => setForm(f => ({ ...f, detail: e.target.value }))} />
             <Input label="Valor (R$)" type="number" min="0" step="0.01" placeholder="0,00" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} required />
+            <Input label="Juros % a.m. (opcional)" type="number" min="0" step="0.1" placeholder={`estimado ${DEFAULT_MONTHLY_RATE[form.modality]}%`} value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} />
             <div className="flex gap-2">
               <Button type="submit" size="sm">{editingId ? 'Salvar' : 'Adicionar'}</Button>
               {editingId && <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingId(null); setForm(EMPTY) }}>Cancelar</Button>}

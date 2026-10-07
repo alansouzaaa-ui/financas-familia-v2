@@ -9,6 +9,7 @@ import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { useDebtsStore } from '@/stores/useDebtsStore'
 import { useAllocationStore } from '@/stores/useAllocationStore'
 import { useReserveStore } from '@/stores/useReserveStore'
+import { useJourneyStore } from '@/stores/useJourneyStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
@@ -35,6 +36,10 @@ export function useSyncManager() {
   const aporte = useAllocationStore(s => s.aporte)
   const reserveCost = useReserveStore(s => s.monthlyCost)
   const reserveMonths = useReserveStore(s => s.months)
+  const reserveIncomeType = useReserveStore(s => s.incomeType)
+  const journeyStrategy = useJourneyStore(s => s.strategy)
+  const journeyScope = useJourneyStore(s => s.scope)
+  const journeyBudget = useJourneyStore(s => s.budgetOverride)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -101,6 +106,9 @@ export function useSyncManager() {
     if (remote.reserve_settings && typeof remote.reserve_settings === 'object') {
       useReserveStore.getState().hydrate(remote.reserve_settings)
     }
+    if (remote.journey_settings && typeof remote.journey_settings === 'object') {
+      useJourneyStore.getState().hydrate(remote.journey_settings)
+    }
     setStatus('synced')
     setLastSync(new Date())
     settle()
@@ -131,6 +139,12 @@ export function useSyncManager() {
       reserve_settings: {
         monthlyCost: useReserveStore.getState().monthlyCost,
         months: useReserveStore.getState().months,
+        incomeType: useReserveStore.getState().incomeType,
+      },
+      journey_settings: {
+        strategy: useJourneyStore.getState().strategy,
+        scope: useJourneyStore.getState().scope,
+        budgetOverride: useJourneyStore.getState().budgetOverride,
       },
     })
     setStatus(ok ? 'synced' : 'error')
@@ -150,7 +164,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths, reserveIncomeType, journeyStrategy, journeyScope, journeyBudget])
 
   // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
   // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante

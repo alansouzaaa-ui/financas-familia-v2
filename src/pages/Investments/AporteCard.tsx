@@ -6,6 +6,7 @@ import {
   ALLOC_CLASS_LABELS,
   ALLOC_CLASS_COLORS,
 } from '@/lib/aporte'
+import { isReservePurpose } from '@/lib/reserve'
 import { fmtFull } from '@/lib/formatters'
 import Input from '@/components/ui/Input'
 import type { InvestmentPosition } from '@/types/investment'
@@ -13,13 +14,6 @@ import type { InvestmentPosition } from '@/types/investment'
 type AportePos = InvestmentPosition & {
   currentValue: number
   quote: { regularMarketPrice: number } | null
-}
-
-// Mesma normalização de purposeIsReserve (index.tsx): a reserva fica fora desta conta.
-function isReserve(purpose?: string): boolean {
-  if (!purpose) return false
-  const n = purpose.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  return n.includes('reserva') || n.includes('emergenc')
 }
 
 export default function AporteCard({
@@ -37,7 +31,7 @@ export default function AporteCard({
     () =>
       computeAporte(
         positions
-          .filter((p) => !isReserve(p.purpose))
+          .filter((p) => !isReservePurpose(p.purpose))
           .map((p) => ({
             id: p.id,
             ticker: p.ticker,

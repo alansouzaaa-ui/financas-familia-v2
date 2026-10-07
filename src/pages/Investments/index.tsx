@@ -12,14 +12,8 @@ import Select from '@/components/ui/Select'
 import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 import AporteCard from './AporteCard'
-import ReserveCard, { ReserveSummaryCard, reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf } from './ReserveCard'
-
-// Casa "Reserva de emergência", "reserva", "emergencia"… (igual ao ReserveCard)
-function purposeIsReserve(purpose?: string): boolean {
-  if (!purpose) return false
-  const n = purpose.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  return n.includes('reserva') || n.includes('emergenc')
-}
+import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
+import { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf, isReservePurpose } from '@/lib/reserve'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -134,7 +128,7 @@ function PositionCard({
                 {pos.purpose}
               </span>
             )}
-            {purposeIsReserve(pos.purpose) && pillarOf(pos) && (
+            {isReservePurpose(pos.purpose) && pillarOf(pos) && (
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                 {RESERVE_PILLAR_LABELS[pillarOf(pos)!]}
               </span>
@@ -471,7 +465,7 @@ export default function InvestmentsPage() {
 
     // Pilar da reserva só é guardado quando a categoria é "Reserva" e foi escolhido.
     const reservePillarValue: ReservePillar | undefined =
-      purposeIsReserve(form.purpose) && form.reservePillar
+      isReservePurpose(form.purpose) && form.reservePillar
         ? (form.reservePillar as ReservePillar)
         : undefined
 
@@ -861,7 +855,7 @@ export default function InvestmentsPage() {
               <datalist id="ff-purposes">
                 {INVESTMENT_PURPOSES.map((p) => <option key={p} value={p} />)}
               </datalist>
-              {purposeIsReserve(form.purpose) && (
+              {isReservePurpose(form.purpose) && (
                 <Select
                   label="Pilar da reserva"
                   options={[

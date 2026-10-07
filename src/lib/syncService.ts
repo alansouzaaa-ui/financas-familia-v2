@@ -3,6 +3,7 @@ import type { InvestmentPosition } from '@/types/investment'
 import type { DebtItem } from '@/types/debt'
 import type { MonthPoint } from '@/types/finance'
 import type { AllocClass } from '@/lib/aporte'
+import type { PayoffStrategy, PayoffScope } from '@/lib/journey'
 
 export interface SyncPayload {
   manual_months: MonthRecord[]
@@ -15,7 +16,8 @@ export interface SyncPayload {
   debts?: DebtItem[]
   debts_reference_month?: string
   allocation?: { targets: Record<AllocClass, number>; aporte: number }
-  reserve_settings?: { monthlyCost: number; months: number }
+  reserve_settings?: { monthlyCost: number; months: number; incomeType?: 'estavel' | 'variavel' }
+  journey_settings?: { strategy: PayoffStrategy; scope: PayoffScope; budgetOverride: number | null }
   updated_at?: string
 }
 
