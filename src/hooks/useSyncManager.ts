@@ -7,6 +7,8 @@ import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { useDebtsStore } from '@/stores/useDebtsStore'
+import { useAllocationStore } from '@/stores/useAllocationStore'
+import { useReserveStore } from '@/stores/useReserveStore'
 import { useUiStore } from '@/stores/useUiStore'
 import { isSupabaseConfigured } from '@/config/supabase'
 
@@ -29,6 +31,10 @@ export function useSyncManager() {
   const cardAccounts = useCardsStore(s => s.accounts)
   const expenseTags = useCategoriesStore(s => s.tags)
   const debts = useDebtsStore(s => s.items)
+  const allocTargets = useAllocationStore(s => s.targets)
+  const aporte = useAllocationStore(s => s.aporte)
+  const reserveCost = useReserveStore(s => s.monthlyCost)
+  const reserveMonths = useReserveStore(s => s.months)
 
   async function doPull() {
     if (!isSupabaseConfigured) return
@@ -87,6 +93,14 @@ export function useSyncManager() {
     if (Array.isArray(remote.debts)) {
       useDebtsStore.getState().replaceAll(remote.debts, remote.debts_reference_month)
     }
+    // Alocação e reserva: se o Gist ainda não tem o campo (pré-feature), mantém o
+    // local e o próximo push envia.
+    if (remote.allocation && typeof remote.allocation === 'object') {
+      useAllocationStore.getState().hydrate(remote.allocation)
+    }
+    if (remote.reserve_settings && typeof remote.reserve_settings === 'object') {
+      useReserveStore.getState().hydrate(remote.reserve_settings)
+    }
     setStatus('synced')
     setLastSync(new Date())
     settle()
@@ -110,6 +124,14 @@ export function useSyncManager() {
       history_cutoff: useFinanceStore.getState().historyCutoff,
       debts: useDebtsStore.getState().items,
       debts_reference_month: useDebtsStore.getState().referenceMonth,
+      allocation: {
+        targets: useAllocationStore.getState().targets,
+        aporte: useAllocationStore.getState().aporte,
+      },
+      reserve_settings: {
+        monthlyCost: useReserveStore.getState().monthlyCost,
+        months: useReserveStore.getState().months,
+      },
     })
     setStatus(ok ? 'synced' : 'error')
     if (ok) setLastSync(new Date())
@@ -128,7 +150,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts])
+  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths])
 
   // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
   // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante

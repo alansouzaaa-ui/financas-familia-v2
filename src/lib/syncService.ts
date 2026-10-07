@@ -2,6 +2,7 @@ import type { MonthRecord, FinancialGoal, RecurringItem, CardAccount, ExpenseTag
 import type { InvestmentPosition } from '@/types/investment'
 import type { DebtItem } from '@/types/debt'
 import type { MonthPoint } from '@/types/finance'
+import type { AllocClass } from '@/lib/aporte'
 
 export interface SyncPayload {
   manual_months: MonthRecord[]
@@ -13,6 +14,8 @@ export interface SyncPayload {
   history_cutoff?: string | null
   debts?: DebtItem[]
   debts_reference_month?: string
+  allocation?: { targets: Record<AllocClass, number>; aporte: number }
+  reserve_settings?: { monthlyCost: number; months: number }
   updated_at?: string
 }
 

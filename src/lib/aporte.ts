@@ -195,3 +195,17 @@ export function computeAporte(
   const allocated = round2(classes.reduce((s, c) => s + c.amount, 0))
   return { totalCurrent, totalAfter, classes, allocated, leftover: round2(A - allocated) }
 }
+
+// Sanitiza metas vindas de fonte externa (sync): valores inválidos caem no padrão.
+export function sanitizeTargets(input: unknown): Record<AllocClass, number> {
+  const out = { ...DEFAULT_TARGETS }
+  if (!input || typeof input !== 'object') return out
+  const obj = input as Record<string, unknown>
+  for (const cls of ALLOC_CLASSES) {
+    const v = obj[cls]
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      out[cls] = Math.max(0, Math.min(Math.round(v), 100))
+    }
+  }
+  return out
+}

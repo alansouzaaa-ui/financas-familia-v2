@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classOf, waterFill, computeAporte, DEFAULT_TARGETS, type AllocClass } from '../src/lib/aporte'
+import { classOf, waterFill, computeAporte, sanitizeTargets, DEFAULT_TARGETS, type AllocClass } from '../src/lib/aporte'
 
 const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
 
@@ -84,5 +84,36 @@ describe('computeAporte', () => {
       300
     )
     expect(r.classes[0].assets[0].shares).toBeNull()
+  })
+})
+
+describe('sanitizeTargets', () => {
+  it('null/não-objeto → defaults', () => {
+    expect(sanitizeTargets(null)).toEqual(DEFAULT_TARGETS)
+    expect(sanitizeTargets('x')).toEqual(DEFAULT_TARGETS)
+    expect(sanitizeTargets(undefined)).toEqual(DEFAULT_TARGETS)
+    expect(sanitizeTargets(null)).not.toBe(DEFAULT_TARGETS)
+  })
+  it('clampa e arredonda', () => {
+    const r = sanitizeTargets({ rendafixa: 150, acoes: -5, fiis: 33.6 })
+    expect(r.rendafixa).toBe(100)
+    expect(r.acoes).toBe(0)
+    expect(r.fiis).toBe(34)
+  })
+  it('chave faltando → default', () => {
+    const r = sanitizeTargets({ rendafixa: 10 })
+    expect(r.rendafixa).toBe(10)
+    expect(r.etfs).toBe(DEFAULT_TARGETS.etfs)
+  })
+  it('ignora chave desconhecida', () => {
+    const r = sanitizeTargets({ foo: 50 })
+    expect(r).toEqual(DEFAULT_TARGETS)
+    expect('foo' in r).toBe(false)
+  })
+  it('string/NaN → default', () => {
+    const r = sanitizeTargets({ rendafixa: '50', acoes: NaN, fiis: Infinity })
+    expect(r.rendafixa).toBe(DEFAULT_TARGETS.rendafixa)
+    expect(r.acoes).toBe(DEFAULT_TARGETS.acoes)
+    expect(r.fiis).toBe(DEFAULT_TARGETS.fiis)
   })
 })
