@@ -46,7 +46,9 @@ export async function fetchQuotes(
     const qs = new URLSearchParams()
     if (b3.length) qs.set('t', b3.join(','))
     if (crypto.length) qs.set('c', crypto.join(','))
-    const res = await fetchWithTimeout(`/api/quotes?${qs.toString()}`, TIMEOUT_MS)
+    // Em dev não há /api local: consulta o deploy de produção (CORS liberado em api/quotes.ts).
+    const base = (import.meta as { env?: { DEV?: boolean } }).env?.DEV ? 'https://financas-familia-v2.vercel.app' : ''
+    const res = await fetchWithTimeout(`${base}/api/quotes?${qs.toString()}`, TIMEOUT_MS)
     if (res.ok) {
       const json = await res.json()
       if (Array.isArray(json?.results)) return json.results.filter(isValidQuote) as BrapiQuote[]

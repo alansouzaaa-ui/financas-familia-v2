@@ -81,7 +81,7 @@ export function ReserveSummaryCard({
       </div>
       {has ? (
         <>
-          <div className="text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight">
+          <div className="text-[18px] xl:text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight whitespace-nowrap tabular-nums">
             {fmtFull(current)}
           </div>
           <div className="text-[12px] text-[var(--color-text-muted)] mt-0.5 font-medium">
@@ -222,8 +222,8 @@ export default function ReserveCard({
             </div>
             <div>
               <div className="flex items-center justify-between text-[12px] mb-1.5">
-                <span className="text-[var(--color-text-muted)]">Você já tem (marcado como Reserva)</span>
-                <span className="font-mono font-medium text-[var(--color-text-primary)]">{fmtFull(current)}</span>
+                <span className="text-[var(--color-text-muted)] min-w-0">Você já tem (marcado como Reserva)</span>
+                <span className="font-mono font-medium text-[var(--color-text-primary)] whitespace-nowrap flex-shrink-0">{fmtFull(current)}</span>
               </div>
               <div className="h-2 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
                 <div

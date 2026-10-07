@@ -124,8 +124,8 @@ function PayoffPlanCard() {
               <span className="text-[14px] text-[var(--color-text-muted)]">({addMonthsLabel(now, plan.months)})</span>
             </div>
             <div className="text-[12px] text-[var(--color-text-muted)] mt-1">
-              Juros no período: <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(plan.totalInterest)}</span> · Total pago:{' '}
-              <span className="font-mono text-[var(--color-text-primary)]">{fmtFull(plan.totalPaid)}</span>
+              Juros no período: <span className="font-mono whitespace-nowrap text-[var(--color-text-primary)]">{fmtFull(plan.totalInterest)}</span> · Total pago:{' '}
+              <span className="font-mono whitespace-nowrap text-[var(--color-text-primary)]">{fmtFull(plan.totalPaid)}</span>
             </div>
             {diff > 0.01 && (
               <div className="text-[12px] pos mt-1.5 font-medium">Esta estratégia economiza {fmtFull(diff)} em juros vs. a outra</div>

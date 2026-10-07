@@ -17,7 +17,7 @@ export default function PageHeader({ eyebrow, title, subtitle, children }: Props
         <h1 className="display text-[clamp(22px,3.4vw,27px)] tracking-[-0.015em] mt-1.5">{title}</h1>
         {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mt-1.5 max-w-[62ch]">{subtitle}</p>}
       </div>
-      {children && <div className="flex items-center gap-2 flex-shrink-0">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2 min-w-0 lg:flex-shrink-0">{children}</div>}
     </header>
   )
 }

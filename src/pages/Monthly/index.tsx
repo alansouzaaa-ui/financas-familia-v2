@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmtNum, fmtNumSigned } from '@/lib/formatters'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
@@ -148,9 +148,8 @@ export default function MonthlyPage() {
                   const isExpanded = expandedMonth === key
                   const hasItems = !!(m.items && m.items.length > 0)
                   return (
-                    <>
+                    <Fragment key={key}>
                       <tr
-                        key={key}
                         className={`transition-colors ${hasItems ? 'cursor-pointer hover:bg-[var(--color-surface-2)]' : ''}`}
                         onClick={() => hasItems && setExpandedMonth(isExpanded ? null : key)}
                       >
@@ -202,7 +201,7 @@ export default function MonthlyPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })}
               </tbody>

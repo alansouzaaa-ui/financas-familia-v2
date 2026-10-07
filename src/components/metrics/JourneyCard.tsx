@@ -104,7 +104,7 @@ export default function JourneyCard() {
         <p className="text-[11px] text-[var(--color-text-muted)] mt-3">
           {p.budgetIsOverride
             ? `Base: ${fmtFull(p.budget)}/mês definido no plano de quitação`
-            : `Base: sobra média de ${p.surplus.avg < 0 ? "−" : ""}${fmtFull(p.surplus.avg)}/mês nos últimos ${p.surplus.monthsUsed} meses`}
+            : `Base: sobra média de ${p.surplus.avg < 0 ? "−" : ""}${fmtFull(p.surplus.avg)}/mês nos ${p.surplus.monthsUsed === 1 ? "último mês" : `últimos ${p.surplus.monthsUsed} meses`}`}
         </p>
         {p.surplus.avg <= 0 && !p.budgetIsOverride && (
           <p className="text-[12px] neg mt-1.5">

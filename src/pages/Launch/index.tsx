@@ -622,7 +622,7 @@ export default function LaunchPage() {
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat] }} />
                       <span className="text-[var(--color-text-muted)]">{CATEGORY_LABELS[cat]}</span>
                     </div>
-                    <span className={`font-mono font-medium ${isRev ? 'pos' : 'neg'}`}>
+                    <span className={`font-mono font-medium whitespace-nowrap ${isRev ? 'pos' : 'neg'}`}>
                       {fmt(catTotals[cat])}
                     </span>
                   </div>
@@ -631,11 +631,11 @@ export default function LaunchPage() {
               <div className="border-t border-[var(--color-border)] pt-2 mt-1 flex flex-col gap-1">
                 <div className="flex justify-between font-semibold">
                   <span>Balanço projetado</span>
-                  <span className={`font-mono ${balance >= 0 ? 'pos' : 'neg'}`}>{fmtSigned(balance)}</span>
+                  <span className={`font-mono whitespace-nowrap ${balance >= 0 ? 'pos' : 'neg'}`}>{fmtSigned(balance)}</span>
                 </div>
                 <div className="flex justify-between text-[12px] text-[var(--color-text-muted)]">
                   <span>Consolidado (pagos)</span>
-                  <span className={`font-mono ${consolidatedBalance >= 0 ? 'pos' : 'neg'}`}>
+                  <span className={`font-mono whitespace-nowrap ${consolidatedBalance >= 0 ? 'pos' : 'neg'}`}>
                     {fmtSigned(consolidatedBalance)}
                   </span>
                 </div>
@@ -654,14 +654,14 @@ export default function LaunchPage() {
                   return (
                     <div key={`${m.year}-${m.month}`} className={`py-2.5 first:pt-0 last:pb-0 ${isEditing ? 'opacity-60' : ''}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-[13px]">{m.month}/{m.year}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-medium text-[13px] whitespace-nowrap">{m.month}/{m.year}</span>
                           {isEditing && (
                             <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">editando</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`font-mono text-[12px] font-semibold ${m.balance >= 0 ? 'pos' : 'neg'}`}>
+                          <span className={`font-mono text-[12px] font-semibold whitespace-nowrap ${m.balance >= 0 ? 'pos' : 'neg'}`}>
                             {fmtSigned(m.balance)}
                           </span>
                           {!isEditing && (

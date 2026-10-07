@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { fetchQuotes } from '@/lib/brapiService'
+import { fetchTesouroTitles } from '@/lib/tesouroService'
+import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
 import { fmt, fmtSigned } from '@/lib/formatters'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS } from '@/types/investment'
 import type { BrapiQuote } from '@/types/investment'
@@ -28,41 +30,61 @@ function setCachedQuotes(quotes: BrapiQuote[]) {
 export default function InvestmentSummaryBlock() {
   const { positions } = useInvestmentStore()
   const [quotes, setQuotes] = useState<BrapiQuote[]>([])
+  const [tesouroPu, setTesouroPu] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
     if (!positions.length) return
 
-    const market = positions.filter(p => p.assetType !== 'renda_fixa')
-    const tickers = market.filter(p => p.assetType !== 'cripto').map(p => p.ticker)
-    const cryptoTickers = market.filter(p => p.assetType === 'cripto').map(p => p.ticker)
-
-    if (!tickers.length && !cryptoTickers.length) return
+    const { b3: tickers, crypto: cryptoTickers } = splitQuoteTickers(positions)
+    const hasTesouro = positions.some(p => p.assetType === 'tesouro')
+    let cancelled = false
 
     async function loadQuotes() {
-      const cached = getCachedQuotes()
-      if (cached && Date.now() - cached.ts < CACHE_TTL) {
-        setQuotes(cached.quotes)
-        setLastUpdate(new Date(cached.ts))
-        return
-      }
+      const needQuotes = tickers.length > 0 || cryptoTickers.length > 0
+      if (!needQuotes && !hasTesouro) return
 
       setLoading(true)
       try {
-        const q = await fetchQuotes(tickers, { crypto: cryptoTickers })
-        setQuotes(q)
-        setCachedQuotes(q)
-        setLastUpdate(new Date())
-      } catch {
-        // silent fallback
+        const tesouroTask = hasTesouro
+          ? fetchTesouroTitles().catch(() => [])
+          : Promise.resolve([])
+
+        let quotesTask: Promise<void> = Promise.resolve()
+        if (needQuotes) {
+          const cached = getCachedQuotes()
+          if (cached && Date.now() - cached.ts < CACHE_TTL) {
+            setQuotes(cached.quotes)
+            setLastUpdate(new Date(cached.ts))
+          } else {
+            quotesTask = fetchQuotes(tickers, { crypto: cryptoTickers })
+              .then(q => {
+                if (cancelled) return
+                setQuotes(q)
+                setCachedQuotes(q)
+                setLastUpdate(new Date())
+              })
+              .catch(() => { /* silent fallback */ })
+          }
+        }
+
+        const [titles] = await Promise.all([tesouroTask, quotesTask])
+        if (!cancelled) setTesouroPu(new Map(titles.map(t => [t.name, t.pu])))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     loadQuotes()
+    return () => { cancelled = true }
   }, [positions])
+
+  const enriched = useMemo(() => {
+    const map: Record<string, BrapiQuote> = {}
+    quotes.forEach(q => { map[q.symbol] = q })
+    return enrichPositions(positions, map, tesouroPu)
+  }, [positions, quotes, tesouroPu])
 
   if (!positions.length) {
     return (
@@ -76,17 +98,6 @@ export default function InvestmentSummaryBlock() {
       </Card>
     )
   }
-
-  // Build enriched positions
-  const enriched = positions.map(p => {
-    const quote = quotes.find(q => q.symbol === p.ticker.toUpperCase())
-    const totalInvested = p.quantity * p.avgPrice
-    const currentPrice = quote?.regularMarketPrice ?? p.avgPrice
-    const currentValue = p.quantity * currentPrice
-    const pnl = currentValue - totalInvested
-    const pnlPercent = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0
-    return { ...p, quote, totalInvested, currentValue, pnl, pnlPercent }
-  })
 
   const totalInvested = enriched.reduce((s, p) => s + p.totalInvested, 0)
   const currentValue  = enriched.reduce((s, p) => s + p.currentValue, 0)
@@ -199,7 +210,7 @@ export default function InvestmentSummaryBlock() {
         <div>
           <div className="text-[12px] text-[var(--color-text-muted)] mb-2">Posições</div>
           <div className="flex flex-col gap-1.5">
-            {enriched
+            {[...enriched]
               .sort((a, b) => b.currentValue - a.currentValue)
               .slice(0, 6)
               .map(p => (

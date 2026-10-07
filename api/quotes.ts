@@ -13,6 +13,7 @@ const VALID = /^[A-Z0-9.-]{1,15}$/
 const HEADERS = {
   'Content-Type': 'application/json',
   'Cache-Control': 'public, max-age=60, s-maxage=300',
+  'Access-Control-Allow-Origin': '*',
 }
 
 function parseList(raw: string | null): string[] {
@@ -51,6 +52,16 @@ async function brapiFallback(ticker: string, token: string): Promise<QuoteOut | 
 }
 
 export default async function handler(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    })
+  }
   let results: QuoteOut[] = []
   const missing: string[] = []
   try {

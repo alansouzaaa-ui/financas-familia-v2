@@ -143,7 +143,7 @@ export default function ChecklistCard({
       ? 'Adicione ações ou FIIs para avaliá-los'
       : n === 0
         ? 'Avalie suas ações e FIIs com um checklist'
-        : `${n} avaliados de ${m} · pirâmide de risco`
+        : `${n} ${n === 1 ? 'avaliado' : 'avaliados'} de ${m} · pirâmide de risco`
 
   return (
     <div className="card">

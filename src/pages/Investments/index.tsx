@@ -16,6 +16,7 @@ import ChecklistCard from './ChecklistCard'
 import DividendsCard from './DividendsCard'
 import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
 import { tierOf } from '@/lib/checklist'
+import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
 import { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf, isReservePurpose } from '@/lib/reserve'
 
@@ -89,7 +90,7 @@ function SummaryCard({
         <div className="h-7 w-24 bg-[var(--color-surface-2)] rounded animate-pulse mt-1" />
       ) : (
         <>
-          <div className="text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight">{main}</div>
+          <div className="text-[18px] xl:text-[20px] font-semibold text-[var(--color-text-primary)] leading-tight whitespace-nowrap tabular-nums">{main}</div>
           {sub && (
             <div className={`text-[12px] font-medium mt-0.5 ${subTrend !== undefined ? trendClass(subTrend) : 'text-[var(--color-text-muted)]'}`}>
               {sub}
@@ -117,9 +118,9 @@ function PositionCard({
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-[15px] text-[var(--color-text-primary)] font-mono">{pos.ticker}</span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-[15px] text-[var(--color-text-primary)] font-mono min-w-0 truncate">{pos.ticker}</span>
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
@@ -165,7 +166,7 @@ function PositionCard({
             </div>
           )}
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-shrink-0">
           <button
             onClick={onEdit}
             className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
@@ -237,37 +238,6 @@ function PositionCard({
 
 // ─── helpers used in JSX ─────────────────────────────────────────────────────
 
-function safe(n: number): number {
-  return isFinite(n) ? n : 0
-}
-
-function enrichPositions(
-  positions: InvestmentPosition[],
-  quotes: Record<string, BrapiQuote>,
-  tesouroPu?: Map<string, number>
-) {
-  return positions.map((p) => {
-    let quote = quotes[p.ticker] ?? null
-    // Tesouro Direto: sintetiza uma "cotação" a partir do PU atual do título
-    if (p.assetType === 'tesouro') {
-      const pu = tesouroPu?.get(p.ticker)
-      if (pu != null && pu > 0) {
-        quote = {
-          symbol: p.ticker, shortName: p.ticker, longName: p.ticker, currency: 'BRL',
-          regularMarketPrice: pu, regularMarketChange: 0, regularMarketChangePercent: 0, regularMarketPreviousClose: pu,
-        }
-      }
-    }
-    const totalInvested = safe(p.quantity * p.avgPrice)
-    const currentValue  = quote
-      ? safe(p.quantity * quote.regularMarketPrice)
-      : (p.manualValue != null ? safe(p.manualValue) : totalInvested)
-    const pnl           = safe(currentValue - totalInvested)
-    const pnlPercent    = totalInvested > 0 ? safe((pnl / totalInvested) * 100) : 0
-    return { ...p, quote, totalInvested, currentValue, pnl, pnlPercent }
-  })
-}
-
 // ─── main page ───────────────────────────────────────────────────────────────
 
 interface QuoteLookup {
@@ -318,12 +288,8 @@ export default function InvestmentsPage() {
     setLoading(true)
     setQuotesError(null)
 
-    // Só tipos com cotação na brapi (Tesouro tem PU próprio; poupança/renda fixa/
-    // outro são valorizados à mão e o "ticker" não é um símbolo da B3).
-    const MARKET_TYPES = new Set<AssetType>(['acao', 'fii', 'etf', 'cripto'])
-    const marketPositions = positions.filter(p => MARKET_TYPES.has(p.assetType))
-    const tickers = marketPositions.filter(p => p.assetType !== 'cripto').map((p) => p.ticker)
-    const cryptoTickers = marketPositions.filter(p => p.assetType === 'cripto').map((p) => p.ticker)
+    // Só tipos com cotação na brapi (ver MARKET_TYPES em lib/portfolio).
+    const { b3: tickers, crypto: cryptoTickers } = splitQuoteTickers(positions)
     // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
     const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
     const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
@@ -709,7 +675,7 @@ export default function InvestmentsPage() {
       </div>
 
       {/* ── KPIs em destaque (bater o olho) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         <ReserveSummaryCard current={reserve.total} onClick={openReserve} />
         <SummaryCard
           label="Total Investido"
@@ -1129,10 +1095,10 @@ export default function InvestmentsPage() {
 
       {/* ── Positions + Chart ── */}
       {hasPositions && (
-        <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start [&>*]:min-w-0">
 
           {/* Positions list */}
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             <div className="text-[13px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Posições ({positions.length})
             </div>
