@@ -34,11 +34,11 @@ export default function InvestmentSummaryBlock() {
   useEffect(() => {
     if (!positions.length) return
 
-    const tickers = positions
-      .filter(p => p.assetType !== 'renda_fixa')
-      .map(p => p.ticker)
+    const market = positions.filter(p => p.assetType !== 'renda_fixa')
+    const tickers = market.filter(p => p.assetType !== 'cripto').map(p => p.ticker)
+    const cryptoTickers = market.filter(p => p.assetType === 'cripto').map(p => p.ticker)
 
-    if (!tickers.length) return
+    if (!tickers.length && !cryptoTickers.length) return
 
     async function loadQuotes() {
       const cached = getCachedQuotes()
@@ -50,7 +50,7 @@ export default function InvestmentSummaryBlock() {
 
       setLoading(true)
       try {
-        const q = await fetchQuotes(tickers)
+        const q = await fetchQuotes(tickers, { crypto: cryptoTickers })
         setQuotes(q)
         setCachedQuotes(q)
         setLastUpdate(new Date())

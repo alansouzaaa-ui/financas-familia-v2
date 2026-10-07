@@ -284,15 +284,17 @@ export default function InvestmentsPage() {
     // Só tipos com cotação na brapi (Tesouro tem PU próprio; poupança/renda fixa/
     // outro são valorizados à mão e o "ticker" não é um símbolo da B3).
     const MARKET_TYPES = new Set<AssetType>(['acao', 'fii', 'etf', 'cripto'])
-    const tickers = positions.filter(p => MARKET_TYPES.has(p.assetType)).map((p) => p.ticker)
+    const marketPositions = positions.filter(p => MARKET_TYPES.has(p.assetType))
+    const tickers = marketPositions.filter(p => p.assetType !== 'cripto').map((p) => p.ticker)
+    const cryptoTickers = marketPositions.filter(p => p.assetType === 'cripto').map((p) => p.ticker)
     // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
     const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
     const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
 
     // Cotações das ações — falha aqui NÃO deve derrubar o IBOV nem o resto.
-    if (tickers.length > 0) {
+    if (tickers.length > 0 || cryptoTickers.length > 0) {
       try {
-        const quoteList = await fetchQuotes(tickers)
+        const quoteList = await fetchQuotes(tickers, { crypto: cryptoTickers })
         const map: Record<string, BrapiQuote> = {}
         quoteList.forEach((q) => { map[q.symbol] = q })
         setQuotes(map)

@@ -20,9 +20,8 @@ function isValidQuote(q: unknown): q is BrapiQuote {
   )
 }
 
-export async function fetchQuotes(tickers: string[]): Promise<BrapiQuote[]> {
-  if (!tickers.length) return []
-  const unique = [...new Set(tickers.map(t => t.toUpperCase()))]
+// Fallback (dev local sem /api): brapi direto. Sem token só responde tickers de teste.
+async function fetchBrapiDirect(unique: string[]): Promise<BrapiQuote[]> {
   const res = await fetchWithTimeout(
     `${BASE}/quote/${unique.join(',')}?fundamental=false&dividends=false`,
     TIMEOUT_MS
@@ -31,6 +30,31 @@ export async function fetchQuotes(tickers: string[]): Promise<BrapiQuote[]> {
   const json = await res.json()
   const results = Array.isArray(json.results) ? json.results : []
   return results.filter(isValidQuote) as BrapiQuote[]
+}
+
+// tickers = B3 (ações/FIIs/ETFs); opts.crypto = cripto. Usa o proxy /api/quotes
+// (Yahoo server-side); se ele não existir/falhar (dev local), cai na brapi direta.
+export async function fetchQuotes(
+  tickers: string[],
+  opts?: { crypto?: string[] }
+): Promise<BrapiQuote[]> {
+  const b3 = [...new Set(tickers.map(t => t.toUpperCase()))]
+  const crypto = [...new Set((opts?.crypto ?? []).map(t => t.toUpperCase()))]
+  if (!b3.length && !crypto.length) return []
+
+  try {
+    const qs = new URLSearchParams()
+    if (b3.length) qs.set('t', b3.join(','))
+    if (crypto.length) qs.set('c', crypto.join(','))
+    const res = await fetchWithTimeout(`/api/quotes?${qs.toString()}`, TIMEOUT_MS)
+    if (res.ok) {
+      const json = await res.json()
+      if (Array.isArray(json?.results)) return json.results.filter(isValidQuote) as BrapiQuote[]
+    }
+  } catch {
+    // sem /api (404/HTML/timeout) → fallback
+  }
+  return fetchBrapiDirect([...new Set([...b3, ...crypto])])
 }
 
 export interface IbovHistoryPoint { date: string; close: number }
