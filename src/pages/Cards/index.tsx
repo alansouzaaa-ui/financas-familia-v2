@@ -73,6 +73,7 @@ export default function CardsPage() {
   }, [allMonths, month, year])
 
   const totalFatura = cardItems.reduce((s, i) => s + i.value, 0)
+  const totalPago = cardItems.filter(i => i.isPaid).reduce((s, i) => s + i.value, 0)
 
   function shiftMonth(dir: -1 | 1) {
     const idx = MONTHS.findIndex(m => m.value === month)
@@ -91,6 +92,10 @@ export default function CardsPage() {
   }
   function patchItem(it: MonthItem, patch: Partial<MonthItem>) {
     upsertItem(year, month, { ...it, ...patch })
+  }
+  // Quitar/reabrir a fatura inteira de um cartão de uma vez (só altera o que muda).
+  function setCardPaid(items: MonthItem[], paid: boolean) {
+    for (const it of items) if (it.isPaid !== paid) upsertItem(year, month, { ...it, isPaid: paid })
   }
 
   return (
@@ -136,6 +141,13 @@ export default function CardsPage() {
       <div className="rounded-[16px] p-5 mb-5 border border-[var(--color-border)]" style={{ backgroundImage: 'linear-gradient(160deg, var(--color-surface), var(--color-surface-2))' }}>
         <div className="label">Total das faturas · {monthLabel}</div>
         <div className="font-mono font-medium text-[30px] neg mt-1.5">{fmt(totalFatura)}</div>
+        {totalFatura > 0 && (
+          <div className="text-[12px] text-[var(--color-text-muted)] mt-1">
+            {totalPago >= totalFatura
+              ? <span className="pos font-medium">✓ Todas as faturas pagas</span>
+              : <>Pago <span className="font-mono pos whitespace-nowrap">{fmt(totalPago)}</span> · falta <span className="font-mono whitespace-nowrap">{fmt(totalFatura - totalPago)}</span></>}
+          </div>
+        )}
       </div>
 
       {/* Gerenciar cartões */}
@@ -226,7 +238,7 @@ export default function CardsPage() {
                       )}
                     </div>
                   </div>
-                  <span className="font-mono font-semibold text-[15px] neg">{fmt(total)}</span>
+                  <span className={`font-mono font-semibold text-[15px] whitespace-nowrap ${items.length > 0 && items.every(i => i.isPaid) ? 'pos' : 'neg'}`}>{fmt(total)}</span>
                   <span className={`text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
                 </button>
                 {a.limit != null && (
@@ -243,6 +255,27 @@ export default function CardsPage() {
                     </div>
                   </div>
                 )}
+                {items.length > 0 && (() => {
+                  const paidCount = items.filter(i => i.isPaid).length
+                  const allPaid = paidCount === items.length
+                  return (
+                    <div className="px-4 pb-3 flex items-center justify-between gap-3 text-[12px]">
+                      <span className={allPaid ? 'pos font-medium' : 'text-[var(--color-text-muted)]'}>
+                        {allPaid ? '✓ Fatura paga' : `${paidCount} de ${items.length} pagos`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCardPaid(items, !allPaid)}
+                        className="font-medium px-2.5 py-1 rounded-[8px] border transition-colors whitespace-nowrap"
+                        style={allPaid
+                          ? { color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }
+                          : { color: 'var(--color-primary)', borderColor: 'color-mix(in srgb, var(--color-primary) 40%, transparent)' }}
+                      >
+                        {allPaid ? 'Desmarcar fatura' : 'Marcar fatura como paga'}
+                      </button>
+                    </div>
+                  )
+                })()}
                 {open && (
                   <div className="border-t border-[var(--color-border)]">
                     {items.map(it => {
