@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import PageHeader from '@/components/ui/PageHeader'
 import NovaDespesaModal from '@/pages/Launch/NovaDespesaModal'
+import ImportInvoiceModal from './ImportInvoiceModal'
 
 // Dias até o próximo vencimento (dia `dueDay`) a partir de hoje.
 function daysUntilDue(dueDay?: number): number | null {
@@ -51,6 +52,14 @@ export default function CardsPage() {
   const [manage, setManage] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [modalCardId, setModalCardId] = useState('')
+  const [importCard, setImportCard] = useState<{ id: string; name: string } | null>(null)
+  const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const monthLabel = `${MONTHS.find(m => m.value === month)?.label}/${year}`
 
@@ -128,6 +137,26 @@ export default function CardsPage() {
             ...(it.occurredAt ? { occurredAt: it.occurredAt } : {}),
           })}
         />
+      )}
+
+      {importCard && (
+        <ImportInvoiceModal
+          cardId={importCard.id}
+          cardName={importCard.name}
+          defaultYear={year}
+          defaultMonth={month}
+          onClose={() => setImportCard(null)}
+          onImported={(y, m, n) => {
+            setYear(y); setMonth(m); setOpenId(importCard.id)
+            setToast(`${n} ${n === 1 ? 'lançamento importado' : 'lançamentos importados'}`)
+          }}
+        />
+      )}
+
+      {toast && (
+        <div role="status" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-[var(--color-pos)] text-white shadow-lg">
+          ✓ {toast}
+        </div>
       )}
 
       {/* Seletor de fatura */}
@@ -255,11 +284,19 @@ export default function CardsPage() {
                     </div>
                   </div>
                 )}
-                {items.length > 0 && (() => {
+                <div className="px-4 pb-3 flex items-center justify-between gap-2 flex-wrap text-[12px]">
+                  <button
+                    type="button"
+                    onClick={() => setImportCard({ id: a.id, name: a.name })}
+                    className="font-medium px-2.5 py-1 rounded-[8px] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors whitespace-nowrap"
+                  >
+                    📄 Importar fatura
+                  </button>
+                  {items.length > 0 && (() => {
                   const paidCount = items.filter(i => i.isPaid).length
                   const allPaid = paidCount === items.length
                   return (
-                    <div className="px-4 pb-3 flex items-center justify-between gap-3 text-[12px]">
+                    <div className="flex items-center gap-3">
                       <span className={allPaid ? 'pos font-medium' : 'text-[var(--color-text-muted)]'}>
                         {allPaid ? '✓ Fatura paga' : `${paidCount} de ${items.length} pagos`}
                       </span>
@@ -276,6 +313,7 @@ export default function CardsPage() {
                     </div>
                   )
                 })()}
+                </div>
                 {open && (
                   <div className="border-t border-[var(--color-border)]">
                     {items.map(it => {

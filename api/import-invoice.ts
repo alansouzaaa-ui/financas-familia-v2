@@ -1,6 +1,6 @@
 // POST /api/import-invoice  { pdfBase64 } -> { ok: true, extraction } | { ok: false, error }
 //
-// Runtime: Node.js (NÃO Edge) — o SDK da Anthropic e PDFs de até 8 MB pedem Node, e a
+// Runtime: Node.js (NÃO Edge) — o SDK da Anthropic e PDFs de até 3 MB pedem Node, e a
 // leitura por IA pode levar dezenas de segundos. Assinatura Web (Request -> Response)
 // via export nomeado `POST` (suportado pelo runtime Node da Vercel para api/*.ts fora do Next).
 // Duração: `config.maxDuration` + `vercel.json` "functions" (redundância deliberada).
@@ -11,7 +11,7 @@ import { extractInvoice, InvoiceExtractError } from './lib/invoiceExtract.js'
 
 export const config = { maxDuration: 60 }
 
-const MAX_BYTES = 8 * 1024 * 1024
+const MAX_BYTES = 3 * 1024 * 1024 // corpo da Vercel ~4,5 MB; base64 +33%
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
 
@@ -70,7 +70,7 @@ export async function POST(req: Request): Promise<Response> {
   // Tamanho decodificado aproximado antes de qualquer decodificação completa.
   const padding = pdfBase64.endsWith('==') ? 2 : pdfBase64.endsWith('=') ? 1 : 0
   const approxBytes = Math.floor((pdfBase64.length * 3) / 4) - padding
-  if (approxBytes > MAX_BYTES) return fail('PDF muito grande (máximo 8 MB).', 413)
+  if (approxBytes > MAX_BYTES) return fail('PDF muito grande (máximo 3 MB).', 413)
 
   const head = Buffer.from(pdfBase64.slice(0, 16), 'base64').toString('latin1')
   if (!head.startsWith('%PDF')) return fail('O arquivo enviado não é um PDF.', 400)

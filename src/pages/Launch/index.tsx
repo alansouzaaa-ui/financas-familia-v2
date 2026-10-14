@@ -4,6 +4,7 @@ import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'
+import { findMissingRecurring, dedupeCopy } from '@/lib/recurringSync'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import type { MonthAbbr, MonthItem, RecurringItem } from '@/types/finance'
@@ -202,17 +203,30 @@ export default function LaunchPage() {
     }
   }, [upsertRule, deleteRule])
 
+  const { missing, links } = useMemo(() => findMissingRecurring(recurring, formItems), [recurring, formItems])
+  const hasActiveRules = recurring.some(r => r.isActive && r.category !== 'cards')
+  // Aviso só no mês atual e futuros: uma recorrente nova não deve "faltar" nos meses passados
+  const isPastMonth = monthKey(parseInt(selectedYear), selectedMonth) < monthKey(now.getFullYear(), MONTHS_LIST[now.getMonth()].value)
+  const [copyMsg, setCopyMsg] = useState('')
+
   function applyRecurring() {
+    if (missing.length === 0 && links.length === 0) return
     dirtyRef.current = true
-    const active = recurring.filter(r => r.isActive)
-    const newItems: FormItem[] = active.map(r => ({
+    const linkMap = new Map(links.map(l => [formItems[l.itemIndex]?.id, l.recurringId]))
+    const newItems: FormItem[] = missing.map(r => ({
       id: crypto.randomUUID(),
       description: r.description,
       value: String(r.value),
       category: r.category,
       isPaid: r.category === 'revenue',
+      recurringId: r.id,
     }))
-    setFormItems(prev => [...prev, ...newItems])
+    setFormItems(prev => {
+      const kept = prev
+        .filter(i => i.description.trim() !== '' || i.value.trim() !== '')
+        .map(i => linkMap.has(i.id) ? { ...i, recurringId: linkMap.get(i.id) } : i)
+      return [...kept, ...newItems]
+    })
   }
 
   function copyPreviousMonth() {
@@ -222,19 +236,29 @@ export default function LaunchPage() {
     const prevYear  = mIdx === 0 ? year - 1 : year
     const prev = allMonths.find(m => m.month === prevMonth && m.year === prevYear)
     if (!prev?.items) return
+    // Não copia cartões (são geridos na aba Cartões) e ignora o que já existe no mês
+    const current = formItems
+      .filter(i => i.description.trim() !== '' || i.value.trim() !== '')
+      .map(i => ({ description: i.description, category: i.category, value: parseFloat(i.value) || 0, recurringId: i.recurringId }))
+    const toCopy = dedupeCopy(prev.items, current)
+    if (toCopy.length === 0) {
+      setCopyMsg('Nada novo para copiar')
+      setTimeout(() => setCopyMsg(''), 3000)
+      return
+    }
     dirtyRef.current = true
-    // Não copia cartões (são geridos na aba Cartões)
-    const copied: FormItem[] = prev.items.filter(i => i.category !== 'cards').map(i => ({
+    const copied: FormItem[] = toCopy.map(i => ({
       id: crypto.randomUUID(),
       description: i.description,
       value: String(i.value),
       category: i.category,
       isPaid: i.category === 'revenue',
+      recurringId: i.recurringId,
     }))
     // Acrescenta ao que já existe (ex: lançamentos do Telegram) — NÃO substitui,
     // mas ignora placeholders vazios do formulário inicial.
-    setFormItems(current => {
-      const kept = current.filter(i => i.description.trim() !== '' || i.value.trim() !== '')
+    setFormItems(cur => {
+      const kept = cur.filter(i => i.description.trim() !== '' || i.value.trim() !== '')
       return [...kept, ...copied]
     })
   }
@@ -396,12 +420,26 @@ export default function LaunchPage() {
               </div>
               <div className="flex items-end gap-2">
                 <Button variant="ghost" size="sm" onClick={copyPreviousMonth}>⏮ Copiar anterior</Button>
-                {recurring.filter(r => r.isActive).length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={applyRecurring}>↻ Recorrentes</Button>
+                {missing.length > 0 ? (
+                  <Button variant="ghost" size="sm" onClick={applyRecurring}>↻ Recorrentes ({missing.length})</Button>
+                ) : hasActiveRules && (
+                  <span className="text-[11px] text-[var(--color-text-muted)] pb-2">✓ Recorrentes em dia</span>
                 )}
               </div>
             </div>
           </Card>
+
+          {copyMsg && <div className="text-[12px] text-[var(--color-text-muted)] px-1">{copyMsg}</div>}
+          {missing.length > 0 && !isPastMonth && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2">
+              <span className="text-[12px] text-[var(--color-text-muted)]">
+                {missing.length} recorrente(s) ainda não lançada(s) neste mês:{' '}
+                {missing.slice(0, 3).map(r => r.description).join(', ')}
+                {missing.length > 3 ? ` e mais ${missing.length - 3}` : ''}
+              </span>
+              <Button variant="ghost" size="sm" onClick={applyRecurring}>Adicionar</Button>
+            </div>
+          )}
 
           {/* Category blocks (cartões saíram — geridos na aba Cartões) */}
           {EDIT_CATEGORIES.map(cat => {
