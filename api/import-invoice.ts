@@ -6,8 +6,8 @@
 // Duração: `config.maxDuration` + `vercel.json` "functions" (redundância deliberada).
 // Nunca loga o conteúdo do PDF.
 import Anthropic from '@anthropic-ai/sdk'
-import { verifySession } from './lib/auth'
-import { extractInvoice, InvoiceExtractError } from './lib/invoiceExtract'
+import { verifySession } from './lib/auth.js'
+import { extractInvoice, InvoiceExtractError } from './lib/invoiceExtract.js'
 
 export const config = { maxDuration: 60 }
 
