@@ -16,6 +16,18 @@ const GROUP_LABELS: Record<string, string> = {
   fixedCosts: 'Custos fixos', variableCosts: 'Custos variáveis', cards: 'Cartões', loans: 'Empréstimos', renegociacoes: 'Renegociações',
 }
 
+type MonthRec = NonNullable<SyncPayload['manual_months']>[number]
+
+/** Totais do mês: soma dos itens quando houver; senão, os campos agregados. */
+export function monthTotals(r: MonthRec) {
+  const items = r.items ?? []
+  const t = items.length
+    ? { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, renegociacoes: 0 }
+    : { revenue: r.revenue, fixedCosts: r.fixedCosts, loans: r.loans, cards: r.cards, variableCosts: r.variableCosts, renegociacoes: r.renegociacoes ?? 0 }
+  for (const i of items) t[i.category] += i.value
+  return { ...t, expenses: t.fixedCosts + t.loans + t.cards + t.variableCosts + t.renegociacoes }
+}
+
 function brl(v: number): string {
   return 'R$ ' + Math.round(Math.abs(v)).toLocaleString('pt-BR')
 }
@@ -46,8 +58,11 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
     return `📊 Resumo de ${monthName}\n\nAinda não há lançamentos neste mês.\nMande uma despesa aqui (ex: "mercado 150") ou lance no app.`
   }
 
-  const expenses = record.fixedCosts + record.loans + record.cards + record.variableCosts + (record.renegociacoes ?? 0)
-  const balance = record.revenue - expenses
+  // Totais a partir dos itens quando existem (fonte da verdade); os campos
+  // agregados do registro podem estar defasados.
+  const t = monthTotals(record)
+  const expenses = t.expenses
+  const balance = t.revenue - expenses
   const faltaPagar = items.filter(i => i.category !== 'revenue' && !i.isPaid).reduce((s, i) => s + i.value, 0)
   const pendentes = items.filter(i => i.category !== 'revenue' && !i.isPaid).length
   const faltaReceber = items.filter(i => i.category === 'revenue' && !i.isPaid).reduce((s, i) => s + i.value, 0)
@@ -64,14 +79,14 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
     for (const [tag, v] of byTag) if (v > topValue) { topValue = v; topLabel = TAG_LABELS[tag] ?? tag }
   } else {
     const groups: [string, number][] = [
-      ['fixedCosts', record.fixedCosts], ['variableCosts', record.variableCosts],
-      ['cards', record.cards], ['loans', record.loans], ['renegociacoes', record.renegociacoes ?? 0],
+      ['fixedCosts', t.fixedCosts], ['variableCosts', t.variableCosts],
+      ['cards', t.cards], ['loans', t.loans], ['renegociacoes', t.renegociacoes],
     ]
     for (const [g, v] of groups) if (v > topValue) { topValue = v; topLabel = GROUP_LABELS[g] }
   }
 
   const lines: string[] = [`📊 Resumo de ${monthName}`, '']
-  lines.push(`💵 Receitas: ${brl(record.revenue)}`)
+  lines.push(`💵 Receitas: ${brl(t.revenue)}`)
   lines.push(`💳 Despesas: ${brl(expenses)}`)
   lines.push(`📈 Resultado: ${brlSigned(balance)}`)
   if (faltaPagar > 0.005) lines.push('', `⏳ Falta pagar: ${brl(faltaPagar)} (${pendentes} em aberto)`)
@@ -83,7 +98,7 @@ export function buildSummary(payload: SyncPayload | null, nowISO: string): strin
   const pYear = monthIdx === 0 ? year - 1 : year
   const prev = payload?.manual_months?.find(m => m.month === MONTH_ABBRS[pIdx] && m.year === pYear)
   if (prev) {
-    const pExp = prev.fixedCosts + prev.loans + prev.cards + prev.variableCosts + (prev.renegociacoes ?? 0)
+    const pExp = monthTotals(prev).expenses
     if (pExp > 0) {
       const d = ((expenses - pExp) / pExp) * 100
       if (Math.abs(d) >= 5) lines.push(`${d > 0 ? '📈' : '📉'} Despesas ${d > 0 ? 'subiram' : 'caíram'} ${Math.abs(d).toFixed(0)}% vs ${MONTH_NAMES[pIdx]}`)

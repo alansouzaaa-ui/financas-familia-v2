@@ -144,3 +144,20 @@ describe('appendTelegramTransaction', () => {
     expect(record.year).toBe(2027)
   })
 })
+
+describe('appendTelegramTransaction — regressão renegociações', () => {
+  it('não acumula renegociacoes a cada nova mensagem (bug: total inflado ~37x)', () => {
+    const tx0 = parseTransaction('mercado 10', '123', 100)!
+    const base = appendTelegramTransaction(emptyPayload, tx0).payload
+    const rec = base.manual_months[0]
+    rec.items!.push({ id: 'reneg', description: 'Parcela renegociação', value: 500, category: 'renegociacoes', isPaid: false })
+    rec.renegociacoes = 500
+    let p = base
+    for (let k = 1; k <= 5; k++) {
+      const tx = parseTransaction(`uber ${k}`, '123', 100 + k)!
+      tx.occurredAt = tx0.occurredAt
+      p = appendTelegramTransaction(p, tx).payload
+    }
+    expect(p.manual_months[0].renegociacoes).toBeCloseTo(500)
+  })
+})

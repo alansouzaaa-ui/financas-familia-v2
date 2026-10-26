@@ -165,8 +165,11 @@ export function appendTelegramTransaction(
   record.loans = 0
   record.cards = 0
   record.variableCosts = 0
+  // Zerar TODAS as categorias: antes 'renegociacoes' ficava de fora e era somada
+  // de novo a cada mensagem do Telegram (total inflado mês a mês).
+  record.renegociacoes = 0
   for (const item of record.items) {
-    record[item.category] += item.value
+    record[item.category] = (record[item.category] ?? 0) + item.value
   }
 
   return {

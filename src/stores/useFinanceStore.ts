@@ -52,7 +52,12 @@ function sortMonths(months: MonthRecord[]): MonthPoint[] {
 function mergeRecords(seed: MonthRecord[], extras: MonthRecord[]): MonthRecord[] {
   const map = new Map<string, MonthRecord>()
   for (const r of seed) map.set(`${r.year}-${r.month}`, r)
-  for (const r of extras) map.set(`${r.year}-${r.month}`, r) // extras override seed
+  // extras override seed. Totais recalculados dos itens: o registro remoto pode
+  // trazer agregados defasados (ex.: bug antigo do Telegram em 'renegociacoes').
+  for (const r of extras) {
+    const fixed = r.items && r.items.length ? { ...r, ...totalsFromItems(r.items) } : r
+    map.set(`${r.year}-${r.month}`, fixed)
+  }
   return Array.from(map.values())
 }
 

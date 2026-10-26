@@ -44,3 +44,16 @@ describe('buildSummary', () => {
     expect(text).toContain('R$ 450')
   })
 })
+
+describe('buildSummary — totais a partir dos itens', () => {
+  it('ignora agregados defasados do registro e soma os itens', () => {
+    const payload = payloadWith([
+      { id: '1', description: 'Salário', value: 5000, category: 'revenue', isPaid: true },
+      { id: '2', description: 'Parcela', value: 500, category: 'renegociacoes', isPaid: true },
+    ])
+    payload.manual_months[0].renegociacoes = 999_999 // agregado corrompido
+    const text = buildSummary(payload, NOW)
+    expect(text).toContain('Despesas: R$ 500')
+    expect(text).not.toContain('999')
+  })
+})
