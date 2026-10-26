@@ -3,13 +3,13 @@
 // Fonte única — importado tanto pelo front quanto pela Edge Function.
 
 // Ordem importa: a primeira regra que casa vence. Regras mais específicas
-// (restaurante, combustível) vêm antes das genéricas (moradia/serviços).
+// (alimentação, combustível) vêm antes das genéricas (moradia/serviços).
 const RULES: { tag: string; kw: string[] }[] = [
   // Categoria dedicada (frase específica vence as genéricas): mercado do condomínio
   { tag: 'mercado_condominio', kw: ['mercadinho condominio', 'mercado condominio', 'mercadinho do condominio', 'mercado do condominio', 'mercadinho do predio', 'mercado do predio'] },
   { tag: 'uber',          kw: ['uber', 'uberrides', 'uber rides'] },
   { tag: 'combustivel',   kw: ['posto', 'gasolina', 'etanol', 'alcool', 'diesel', 'combustivel', 'shell', 'ipiranga', 'petrobras', 'br mania'] },
-  { tag: 'restaurante',   kw: ['ifood', 'restaurante', 'lanche', 'lanchonete', 'pizza', 'burger', 'hamburg', 'mcdonald', 'bk ', 'subway', 'padaria', 'cafe', 'bar ', 'boteco', 'rappi', 'churrasc', 'sushi', 'espeto'] },
+  { tag: 'alimentacao',   kw: ['ifood', 'restaurante', 'lanche', 'lanchonete', 'pizza', 'burger', 'hamburg', 'mcdonald', 'bk ', 'subway', 'padaria', 'cafe', 'bar ', 'boteco', 'rappi', 'churrasc', 'sushi', 'espeto'] },
   { tag: 'supermercado',  kw: ['mercado', 'supermerc', 'atacad', 'atacadao', 'carrefour', 'assai', 'big ', 'extra', 'hortifruti', 'sacolao', 'comper', 'zaffari', 'nacional', 'compras do mes'] },
   { tag: 'transporte',    kw: ['99 ', '99app', 'taxi', 'onibus', 'metro', 'brt', 'passagem', 'pedagio', 'estacionamento', 'zona azul', 'bilhete'] },
   { tag: 'farmacia',      kw: ['farmacia', 'drogaria', 'drogas', 'remedio', 'panvel', 'pacheco', 'raia', 'drogasil', 'droga raia'] },

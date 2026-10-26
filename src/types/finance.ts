@@ -48,7 +48,6 @@ export const EXPENSE_TAGS: ExpenseTag[] = [
   { id: 'supermercado',  label: 'Supermercado',   emoji: '🛒', color: '#84CC16' },
   { id: 'mercado_condominio', label: 'Mercado Condomínio', emoji: '🏪', color: '#0D9488' },
   { id: 'alimentacao',   label: 'Alimentação',    emoji: '🍽️', color: '#F59E0B' },
-  { id: 'restaurante',   label: 'Restaurante',    emoji: '🍔', color: '#F97316' },
   { id: 'transporte',    label: 'Transporte',     emoji: '🚗', color: '#10B981' },
   { id: 'uber',          label: 'Uber',           emoji: '🚕', color: '#6366F1' },
   { id: 'combustivel',   label: 'Combustível',    emoji: '⛽', color: '#6EE7B7' },
@@ -115,6 +114,8 @@ export interface RecurringItem {
   value: number
   category: 'revenue' | 'fixedCosts' | 'variableCosts' | 'loans' | 'cards' | 'renegociacoes'
   isActive: boolean
+  cardId?: string        // category === 'cards': entra na fatura desse cartão
+  tag?: string
 }
 
 export interface HealthScore {

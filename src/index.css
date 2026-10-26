@@ -116,6 +116,17 @@
   100% { transform: translateX(-50%); }
 }
 
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-slide-up { animation: slide-up .22s cubic-bezier(.2,.7,.2,1) both; }
+.animate-fade-in  { animation: fade-in .16s ease-out both; }
+
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }

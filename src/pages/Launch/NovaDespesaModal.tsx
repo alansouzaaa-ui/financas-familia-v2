@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { guessTag } from '@/lib/autoTag'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { useCardsStore } from '@/stores/useCardsStore'
-import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import type { MonthAbbr, MonthItem } from '@/types/finance'
+import RepeatMonthsModal, { type RepeatTemplate } from '@/components/recurring/RepeatMonthsModal'
 
 type Grupo = 'variableCosts' | 'fixedCosts' | 'loans' | 'renegociacoes' | 'cards' | 'revenue'
 
@@ -23,15 +23,18 @@ interface Props {
   monthLabel: string
   onClose: () => void
   // Adiciona um item NÃO-cartão ao formulário do mês atual (evita conflito com o auto-save)
-  onAddFormItem: (item: { description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string; occurredAt?: string }) => void
+  onAddFormItem: (item: { id?: string; description: string; value: number; category: string; isPaid: boolean; tag?: string; recurringId?: string; occurredAt?: string }) => void
+  // Liga um item já adicionado (pelo id) a uma série recém-criada em "Repetir em outros meses…"
+  onLinkFormItem?: (itemId: string, ruleId: string) => void
+  // Mensagem curta de confirmação (toast) da página que abriu o modal
+  onNotify?: (msg: string) => void
   defaultGrupo?: Grupo
   defaultCardId?: string
 }
 
-export default function NovaDespesaModal({ month, year, monthLabel, onClose, onAddFormItem, defaultGrupo, defaultCardId }: Props) {
+export default function NovaDespesaModal({ month, year, monthLabel, onClose, onAddFormItem, onLinkFormItem, onNotify, defaultGrupo, defaultCardId }: Props) {
   const tags = useCategoriesStore(s => s.tags)
   const cardAccounts = useCardsStore(s => s.accounts)
-  const upsertRule = useRecurringStore(s => s.upsertRule)
   const upsertItem = useFinanceStore(s => s.upsertItem)
 
   const [value, setValue] = useState('')
@@ -42,7 +45,8 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   const [tagTouched, setTagTouched] = useState(false)
   const [autoTagged, setAutoTagged] = useState(false)
   const [isPaid, setIsPaid] = useState(false)
-  const [repetir, setRepetir] = useState(false)
+  // Depois de salvar com "repetir", o modal de meses assume (o lançamento original vira a âncora)
+  const [repeating, setRepeating] = useState<{ itemId: string; template: RepeatTemplate } | null>(null)
   const [data, setData] = useState(() => new Date().toISOString().slice(0, 10))
 
   // Auto-categoriza pela descrição enquanto o usuário digita, até que ele
@@ -60,30 +64,58 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
   const valNum = Math.round((parseFloat(value.replace(',', '.')) || 0) * 100) / 100
   const canSave = valNum > 0 && description.trim().length >= 1
 
-  function save() {
+  // Decisão de UX: a repetição é uma ação secundária que reaproveita o RepeatMonthsModal
+  // (em vez de embutir a grade aqui), mantendo este modal simples. Salva primeiro e abre a grade.
+  function save(thenRepeat = false) {
     if (!canSave) return
     const desc = description.trim().slice(0, 120)
     const occurredAt = new Date(data + 'T12:00:00').toISOString()
     // Se ficou sem categoria, tenta adivinhar pela descrição no ato de salvar
     const finalTag = (tag || (!isRevenue ? guessTag(desc) : undefined)) || undefined
-    let recurringId: string | undefined
-    if (repetir) {
-      recurringId = crypto.randomUUID()
-      upsertRule({ id: recurringId, description: desc, value: valNum, category: grupo, isActive: true })
-    }
+    const itemId = crypto.randomUUID()
 
     if (grupo === 'cards') {
       // Cartão: grava direto no mês (a aba Cartões/Reports leem daí)
       const item: MonthItem = {
-        id: crypto.randomUUID(), description: desc, value: valNum, category: 'cards',
-        isPaid, occurredAt, ...(cardId ? { cardId } : {}), ...(finalTag ? { tag: finalTag } : {}), ...(recurringId ? { recurringId } : {}),
+        id: itemId, description: desc, value: valNum, category: 'cards',
+        isPaid, occurredAt, ...(cardId ? { cardId } : {}), ...(finalTag ? { tag: finalTag } : {}),
       }
       upsertItem(year, month, item)
     } else {
       // Demais grupos: entra no formulário do mês (auto-save cuida da gravação)
-      onAddFormItem({ description: desc, value: valNum, category: grupo, isPaid, tag: finalTag, recurringId, occurredAt })
+      onAddFormItem({ id: itemId, description: desc, value: valNum, category: grupo, isPaid, tag: finalTag, occurredAt })
+    }
+
+    if (thenRepeat) {
+      setRepeating({
+        itemId,
+        template: { description: desc, value: valNum, category: grupo, ...(finalTag ? { tag: finalTag } : {}), ...(grupo === 'cards' && cardId ? { cardId } : {}) },
+      })
+      return
     }
     onClose()
+  }
+
+  function linkItem(ruleId: string) {
+    if (!repeating) return
+    if (grupo === 'cards') {
+      const it = useFinanceStore.getState().allMonths.find(m => m.year === year && m.month === month)?.items?.find(i => i.id === repeating.itemId)
+      if (it) upsertItem(year, month, { ...it, recurringId: ruleId })
+    } else {
+      onLinkFormItem?.(repeating.itemId, ruleId)
+    }
+  }
+
+  if (repeating) {
+    return (
+      <RepeatMonthsModal
+        template={repeating.template}
+        anchor={{ year, month }}
+        onClose={onClose}
+        onApplied={msg => onNotify?.(msg)}
+        onLinked={linkItem}
+      />
+    )
   }
 
   return (
@@ -194,21 +226,25 @@ export default function NovaDespesaModal({ month, year, monthLabel, onClose, onA
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${isPaid ? 'left-[22px]' : 'left-0.5'}`} />
               </button>
             </label>
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-[14px]">Repetir todo mês (fixa)</span>
-              <button type="button" onClick={() => setRepetir(p => !p)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${repetir ? 'bg-[var(--color-chart-blue)]' : 'bg-[var(--color-surface-3)]'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${repetir ? 'left-[22px]' : 'left-0.5'}`} />
-              </button>
-            </label>
           </div>
+
+          {/* Repetir em outros meses: salva e abre a grade de meses */}
+          <button
+            type="button"
+            onClick={() => save(true)}
+            disabled={!canSave}
+            className="flex items-center justify-center gap-2 -mb-1 py-2 rounded-[10px] text-[13px] font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-tint)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 7V6a2 2 0 012-2h7M10 2l2 2-2 2M13 9v1a2 2 0 01-2 2H4M6 14l-2-2 2-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Salvar e repetir em outros meses…
+          </button>
 
           {/* Ações */}
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-[10px] text-[14px] font-medium border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
               Cancelar
             </button>
-            <button onClick={save} disabled={!canSave}
+            <button onClick={() => save()} disabled={!canSave}
               className="flex-1 py-2.5 rounded-[10px] text-[14px] font-semibold bg-[var(--color-primary)] text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
               Salvar em {monthLabel}
             </button>

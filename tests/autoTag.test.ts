@@ -3,7 +3,7 @@ import { guessTag } from '../src/lib/autoTag'
 
 describe('guessTag', () => {
   it('classifica descrições comuns', () => {
-    expect(guessTag('ifood almoço')).toBe('restaurante')
+    expect(guessTag('ifood almoço')).toBe('alimentacao')
     expect(guessTag('mercado da semana')).toBe('supermercado')
     expect(guessTag('posto shell')).toBe('combustivel')
     expect(guessTag('Netflix')).toBe('assinaturas')

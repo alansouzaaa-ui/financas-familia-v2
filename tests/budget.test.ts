@@ -15,7 +15,7 @@ describe('lineKeyOf', () => {
     expect(lineKeyOf(item({ tag: 'lazer', description: 'IFOOD' }), tagMap)).toEqual({ key: 'lazer', inferred: false })
   })
   it('infere pela descrição', () => {
-    expect(lineKeyOf(item({ description: 'IFOOD pedido' }), tagMap)).toEqual({ key: 'restaurante', inferred: true })
+    expect(lineKeyOf(item({ description: 'IFOOD pedido' }), tagMap)).toEqual({ key: 'alimentacao', inferred: true })
   })
   it('cai no grupo da categoria', () => {
     expect(lineKeyOf(item({ description: 'zzz qqq', category: 'loans' }), tagMap)).toEqual({ key: 'grp:loans', inferred: false })
@@ -50,7 +50,7 @@ describe('computeBudget', () => {
     item({ tag: 'lazer', value: -5 }),
     item({ tag: 'lazer', value: NaN }),
   ]
-  const limits = { lazer: 100, moradia: 1000, restaurante: 100, pets: 50 }
+  const limits = { lazer: 100, moradia: 1000, alimentacao: 100, pets: 50 }
   const s = computeBudget(items, limits, EXPENSE_TAGS)
 
   it('separa receita e ignora inválidos', () => {
@@ -72,7 +72,7 @@ describe('computeBudget', () => {
     expect(s.budgeted).toBe(1250)
     expect(s.plannedSurplus).toBe(3750)
     expect(s.inferredCount).toBe(1)
-    expect(s.lines.find(l => l.key === 'restaurante')!.inferredCount).toBe(1)
+    expect(s.lines.find(l => l.key === 'alimentacao')!.inferredCount).toBe(1)
     expect(s.lines.find(l => l.key === 'lazer')!.pct).toBe(120)
   })
   it('sem limites: plannedSurplus null', () => {

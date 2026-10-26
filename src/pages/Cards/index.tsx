@@ -130,8 +130,13 @@ export default function CardsPage() {
           defaultGrupo="cards"
           defaultCardId={modalCardId}
           onClose={() => setShowModal(false)}
+          onNotify={setToast}
+          onLinkFormItem={(itemId, ruleId) => {
+            const it = useFinanceStore.getState().allMonths.find(m => m.year === year && m.month === month)?.items?.find(i => i.id === itemId)
+            if (it) upsertItem(year, month, { ...it, recurringId: ruleId })
+          }}
           onAddFormItem={(it) => upsertItem(year, month, {
-            id: crypto.randomUUID(), description: it.description, value: it.value,
+            id: it.id ?? crypto.randomUUID(), description: it.description, value: it.value,
             category: it.category as MonthItem['category'], isPaid: it.isPaid,
             ...(it.tag ? { tag: it.tag } : {}), ...(it.recurringId ? { recurringId: it.recurringId } : {}),
             ...(it.occurredAt ? { occurredAt: it.occurredAt } : {}),
