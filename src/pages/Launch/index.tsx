@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useFinanceStore, monthKey, totalsFromItems } from '@/stores/useFinanceStore'
+import { useFinanceStore, monthKey } from '@/stores/useFinanceStore'
+import { totalsFromItems } from '@/lib/monthTotals'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { fmt, fmtSigned } from '@/lib/formatters'

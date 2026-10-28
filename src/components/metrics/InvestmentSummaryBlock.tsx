@@ -1,90 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { useInvestmentStore } from '@/stores/useInvestmentStore'
-import { fetchQuotes } from '@/lib/brapiService'
-import { fetchTesouroTitles } from '@/lib/tesouroService'
-import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
+import { usePortfolioValue } from '@/hooks/usePortfolioValue'
 import { fmt, fmtSigned } from '@/lib/formatters'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS } from '@/types/investment'
-import type { BrapiQuote } from '@/types/investment'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import Card from '@/components/ui/Card'
 
-const CACHE_KEY = 'inv_quotes_cache'
-const CACHE_TTL = 5 * 60 * 1000 // 5 min
-
-function getCachedQuotes(): { quotes: BrapiQuote[]; ts: number } | null {
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch { return null }
-}
-
-function setCachedQuotes(quotes: BrapiQuote[]) {
-  try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ quotes, ts: Date.now() }))
-  } catch { /* noop */ }
-}
-
 export default function InvestmentSummaryBlock() {
-  const { positions } = useInvestmentStore()
-  const [quotes, setQuotes] = useState<BrapiQuote[]>([])
-  const [tesouroPu, setTesouroPu] = useState<Map<string, number>>(new Map())
-  const [loading, setLoading] = useState(false)
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-
-  useEffect(() => {
-    if (!positions.length) return
-
-    const { b3: tickers, crypto: cryptoTickers } = splitQuoteTickers(positions)
-    const hasTesouro = positions.some(p => p.assetType === 'tesouro')
-    let cancelled = false
-
-    async function loadQuotes() {
-      const needQuotes = tickers.length > 0 || cryptoTickers.length > 0
-      if (!needQuotes && !hasTesouro) return
-
-      setLoading(true)
-      try {
-        const tesouroTask = hasTesouro
-          ? fetchTesouroTitles().catch(() => [])
-          : Promise.resolve([])
-
-        let quotesTask: Promise<void> = Promise.resolve()
-        if (needQuotes) {
-          const cached = getCachedQuotes()
-          if (cached && Date.now() - cached.ts < CACHE_TTL) {
-            setQuotes(cached.quotes)
-            setLastUpdate(new Date(cached.ts))
-          } else {
-            quotesTask = fetchQuotes(tickers, { crypto: cryptoTickers })
-              .then(q => {
-                if (cancelled) return
-                setQuotes(q)
-                setCachedQuotes(q)
-                setLastUpdate(new Date())
-              })
-              .catch(() => { /* silent fallback */ })
-          }
-        }
-
-        const [titles] = await Promise.all([tesouroTask, quotesTask])
-        if (!cancelled) setTesouroPu(new Map(titles.map(t => [t.name, t.pu])))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    loadQuotes()
-    return () => { cancelled = true }
-  }, [positions])
-
-  const enriched = useMemo(() => {
-    const map: Record<string, BrapiQuote> = {}
-    quotes.forEach(q => { map[q.symbol] = q })
-    return enrichPositions(positions, map, tesouroPu)
-  }, [positions, quotes, tesouroPu])
+  const { positions, enriched, invested: totalInvested, current: currentValue, loading, hasQuotes, lastUpdate } = usePortfolioValue()
 
   if (!positions.length) {
     return (
@@ -99,8 +21,6 @@ export default function InvestmentSummaryBlock() {
     )
   }
 
-  const totalInvested = enriched.reduce((s, p) => s + p.totalInvested, 0)
-  const currentValue  = enriched.reduce((s, p) => s + p.currentValue, 0)
   const totalPnl      = currentValue - totalInvested
   const totalPnlPct   = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0
 
@@ -131,7 +51,7 @@ export default function InvestmentSummaryBlock() {
           <span className="text-[11px] text-[var(--color-text-muted)]">
             {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-        ) : quotes.length === 0 ? (
+        ) : !hasQuotes ? (
           <span className="text-[11px] text-[var(--color-text-muted)] opacity-60">preço de custo</span>
         ) : null
       }

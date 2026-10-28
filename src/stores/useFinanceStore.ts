@@ -3,6 +3,9 @@ import { persist } from 'zustand/middleware'
 import type { MonthRecord, MonthPoint, MonthItem, MonthAbbr, PeriodFilter, PeriodPreset } from '@/types/finance'
 import { toMonthPoint, filterByPeriod } from '@/lib/calculations'
 import { SEED_DATA } from '@/lib/seedData'
+import { totalsFromItems } from '@/lib/monthTotals'
+import { removedItemIds, addedItemIds } from '@/lib/tombstones'
+import { useTombstoneStore } from '@/stores/useTombstoneStore'
 
 interface FinanceStore {
   allMonths: MonthPoint[]
@@ -37,10 +40,12 @@ export function monthKey(year: number, month: string): number {
 
 const MONTHS_ORDER = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
-export function totalsFromItems(items: MonthItem[]): Pick<MonthRecord, 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts' | 'renegociacoes'> {
-  const t = { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, renegociacoes: 0 }
-  for (const i of items) t[i.category] += i.value
-  return t
+// Registra tombstones dos itens que sumiram (exceto movidos entre meses) e
+// limpa os de itens que voltaram. Chamado em toda mutação local; NÃO em setMonths (pull).
+function trackItemChanges(before: MonthRecord[], after: MonthRecord[]) {
+  const ts = useTombstoneStore.getState()
+  ts.add(removedItemIds(before, after))
+  ts.forget(addedItemIds(before, after))
 }
 
 function sortMonths(months: MonthRecord[]): MonthPoint[] {
@@ -77,6 +82,7 @@ export const useFinanceStore = create<FinanceStore>()(
       },
 
       addMonth: (record) => {
+        const before = get().allMonths
         const key = `${record.year}-${record.month}`
         const existing = get().allMonths.find(m => `${m.year}-${m.month}` === key)
         if (existing) {
@@ -88,21 +94,26 @@ export const useFinanceStore = create<FinanceStore>()(
         } else {
           set(s => ({ allMonths: sortMonths([...s.allMonths, record]) }))
         }
+        trackItemChanges(before, get().allMonths)
       },
 
       updateMonth: (id, partial) => {
         // id aqui é a chave composta "year-month"
+        const before = get().allMonths
         set(s => ({
           allMonths: sortMonths(
             s.allMonths.map(m => `${m.year}-${m.month}` === id ? { ...m, ...partial } : m)
           )
         }))
+        trackItemChanges(before, get().allMonths)
       },
 
       removeMonth: (year, month) => {
+        const before = get().allMonths
         set(s => ({
           allMonths: s.allMonths.filter(m => !(m.year === year && m.month === month))
         }))
+        trackItemChanges(before, get().allMonths)
       },
 
       // Adiciona ou atualiza um item dentro de um mês (cria o mês se faltar),

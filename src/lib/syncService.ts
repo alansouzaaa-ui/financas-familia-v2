@@ -18,9 +18,12 @@ export interface SyncPayload {
   debts_reference_month?: string
   allocation?: { targets: Record<AllocClass, number>; aporte: number }
   reserve_settings?: { monthlyCost: number; months: number; incomeType?: 'estavel' | 'variavel' }
+  net_worth?: { cash: number | null; cashUpdatedAt?: string }
   journey_settings?: { strategy: PayoffStrategy; scope: PayoffScope; budgetOverride: number | null }
   budget?: { limits: Record<string, number> }
   checklist?: { questions: Record<ChecklistKind, ChecklistQuestion[]>; answers: Record<string, Answers> }
+  /** Tombstones de MonthItems apagados (evita o servidor ressuscitar itens do Telegram). */
+  deleted_ids?: { id: string; at: string }[]
   updated_at?: string
 }
 
@@ -43,7 +46,10 @@ export async function pullSync(): Promise<SyncPayload | null | false | 'unauthor
   }
 }
 
-export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 'manual_months' | 'updated_at'>): Promise<boolean> {
+export interface PushResult { ok: boolean; restored: number }
+
+// `restored` > 0 = o servidor reinseriu itens do Telegram que o cliente (defasado) não tinha.
+export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 'manual_months' | 'updated_at'>): Promise<PushResult> {
   try {
     const manual_months = months.filter(m => m.source === 'manual').map(stripComputed)
     // NÃO usar keepalive: o corpo passa de 64KB (limite do keepalive) e o
@@ -55,8 +61,14 @@ export async function pushSync(months: MonthPoint[], payload: Omit<SyncPayload, 
       credentials: 'same-origin',
       body: JSON.stringify({ manual_months, ...payload }),
     })
-    return res.ok
+    if (!res.ok) return { ok: false, restored: 0 }
+    let restored = 0
+    try {
+      const data = await res.json() as { restored?: unknown }
+      if (typeof data?.restored === 'number') restored = data.restored
+    } catch { /* corpo ausente: sem restauração */ }
+    return { ok: true, restored }
   } catch {
-    return false
+    return { ok: false, restored: 0 }
   }
 }

@@ -1,5 +1,6 @@
 import { getGistPayload, setGistPayload } from './lib/gist'
 import { verifySession } from './lib/auth'
+import { mergeIncoming } from './lib/syncMerge'
 import type { SyncPayload } from '../src/lib/syncService'
 
 export const config = { runtime: 'edge' }
@@ -78,9 +79,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'POST') {
     try {
       const body = await req.json() as SyncPayload
-      // The client is authoritative (it pulled the full state on mount,
-      // including Telegram-added items), so we overwrite — this lets edits
-      // and deletions propagate. Safety guard: never let a payload with zero
+      // The client is authoritative for edits and deletions. Safety guard: never let a payload with zero
       // months wipe an existing non-empty dataset (guards against a bugged or
       // half-initialised client clobbering everything).
       const current = await getGistPayload()
@@ -89,8 +88,12 @@ export default async function handler(req: Request): Promise<Response> {
       if (currentHasData && incomingIsEmpty) {
         return new Response(JSON.stringify({ error: 'refused_empty_overwrite' }), { status: 409, headers })
       }
-      await setGistPayload({ ...body, updated_at: new Date().toISOString() })
-      return new Response(JSON.stringify({ ok: true }), { headers })
+      // Merge protetor: o cliente segue autoritativo, mas itens do Telegram que
+      // entraram no Gist depois do último pull dele não são apagados (a menos
+      // que estejam nos tombstones de itens deletados).
+      const { payload, restored } = mergeIncoming(current, body)
+      await setGistPayload({ ...payload, updated_at: new Date().toISOString() })
+      return new Response(JSON.stringify({ ok: true, restored }), { headers })
     } catch (err) {
       return new Response(JSON.stringify({ error: 'push_failed', detail: String(err) }), { status: 500, headers })
     }

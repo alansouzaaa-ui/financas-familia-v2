@@ -1,5 +1,6 @@
 import type { SyncPayload } from '../../src/lib/syncService'
 import type { MonthAbbr } from '../../src/types/finance'
+import { totalsFromItems } from '../../src/lib/monthTotals'
 
 const MONTH_ABBRS: MonthAbbr[] = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
@@ -22,9 +23,8 @@ type MonthRec = NonNullable<SyncPayload['manual_months']>[number]
 export function monthTotals(r: MonthRec) {
   const items = r.items ?? []
   const t = items.length
-    ? { revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, renegociacoes: 0 }
+    ? totalsFromItems(items)
     : { revenue: r.revenue, fixedCosts: r.fixedCosts, loans: r.loans, cards: r.cards, variableCosts: r.variableCosts, renegociacoes: r.renegociacoes ?? 0 }
-  for (const i of items) t[i.category] += i.value
   return { ...t, expenses: t.fixedCosts + t.loans + t.cards + t.variableCosts + t.renegociacoes }
 }
 
