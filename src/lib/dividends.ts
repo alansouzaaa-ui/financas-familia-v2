@@ -66,22 +66,37 @@ export function projectNext12(patterns: MonthPattern[], quantity: number, now: D
   return out
 }
 
-/** Σ amount×qty dos eventos com data ≥ since e dentro dos últimos `monthsBack` meses. */
-export function receivedSince(
+/**
+ * Ticker a consultar no Yahoo: o fracionário (sufixo F, ex.: EZTC3F) usa o ticker
+ * base, porque o endpoint de proventos não devolve histórico para o fracionário.
+ */
+export function dividendSymbol(ticker: string): string {
+  const t = ticker.trim().toUpperCase()
+  const m = /^([A-Z]{4}\d{1,2})F$/.exec(t)
+  return m ? m[1] : t
+}
+
+/**
+ * Proventos recebidos: Σ valor por cota × cotas que o investidor tinha por evento
+ * (`heldBefore(data)`). `last12m` usa a janela de `trailing12m`: (now − 12 meses, now].
+ * Eventos posteriores a `now` não contam. Só arredonda os totais finais, a centavos.
+ */
+export function receivedFromEvents(
   events: DividendEvent[],
-  quantity: number,
-  since: string,
+  heldBefore: (exDate: string) => number,
   now: Date,
-  monthsBack = 12,
-): number {
+): { total: number; last12m: number } {
   const end = toIso(now.getFullYear(), now.getMonth(), now.getDate())
-  const sd = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate())
-  const start = toIso(sd.getFullYear(), sd.getMonth(), sd.getDate())
-  let s = 0
+  const start = toIso(now.getFullYear() - 1, now.getMonth(), now.getDate())
+  let total = 0
+  let last12m = 0
   for (const e of events) {
-    if (e.date >= since && e.date > start && e.date <= end) s += e.amount * quantity
+    if (e.date > end) continue
+    const v = e.amount * heldBefore(e.date)
+    total += v
+    if (e.date > start) last12m += v
   }
-  return cents(s)
+  return { total: cents(total), last12m: cents(last12m) }
 }
 
 /** Dividend yield (%) = proventos 12m por cota / preço. */

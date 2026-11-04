@@ -5,7 +5,7 @@ import { useOperationsStore } from '@/stores/useOperationsStore'
 import { fetchQuotes, fetchIbovData, type IbovHistoryPoint } from '@/lib/brapiService'
 import { compareToIbov, expandForCompare, type PosForCompare } from '@/lib/ibovCompare'
 import { fetchTesouroTitles, fetchTesouroPuOnDate, type TesouroTitle } from '@/lib/tesouroService'
-import { fmtFull, fmtPct, fmtQuantity, unitLabel } from '@/lib/formatters'
+import { fmtFull, fmtPct, fmtQuantity, fmtSignedFull, unitLabel } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
@@ -18,9 +18,13 @@ import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PU
 import AporteCard from './AporteCard'
 import ChecklistCard from './ChecklistCard'
 import DividendsCard from './DividendsCard'
+import ResultsCard from './ResultsCard'
+import { useDividendEvents } from './useDividendEvents'
 import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
 import { tierOf } from '@/lib/checklist'
 import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
+import { dividendSymbol } from '@/lib/dividends'
+import { buildPortfolioResults, type DividendEstimate } from '@/lib/portfolioResults'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
 import OperationModal, { type OperationMode } from './OperationModal'
 import HistoryModal from './HistoryModal'
@@ -68,7 +72,7 @@ const EMPTY_FORM: FormState = {
 
 function pct(value: number) {
   const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
+  return `${sign}${value.toFixed(2).replace('.', ',')}%`
 }
 
 function trendClass(value: number) {
@@ -123,6 +127,8 @@ function PositionCard({
   pos,
   score,
   opCount,
+  realized,
+  dividends,
   onBuy,
   onSell,
   onHistory,
@@ -132,6 +138,8 @@ function PositionCard({
   pos: ReturnType<typeof enrichPositions>[number]
   score?: number | null
   opCount: number
+  realized: number
+  dividends: DividendEstimate
   onBuy: () => void
   onSell: () => void
   onHistory: () => void
@@ -229,7 +237,7 @@ function PositionCard({
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Rentab.</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] mb-0.5">Em aberto</div>
           {valued ? (
             <div className={`font-semibold ${trendClass(pos.pnl)}`}>
               {pct(pos.pnlPercent)}
@@ -247,6 +255,21 @@ function PositionCard({
             {pos.quote.regularMarketChange >= 0 ? '+' : ''}
             {fmtFull(pos.quote.regularMarketChange)} ({pct(pos.quote.regularMarketChangePercent)})
           </span>
+        </div>
+      )}
+
+      {(Math.abs(realized) > 0.005 || (dividends.status === 'ok' && dividends.total > 0)) && (
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          {Math.abs(realized) > 0.005 && (
+            <span className="text-[11px] text-[var(--color-text-muted)]">
+              Realizado <span className={`text-[12px] font-medium ${trendClass(realized)}`}>{fmtSignedFull(realized)}</span>
+            </span>
+          )}
+          {dividends.status === 'ok' && dividends.total > 0 && (
+            <span className="text-[11px] text-[var(--color-text-muted)]">
+              Dividendos <span className="text-[12px] font-medium text-[var(--color-text-primary)]">≈ {fmtFull(dividends.total)}</span>
+            </span>
+          )}
         </div>
       )}
 
@@ -473,6 +496,20 @@ export default function InvestmentsPage() {
   const tesouroPu = useMemo(() => new Map(tesouroTitles.map(t => [t.name, t.pu])), [tesouroTitles])
   const enriched = useMemo(() => enrichPositions(positions, quotes, tesouroPu), [positions, quotes, tesouroPu])
   const { scores: assetScores } = useAssetScores(enriched)
+
+  const dividendSymbols = useMemo(() => {
+    const set = new Set<string>()
+    const eligible = (t: string) => t === 'acao' || t === 'fii' || t === 'etf'
+    for (const p of enriched) if (eligible(p.assetType) && p.ticker.trim()) set.add(dividendSymbol(p.ticker))
+    for (const c of closedPositions) if (eligible(c.position.assetType) && c.position.ticker.trim()) set.add(dividendSymbol(c.position.ticker))
+    return [...set]
+  }, [enriched, closedPositions])
+  const { events: dividendEvents, status: dividendStatus, reload: reloadDividends } = useDividendEvents(dividendSymbols)
+  const results = useMemo(
+    () => buildPortfolioResults({ enriched, closed: closedPositions, operations, events: dividendEvents, now: new Date() }),
+    [enriched, closedPositions, operations, dividendEvents],
+  )
+  const resultById = useMemo(() => new Map(results.rows.map(r => [r.id, r])), [results])
 
   const totals = useMemo(() => {
     const totalInvested = enriched.reduce((s, p) => s + p.totalInvested, 0)
@@ -812,7 +849,7 @@ export default function InvestmentsPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={loadQuotes}
+              onClick={() => { loadQuotes(); reloadDividends() }}
               disabled={loading}
               className={loading ? 'opacity-50' : ''}
             >
@@ -849,15 +886,15 @@ export default function InvestmentsPage() {
           loading={loading && !hasValuation}
         />
         <SummaryCard
-          label="Rentabilidade"
-          main={hasValuation ? fmtFull(totals.pnl) : '—'}
-          sub={hasValuation ? pct(totals.pnlPercent) : undefined}
-          subTrend={totals.pnl}
+          label="Resultado total"
+          main={results.total !== null ? fmtSignedFull(results.total) : '—'}
+          sub={results.total !== null && results.totalPct !== null ? pct(results.totalPct) : undefined}
+          subTrend={results.total ?? undefined}
           loading={loading && !hasValuation}
         />
         <SummaryCard
           label="IBOV Hoje"
-          main={ibov ? `${ibov.regularMarketChangePercent.toFixed(2)}%` : '—'}
+          main={ibov ? `${ibov.regularMarketChangePercent.toFixed(2).replace('.', ',')}%` : '—'}
           sub={ibov
             ? ibov.regularMarketPrice.toLocaleString('pt-BR', { minimumFractionDigits: 0 }) + ' pts'
             : undefined}
@@ -865,6 +902,14 @@ export default function InvestmentsPage() {
           loading={loading && !ibov}
         />
       </div>
+
+      <ResultsCard
+        results={results}
+        status={dividendStatus}
+        hasEvents={dividendEvents !== null}
+        reload={reloadDividends}
+        onOpenHistory={setHistoryId}
+      />
 
       {/* ── Error ── */}
       {quotesError && (
@@ -1202,7 +1247,15 @@ export default function InvestmentsPage() {
 
       <AporteCard positions={enriched} open={aporteOpen} onToggle={() => setAporteOpen((o) => !o)} />
       <ChecklistCard positions={enriched} open={checklistOpen} onToggle={() => setChecklistOpen((o) => !o)} />
-      <DividendsCard positions={enriched} open={dividendsOpen} onToggle={() => setDividendsOpen((o) => !o)} />
+      <DividendsCard
+        positions={enriched}
+        open={dividendsOpen}
+        onToggle={() => setDividendsOpen((o) => !o)}
+        events={dividendEvents}
+        status={dividendStatus}
+        received12m={results.received12m}
+        reload={reloadDividends}
+      />
 
       {/* ── Empty state ── */}
       {!hasPositions && !showForm && (
@@ -1303,6 +1356,8 @@ export default function InvestmentsPage() {
                 pos={pos}
                 score={assetScores[pos.ticker.trim().toUpperCase()]}
                 opCount={opsByPos.get(pos.id)?.length ?? 0}
+                realized={resultById.get(pos.id)?.realized ?? 0}
+                dividends={resultById.get(pos.id)?.dividends ?? { status: 'na', total: 0, last12m: 0 }}
                 onBuy={() => setOpModal({ posId: pos.id, mode: isManualPosition(pos) ? 'deposit' : 'buy' })}
                 onSell={() => setOpModal({ posId: pos.id, mode: isManualPosition(pos) ? 'withdraw' : 'sell' })}
                 onHistory={() => setHistoryId(pos.id)}

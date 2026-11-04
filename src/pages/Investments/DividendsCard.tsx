@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchDividends } from '@/lib/dividendsService'
+import { useMemo } from 'react'
 import {
+  dividendSymbol,
   dividendYield,
   monthlyPattern,
   projectNext12,
-  receivedSince,
   trailing12m,
   type DividendEvent,
 } from '@/lib/dividends'
@@ -16,30 +15,28 @@ type Pos = {
   assetType: string
   quantity: number
   avgPrice: number
-  buyDate: string
   quote?: { regularMarketPrice: number } | null
 }
 
 interface Holding {
+  /** Símbolo de consulta (fracionário agrupa no ticker base: EZTC3F → EZTC3). */
   ticker: string
   quantity: number
   avgPrice: number
-  buyDate: string
   price: number | null
 }
 
 const ELIGIBLE = new Set(['acao', 'fii', 'etf'])
 
 function groupHoldings(positions: Pos[]): Holding[] {
-  const map = new Map<string, { qty: number; cost: number; buyDate: string; price: number | null }>()
+  const map = new Map<string, { qty: number; cost: number; price: number | null }>()
   for (const p of positions) {
     if (!ELIGIBLE.has(p.assetType)) continue
-    const t = p.ticker.trim().toUpperCase()
+    const t = dividendSymbol(p.ticker)
     if (!t) continue
-    const cur = map.get(t) ?? { qty: 0, cost: 0, buyDate: p.buyDate, price: null }
+    const cur = map.get(t) ?? { qty: 0, cost: 0, price: null }
     cur.qty += p.quantity
     cur.cost += p.quantity * p.avgPrice
-    if (p.buyDate && (!cur.buyDate || p.buyDate < cur.buyDate)) cur.buyDate = p.buyDate
     if (cur.price == null && p.quote?.regularMarketPrice) cur.price = p.quote.regularMarketPrice
     map.set(t, cur)
   }
@@ -47,7 +44,6 @@ function groupHoldings(positions: Pos[]): Holding[] {
     ticker,
     quantity: v.qty,
     avgPrice: v.qty > 0 ? v.cost / v.qty : 0,
-    buyDate: v.buyDate,
     price: v.price,
   }))
 }
@@ -60,39 +56,21 @@ export default function DividendsCard({
   positions,
   open,
   onToggle,
+  events: data,
+  status,
+  received12m,
+  reload,
 }: {
   positions: Pos[]
   open: boolean
   onToggle: () => void
+  events: Record<string, DividendEvent[]> | null
+  status: 'idle' | 'loading' | 'done' | 'failed'
+  received12m: number
+  reload: () => void
 }) {
   const holdings = useMemo(() => groupHoldings(positions), [positions])
-  const key = useMemo(() => holdings.map((h) => h.ticker).sort().join(','), [holdings])
-  const [data, setData] = useState<Record<string, DividendEvent[]> | null>(null)
-  const [failed, setFailed] = useState(false)
-  const fetchedKey = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!open || !key || fetchedKey.current === key) return
-    fetchedKey.current = key
-    let cancelled = false
-    fetchDividends(key.split(','))
-      .then((res) => {
-        if (cancelled) return
-        setData(res)
-        setFailed(Object.keys(res).length === 0)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setFailed(true)
-      })
-    return () => {
-      cancelled = true
-      // permite nova tentativa se o efeito for refeito antes de concluir
-      if (fetchedKey.current === key) fetchedKey.current = null
-    }
-  }, [open, key])
-
-  const loading = open && key !== '' && data === null && !failed
+  const loading = status === 'loading' && data === null
 
   const calc = useMemo(() => {
     if (!data) return null
@@ -109,7 +87,6 @@ export default function DividendsCard({
           trailing,
           dy: dividendYield(trailing, h.price),
           projection: projectNext12(patterns, h.quantity, now, 0.5),
-          received: receivedSince(events, h.quantity, h.buyDate || '0000-00-00', now, 12),
         }
       })
     const months = Array.from({ length: 12 }, (_, i) => {
@@ -121,7 +98,6 @@ export default function DividendsCard({
       }
     })
     const total = months.reduce((s, m) => s + m.amount, 0)
-    const received = rows.reduce((s, r) => s + r.received, 0)
     // Custo de TODOS os ativos com histórico conhecido (inclusive os que não pagam,
     // ex. BOVA11): excluí-los inflaria o yield on cost. Sem dados da API → fora.
     const cost = holdings
@@ -132,7 +108,6 @@ export default function DividendsCard({
       rows,
       months,
       total,
-      received,
       yieldOnCost: cost > 0 ? (income / cost) * 100 : null,
       noHistory: holdings.filter((h) => data[h.ticker] && data[h.ticker].length === 0).map((h) => h.ticker),
       noData: holdings.filter((h) => !data[h.ticker]).map((h) => h.ticker),
@@ -169,8 +144,17 @@ export default function DividendsCard({
           {loading && (
             <p className="text-[13px] text-[var(--color-text-muted)]">Buscando histórico de proventos…</p>
           )}
-          {failed && !calc && (
-            <p className="text-[13px] text-[var(--color-text-muted)]">Não consegui buscar os proventos agora.</p>
+          {status === 'failed' && !calc && (
+            <p className="text-[13px] text-[var(--color-text-muted)]">
+              Não consegui buscar os proventos agora.{' '}
+              <button
+                type="button"
+                onClick={reload}
+                className="underline underline-offset-2 hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded"
+              >
+                Tentar de novo
+              </button>
+            </p>
           )}
 
           {calc && (
@@ -179,7 +163,7 @@ export default function DividendsCard({
                 {[
                   { label: 'Próximos 12 meses', value: fmtFull(calc.total), color: 'var(--color-pos)' },
                   { label: 'Média mensal', value: fmtFull(calc.total / 12), color: 'var(--color-text-primary)' },
-                  { label: 'Recebido (12m, estim.)', value: fmtFull(calc.received), color: 'var(--color-text-primary)' },
+                  { label: 'Recebido (12m, estim.)', value: fmtFull(received12m), color: 'var(--color-text-primary)' },
                   {
                     label: 'Yield on cost',
                     value: calc.yieldOnCost == null ? '—' : fmtPct1(calc.yieldOnCost),

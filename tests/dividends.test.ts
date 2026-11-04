@@ -3,7 +3,8 @@ import {
   monthlyPattern,
   trailing12m,
   projectNext12,
-  receivedSince,
+  dividendSymbol,
+  receivedFromEvents,
   dividendYield,
   type DividendEvent,
 } from '../src/lib/dividends'
@@ -73,19 +74,47 @@ describe('projectNext12', () => {
   })
 })
 
-describe('receivedSince', () => {
+describe('dividendSymbol', () => {
+  it('fracionário usa o ticker base', () => {
+    expect(dividendSymbol('EZTC3F')).toBe('EZTC3')
+    expect(dividendSymbol('HGLG11F')).toBe('HGLG11')
+    expect(dividendSymbol(' eztc3f ')).toBe('EZTC3')
+  })
+  it('demais ficam iguais', () => {
+    expect(dividendSymbol('ITSA4')).toBe('ITSA4')
+    expect(dividendSymbol('KNRI11')).toBe('KNRI11')
+    expect(dividendSymbol('AUVP11')).toBe('AUVP11')
+    expect(dividendSymbol('btc')).toBe('BTC')
+  })
+})
+
+describe('receivedFromEvents', () => {
   const ev: DividendEvent[] = [
     { date: '2025-01-10', amount: 1 }, // fora dos 12m
+    { date: '2025-10-07', amount: 1 }, // exatamente 12 meses atrás: fora da janela 12m
     { date: '2025-12-10', amount: 0.5 },
     { date: '2026-03-10', amount: 0.5 },
-    { date: '2026-08-10', amount: 0.25 },
+    { date: '2026-10-07', amount: 0.25 }, // hoje: dentro
+    { date: '2026-10-08', amount: 100 }, // futuro: não conta
   ]
-  it('ignora eventos antes da compra', () => {
-    expect(receivedSince(ev, 10, '2026-01-01', now)).toBe(7.5)
-    expect(receivedSince(ev, 10, '2025-01-01', now)).toBe(12.5)
+  it('soma total e últimos 12m usando a quantidade de cada data', () => {
+    const r = receivedFromEvents(ev, () => 10, now)
+    expect(r.total).toBe(10 + 10 + 5 + 5 + 2.5)
+    expect(r.last12m).toBe(5 + 5 + 2.5)
   })
-  it('respeita monthsBack', () => {
-    expect(receivedSince(ev, 10, '2020-01-01', now, 3)).toBe(2.5)
+  it('quantidade varia por evento e eventos futuros não contam', () => {
+    const calls: string[] = []
+    const r = receivedFromEvents(ev, (d) => { calls.push(d); return d < '2026-01-01' ? 0 : 4 }, now)
+    expect(r.total).toBe(0.5 * 4 + 0.25 * 4)
+    expect(r.last12m).toBe(3)
+    expect(calls).not.toContain('2026-10-08')
+  })
+  it('arredonda só no fim', () => {
+    const r = receivedFromEvents([{ date: '2026-01-01', amount: 0.004 }, { date: '2026-02-01', amount: 0.004 }], () => 1, now)
+    expect(r.total).toBe(0.01)
+  })
+  it('sem eventos', () => {
+    expect(receivedFromEvents([], () => 5, now)).toEqual({ total: 0, last12m: 0 })
   })
 })
 
