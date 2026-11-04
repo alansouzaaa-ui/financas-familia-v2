@@ -22,7 +22,7 @@ import ResultsCard from './ResultsCard'
 import { useDividendEvents } from './useDividendEvents'
 import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
 import { tierOf } from '@/lib/checklist'
-import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
+import { enrichPositions, positionDayChange, splitQuoteTickers } from '@/lib/portfolio'
 import { dividendSymbol } from '@/lib/dividends'
 import { buildPortfolioResults, type DividendEstimate } from '@/lib/portfolioResults'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
@@ -251,9 +251,9 @@ function PositionCard({
       {hasQuote && pos.quote && (
         <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
           <span className="text-[11px] text-[var(--color-text-muted)]">Hoje</span>
-          <span className={`text-[12px] font-medium ${trendClass(pos.quote.regularMarketChange)}`}>
-            {pos.quote.regularMarketChange >= 0 ? '+' : ''}
-            {fmtFull(pos.quote.regularMarketChange)} ({pct(pos.quote.regularMarketChangePercent)})
+          <span className={`text-[12px] font-medium ${trendClass(positionDayChange(pos))}`}>
+            {positionDayChange(pos) >= 0 ? '+' : ''}
+            {fmtFull(positionDayChange(pos))} ({pct(pos.quote.regularMarketChangePercent)})
           </span>
         </div>
       )}
@@ -516,11 +516,7 @@ export default function InvestmentsPage() {
     const currentValue = enriched.reduce((s, p) => s + p.currentValue, 0)
     const pnl = currentValue - totalInvested
     const pnlPercent = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0
-    const dayChange = enriched.reduce(
-      (s, p) =>
-        p.quote ? s + p.quantity * p.quote.regularMarketChange : s,
-      0
-    )
+    const dayChange = enriched.reduce((s, p) => s + positionDayChange(p), 0)
     return { totalInvested, currentValue, pnl, pnlPercent, dayChange }
   }, [enriched])
 
