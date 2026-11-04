@@ -3,10 +3,10 @@ import { useEffect } from 'react'
 import type { ToastMsg } from '@/hooks/useToast'
 
 /** Aviso discreto, fixo na base (acima da navegação no celular), some sozinho em 3,5 s. */
-export default function Toast({ toast, onClose, duration = 3500 }: { toast: ToastMsg | null; onClose: () => void; duration?: number }) {
+export default function Toast({ toast, onClose, duration }: { toast: ToastMsg | null; onClose: () => void; duration?: number }) {
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(onClose, duration)
+    const t = setTimeout(onClose, duration ?? (toast.action ? 7000 : 3500))
     return () => clearTimeout(t)
   }, [toast, duration, onClose])
 
@@ -25,6 +25,14 @@ export default function Toast({ toast, onClose, duration = 3500 }: { toast: Toas
           <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span className="py-1">{toast.text}</span>
+        {toast.action && (
+          <button
+            onClick={() => { toast.action?.onClick(); onClose() }}
+            className="h-10 sm:h-8 px-3 rounded-full text-[13px] font-semibold underline underline-offset-2 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none transition-colors"
+          >
+            {toast.action.label}
+          </button>
+        )}
         <button
           onClick={onClose}
           aria-label="Fechar aviso"

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { ibovCloseOnOrBefore, compareToIbov, type PosForCompare } from '../src/lib/ibovCompare'
+import { ibovCloseOnOrBefore, compareToIbov, expandForCompare, type PosForCompare } from '../src/lib/ibovCompare'
+import { openLots } from '../src/lib/operations'
+import type { InvestmentOperation } from '../src/types/investment'
 
 const HISTORY = [
   { date: '2026-01-05', close: 100 },
@@ -66,5 +68,58 @@ describe('compareToIbov', () => {
     expect(r.ibovReturnPct).toBeCloseTo(10, 5)
     expect(r.carteiraReturnPct).toBeCloseTo(0, 5)
     expect(r.coverageCount).toBe(2)
+  })
+})
+
+describe('expandForCompare', () => {
+  const base: PosForCompare = { totalInvested: 1000, currentValue: 1500, buyDate: '2026-02-02', valued: true }
+  function o(over: Partial<InvestmentOperation> & Pick<InvestmentOperation, 'type'>): InvestmentOperation {
+    return { id: Math.random().toString(36), positionId: 'p', date: '2026-01-05', createdAt: '2026-01-05T00:00:00.000Z', ...over }
+  }
+
+  it('sem lotes (posição sem operações) devolve a própria posição', () => {
+    expect(expandForCompare(base, undefined)).toEqual([base])
+    expect(expandForCompare(base, [])).toEqual([base])
+  })
+
+  it('divide custo e valor atual pelos lotes, cada um com a sua data', () => {
+    const lots = openLots([
+      o({ type: 'opening', quantity: 10, price: 30, date: '2026-01-05' }), // custo 300
+      o({ type: 'buy', quantity: 10, price: 70, date: '2026-02-02' }),     // custo 700
+    ])
+    const out = expandForCompare(base, lots)
+    expect(out).toHaveLength(2)
+    expect(out[0]).toMatchObject({ buyDate: '2026-01-05', valued: true })
+    expect(out[0].totalInvested).toBeCloseTo(300, 9)
+    expect(out[0].currentValue).toBeCloseTo(450, 9)
+    expect(out[1].totalInvested).toBeCloseTo(700, 9)
+    expect(out[1].currentValue).toBeCloseTo(1050, 9)
+    // as datas reais mudam o resultado frente a usar uma data só
+    const multi = compareToIbov(out, HISTORY, 120)!
+    const single = compareToIbov([base], HISTORY, 120)!
+    expect(multi.ibovReturnPct).not.toBeCloseTo(single.ibovReturnPct, 3)
+    expect(multi.coverageCount).toBe(2)
+  })
+
+  it('ignora lotes com data desconhecida (nos dois lados) mas mantém a proporção dos demais', () => {
+    const lots = openLots([
+      o({ type: 'opening', quantity: 10, price: 50, date: '2000-01-01', dateUnknown: true }), // custo 500
+      o({ type: 'buy', quantity: 10, price: 50, date: '2026-01-06' }),                         // custo 500
+    ])
+    const out = expandForCompare(base, lots)
+    expect(out).toHaveLength(1)
+    expect(out[0].buyDate).toBe('2026-01-06')
+    expect(out[0].totalInvested).toBeCloseTo(500, 9)
+    expect(out[0].currentValue).toBeCloseTo(750, 9)
+  })
+
+  it('vendas reduzem todos os lotes proporcionalmente', () => {
+    const lots = openLots([
+      o({ type: 'opening', quantity: 10, price: 10, date: '2026-01-05' }),
+      o({ type: 'buy', quantity: 10, price: 30, date: '2026-02-02' }),
+      o({ type: 'sell', quantity: 10, price: 40, date: '2026-02-10' }),
+    ])
+    const out = expandForCompare({ totalInvested: 200, currentValue: 300, buyDate: '2026-01-05', valued: true }, lots)
+    expect(out.map(x => x.totalInvested)).toEqual([expect.closeTo(50, 9), expect.closeTo(150, 9)])
   })
 })

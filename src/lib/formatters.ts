@@ -1,3 +1,5 @@
+import type { AssetType } from '../types/investment'
+
 export function fmt(value: number): string {
   return 'R$ ' + Math.abs(value).toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
@@ -49,4 +51,34 @@ export function toMonthKey(year: number, month: string): string {
 export function parseMonthKey(key: string): { year: number; month: string } {
   const [year, month] = key.split('-')
   return { year: Number(year), month }
+}
+
+/** Com sinal explícito (não depende só de cor): "+R$ 1.234,56", "−R$ 10,00", "R$ 0,00". */
+export function fmtSignedFull(value: number): string {
+  const sign = value > 0.005 ? '+' : value < -0.005 ? '−' : ''
+  return sign + fmtFull(value)
+}
+
+/** "+3,1%", "−0,5%" (vírgula decimal, sinal explícito). */
+export function fmtSignedPct(value: number, decimals = 1): string {
+  const sign = value > 0.0005 ? '+' : value < -0.0005 ? '−' : ''
+  return sign + Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + '%'
+}
+
+/** Quantidade sem zeros à direita, até 8 casas: 84 → "84", 0.5 → "0,5". */
+export function fmtQuantity(n: number): string {
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 8 })
+}
+
+/** "2025-10-30" → "30/10/2025" (qualquer outra coisa volta como veio). */
+export function fmtDateBR(iso: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso
+}
+
+/** Rótulo da unidade (singular/plural) conforme o tipo do ativo: ações, cotas, unidades. */
+export function unitLabel(type: AssetType, qty: number): string {
+  const one = qty === 1
+  if (type === 'acao') return one ? 'ação' : 'ações'
+  if (type === 'cripto') return one ? 'unidade' : 'unidades'
+  return one ? 'cota' : 'cotas'
 }

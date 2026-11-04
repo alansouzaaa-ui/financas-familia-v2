@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
+import { useOperationsStore } from '@/stores/useOperationsStore'
 import { fetchQuotes, fetchIbovData, type IbovHistoryPoint } from '@/lib/brapiService'
-import { compareToIbov } from '@/lib/ibovCompare'
+import { compareToIbov, expandForCompare, type PosForCompare } from '@/lib/ibovCompare'
 import { fetchTesouroTitles, fetchTesouroPuOnDate, type TesouroTitle } from '@/lib/tesouroService'
-import { fmtFull, fmtPct } from '@/lib/formatters'
+import { fmtFull, fmtPct, fmtQuantity, unitLabel } from '@/lib/formatters'
 import Button from '@/components/ui/Button'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import ActionMenu from '@/components/ui/ActionMenu'
+import Toast from '@/components/ui/Toast'
+import { useToast } from '@/hooks/useToast'
 import type { BrapiQuote, AssetType, InvestmentPosition, ReservePillar } from '@/types/investment'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, INVESTMENT_BROKERS, INVESTMENT_PURPOSES } from '@/types/investment'
 import AporteCard from './AporteCard'
@@ -18,6 +22,13 @@ import { useAssetScores, TIER_COLORS, fmtScore } from './useAssetScores'
 import { tierOf } from '@/lib/checklist'
 import { enrichPositions, splitQuoteTickers } from '@/lib/portfolio'
 import ReserveCard, { ReserveSummaryCard } from './ReserveCard'
+import OperationModal, { type OperationMode } from './OperationModal'
+import HistoryModal from './HistoryModal'
+import ClosedPositionsSection from './ClosedPositionsSection'
+import ModalShell from './ModalShell'
+import { BTN_DANGER, BTN_GHOST } from './modalStyles'
+import { consolidationKey, isManualPosition, isValidISODate, openLots } from '@/lib/operations'
+import { createPosition, deletePosition, registerOperation, removeOperation, todayISO } from '@/lib/investmentActions'
 import { reserveBreakdown, RESERVE_PILLAR_LABELS, pillarOf, isReservePurpose } from '@/lib/reserve'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -102,19 +113,34 @@ function SummaryCard({
   )
 }
 
+const ICON_HISTORY = <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.6-3.7M2 2.5v2.3h2.3M7 4.5V7l1.8 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+const ICON_EDIT = <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
+const ICON_TRASH = <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5.5 3.5V2.5h3v1M5.5 6v4.5M8.5 6v4.5M3 3.5l.75 8h6.5L11 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+
+const CARD_ACTION = 'flex-1 sm:flex-none h-10 sm:h-8 px-4 rounded-[10px] text-[13px] sm:text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]'
+
 function PositionCard({
   pos,
   score,
+  opCount,
+  onBuy,
+  onSell,
+  onHistory,
   onEdit,
-  onRemove,
+  onDelete,
 }: {
   pos: ReturnType<typeof enrichPositions>[number]
   score?: number | null
+  opCount: number
+  onBuy: () => void
+  onSell: () => void
+  onHistory: () => void
   onEdit: () => void
-  onRemove: () => void
+  onDelete: () => void
 }) {
   const hasQuote = pos.quote !== null
   const valued = hasQuote || pos.manualValue != null   // tem valor atual (cotação OU saldo manual)
+  const manual = isManualPosition(pos)
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -166,24 +192,15 @@ function PositionCard({
             </div>
           )}
         </div>
-        <div className="flex gap-1.5 flex-shrink-0">
-          <button
-            onClick={onEdit}
-            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button
-            onClick={onRemove}
-            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-neg)] hover:bg-[var(--color-neg)]/10 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 3.5h10M5.5 3.5V2.5h3v1M5.5 6v4.5M8.5 6v4.5M3 3.5l.75 8h6.5L11 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        </div>
+        <ActionMenu
+          label={`Mais ações de ${pos.ticker}`}
+          className="!w-10 !h-10 sm:!w-8 sm:!h-8 flex-shrink-0 -mr-1 -mt-1"
+          items={[
+            { key: 'history', label: 'Histórico', icon: ICON_HISTORY, onSelect: onHistory },
+            { key: 'edit', label: 'Editar dados', icon: ICON_EDIT, onSelect: onEdit },
+            { key: 'delete', label: 'Excluir', icon: ICON_TRASH, danger: true, separatorBefore: true, onSelect: onDelete },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-[12px]">
@@ -232,6 +249,32 @@ function PositionCard({
           </span>
         </div>
       )}
+
+      <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap items-center gap-2">
+        {opCount > 1 && (
+          <button
+            type="button"
+            onClick={onHistory}
+            className="order-last sm:order-first sm:mr-auto w-full sm:w-auto h-10 sm:h-8 px-1 -ml-1 rounded-[8px] text-left text-[12px] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors"
+          >
+            {opCount} operações
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onBuy}
+          className={`${CARD_ACTION} bg-[var(--color-primary-tint)] text-[var(--color-primary)] hover:opacity-80 sm:ml-auto`}
+        >
+          {manual ? 'Aportar' : 'Comprar mais'}
+        </button>
+        <button
+          type="button"
+          onClick={onSell}
+          className={`${CARD_ACTION} border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-text-muted)]`}
+        >
+          {manual ? 'Resgatar' : 'Vender'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -257,7 +300,14 @@ function priceToInput(price: number, crypto: boolean): string {
 }
 
 export default function InvestmentsPage() {
-  const { positions, addPosition, updatePosition, removePosition } = useInvestmentStore()
+  const { positions, updatePosition } = useInvestmentStore()
+  const operations = useOperationsStore(s => s.operations)
+  const closedPositions = useOperationsStore(s => s.closedPositions)
+  const { toast, show: showToast, clear: clearToast } = useToast()
+  const [opModal, setOpModal] = useState<{ posId: string; mode: OperationMode; editingId?: string } | null>(null)
+  const [historyId, setHistoryId] = useState<string | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [quotes, setQuotes] = useState<Record<string, BrapiQuote>>({})
   const [ibov, setIbov] = useState<BrapiQuote | null>(null)
   const [ibovHistory, setIbovHistory] = useState<IbovHistoryPoint[]>([])
@@ -291,7 +341,8 @@ export default function InvestmentsPage() {
     // Só tipos com cotação na brapi (ver MARKET_TYPES em lib/portfolio).
     const { b3: tickers, crypto: cryptoTickers } = splitQuoteTickers(positions)
     // Data do aporte mais antigo → janela do histórico do IBOV p/ comparação
-    const dated = positions.map(p => p.buyDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    const opDates = useOperationsStore.getState().operations.filter(o => !o.dateUnknown).map(o => o.date)
+    const dated = [...positions.map(p => p.buyDate), ...opDates].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
     const earliest = dated.length ? dated.reduce((a, b) => (a < b ? a : b)) : undefined
 
     // Cotações das ações — falha aqui NÃO deve derrubar o IBOV nem o resto.
@@ -409,6 +460,16 @@ export default function InvestmentsPage() {
 
   // ── derived data ────────────────────────────────────────────────────────
 
+  const opsByPos = useMemo(() => {
+    const m = new Map<string, typeof operations>()
+    for (const o of operations) {
+      const l = m.get(o.positionId)
+      if (l) l.push(o)
+      else m.set(o.positionId, [o])
+    }
+    return m
+  }, [operations])
+
   const tesouroPu = useMemo(() => new Map(tesouroTitles.map(t => [t.name, t.pu])), [tesouroTitles])
   const enriched = useMemo(() => enrichPositions(positions, quotes, tesouroPu), [positions, quotes, tesouroPu])
   const { scores: assetScores } = useAssetScores(enriched)
@@ -446,16 +507,24 @@ export default function InvestmentsPage() {
   const ibovCompare = useMemo(() => {
     if (!ibov) return null
     return compareToIbov(
-      enriched.map(p => ({
-        totalInvested: p.totalInvested,
-        currentValue: p.currentValue,
-        buyDate: p.buyDate,
-        valued: p.quote !== null || p.manualValue != null,
-      })),
+      // Cada posição vira um item por lote em aberto (data e custo de cada compra);
+      // sem operações, cai no comportamento antigo (data da posição).
+      enriched.flatMap((p): PosForCompare[] => {
+        const list = opsByPos.get(p.id)
+        return expandForCompare(
+          {
+            totalInvested: p.totalInvested,
+            currentValue: p.currentValue,
+            buyDate: p.buyDate,
+            valued: p.quote !== null || p.manualValue != null,
+          },
+          list ? openLots(list) : undefined,
+        )
+      }),
       ibovHistory,
       ibov.regularMarketPrice,
     )
-  }, [enriched, ibovHistory, ibov])
+  }, [enriched, ibovHistory, ibov, opsByPos])
 
   // Quanto há em cada objetivo/categoria (pelo valor atual)
   const purposeBreakdown = useMemo(() => {
@@ -472,9 +541,29 @@ export default function InvestmentsPage() {
   // Reserva de emergência: total e por pilar (acesso imediato / Selic / renda fixa)
   const reserve = useMemo(() => reserveBreakdown(enriched), [enriched])
 
+  // Posição aberta com a mesma chave de consolidação do que está sendo digitado:
+  // o envio vira uma nova compra dela em vez de uma linha duplicada.
+  const mergeTarget = useMemo(() => {
+    if (editingId || !showForm || form.assetType === 'poupanca') return null
+    const ticker = form.ticker.trim()
+    if (!ticker) return null
+    const key = consolidationKey({
+      id: '__new__', ticker, quantity: 0, avgPrice: 0, buyDate: '', assetType: form.assetType,
+      broker: form.broker, purpose: form.purpose,
+      reservePillar: isReservePurpose(form.purpose) && form.reservePillar ? (form.reservePillar as ReservePillar) : undefined,
+    })
+    if (key === '__new__') return null
+    return positions.find(p => consolidationKey(p) === key) ?? null
+  }, [editingId, showForm, form.assetType, form.ticker, form.broker, form.purpose, form.reservePillar, positions])
+
+  // Posição em edição já com livro de operações: quantidade/preço médio/data saem do formulário.
+  const editingPos = editingId ? positions.find(p => p.id === editingId) : undefined
+  const editingLedger = !!editingPos && opsByPos.has(editingPos.id)
+
   // ── form handlers ───────────────────────────────────────────────────────
 
   function openAdd() {
+    setFormError(null)
     setEditingId(null)
     setForm(EMPTY_FORM)
     lastPuKey.current = ''
@@ -486,6 +575,7 @@ export default function InvestmentsPage() {
   }
 
   function openEdit(pos: InvestmentPosition) {
+    setFormError(null)
     setEditingId(pos.id)
     setForm({
       ticker: pos.ticker,
@@ -513,6 +603,7 @@ export default function InvestmentsPage() {
   }
 
   function cancelForm() {
+    setFormError(null)
     setShowForm(false)
     setEditingId(null)
     setForm(EMPTY_FORM)
@@ -520,14 +611,60 @@ export default function InvestmentsPage() {
     setQuoteLookup(IDLE_LOOKUP)
   }
 
+  function undoOperation(opId: string) {
+    const r = removeOperation(opId)
+    if (!r.ok) showToast(`Não foi possível desfazer: ${r.error}`)
+  }
+
+  // Compra na posição existente (mesma chave de consolidação) em vez de uma linha duplicada.
+  function registerMergedBuy(target: InvestmentPosition, quantity: number, price: number): boolean {
+    const date = isValidISODate(form.buyDate) ? form.buyDate : todayISO()
+    const res = registerOperation(target.id, {
+      type: 'buy', date, quantity, price,
+      note: form.notes.trim().slice(0, 200) || undefined,
+    })
+    if (!res.ok) { setFormError(res.error); return false }
+    const opId = res.value.id
+    cancelForm()
+    showToast(`Compra de ${fmtQuantity(quantity)} ${target.ticker} registrada`, { label: 'Desfazer', onClick: () => undoOperation(opId) })
+    return true
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setFormError(null)
+
+    if (form.assetType !== 'poupanca' && isValidISODate(form.buyDate) && form.buyDate > todayISO()) {
+      setFormError('A data da compra não pode ser no futuro.')
+      return
+    }
 
     // Pilar da reserva só é guardado quando a categoria é "Reserva" e foi escolhido.
     const reservePillarValue: ReservePillar | undefined =
       isReservePurpose(form.purpose) && form.reservePillar
         ? (form.reservePillar as ReservePillar)
         : undefined
+
+    // Posição com livro de operações: só dados cadastrais (e o saldo, nas manuais).
+    // Quantidade e preço médio mudam por Comprar/Vender/Aportar/Resgatar/Histórico.
+    if (editingId && editingLedger) {
+      const common = {
+        notes: form.notes.trim().slice(0, 200) || undefined,
+        broker: form.broker.trim().slice(0, 40) || undefined,
+        purpose: form.purpose.trim().slice(0, 40) || undefined,
+        reservePillar: reservePillarValue,
+      }
+      if (form.assetType === 'poupanca') {
+        const nome = form.ticker.trim().slice(0, 60)
+        const saldo = Number(form.manualValue.replace(',', '.'))
+        if (!nome || !isFinite(saldo) || saldo < 0 || saldo > 1_000_000_000) return
+        updatePosition(editingId, { ...common, ticker: nome, manualValue: Math.round(saldo * 100) / 100 })
+      } else {
+        updatePosition(editingId, common)
+      }
+      cancelForm()
+      return
+    }
 
     // Poupança / saldo manual: nome + saldo atual (+ total depositado opcional)
     if (form.assetType === 'poupanca') {
@@ -549,7 +686,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else addPosition(data)
+      else createPosition(data)
       cancelForm()
       return
     }
@@ -563,10 +700,13 @@ export default function InvestmentsPage() {
       if (!isFinite(pu) || pu <= 0 || !isFinite(valor) || valor <= 0) return
       const quantity = valor / pu
       if (!isFinite(quantity) || quantity <= 0 || quantity > 1_000_000_000) return
+      const qtyRounded = Math.round(quantity * 100) / 100   // Tesouro fraciona em 0,01 de título
+      const puRounded = Math.round(pu * 100) / 100
+      if (!editingId && mergeTarget) { registerMergedBuy(mergeTarget, qtyRounded, puRounded); return }
       const data = {
         ticker: titulo,
-        quantity: Math.round(quantity * 100) / 100,   // Tesouro fraciona em 0,01 de título
-        avgPrice: Math.round(pu * 100) / 100,
+        quantity: qtyRounded,
+        avgPrice: puRounded,
         buyDate: form.buyDate,
         assetType: 'tesouro' as AssetType,
         notes: form.notes.trim().slice(0, 200) || undefined,
@@ -575,7 +715,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else addPosition(data)
+      else createPosition(data)
       cancelForm()
       return
     }
@@ -595,10 +735,14 @@ export default function InvestmentsPage() {
     if (isMarket && !/^[A-Z0-9^]{1,12}$/.test(ticker)) return
     if (ticker.length > 60) return
 
+    const qtyRounded = Math.round(quantity * 1000) / 1000
+    const priceRounded = Math.round(avgPrice * 100) / 100
+    if (!editingId && mergeTarget) { registerMergedBuy(mergeTarget, qtyRounded, priceRounded); return }
+
     const data = {
       ticker: ticker.slice(0, 60),
-      quantity: Math.round(quantity * 1000) / 1000,
-      avgPrice: Math.round(avgPrice * 100) / 100,
+      quantity: qtyRounded,
+      avgPrice: priceRounded,
       buyDate: form.buyDate,
       assetType: form.assetType,
       notes: form.notes.trim().slice(0, 200) || undefined,
@@ -610,21 +754,35 @@ export default function InvestmentsPage() {
     if (editingId) {
       updatePosition(editingId, data)
     } else {
-      addPosition(data)
+      createPosition(data)
     }
 
     cancelForm()
   }
 
-  function handleRemove(id: string) {
-    if (window.confirm('Remover esta posição da carteira?')) {
-      removePosition(id)
-    }
+  const deleteTarget = deleteId ? positions.find(p => p.id === deleteId) : undefined
+  function confirmDelete() {
+    if (!deleteTarget) return
+    deletePosition(deleteTarget.id)
+    showToast(`Posição ${deleteTarget.ticker} excluída`)
+    setDeleteId(null)
   }
 
   function openReserve() {
     setReserveOpen(true)
     setTimeout(() => reserveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }
+
+  // Linha só de leitura no lugar de quantidade/preço/data quando a posição já tem histórico.
+  function ledgerSummary(p: InvestmentPosition) {
+    const text = isManualPosition(p)
+      ? `${fmtFull(p.quantity * p.avgPrice)} investidos · Para mudar, use Aportar, Resgatar ou o Histórico`
+      : `${fmtQuantity(p.quantity)} ${unitLabel(p.assetType, p.quantity)} · preço médio ${fmtFull(p.avgPrice)} · Para mudar, use Comprar, Vender ou o Histórico`
+    return (
+      <div className="rounded-[10px] bg-[var(--color-surface-2)] px-3 py-2.5 text-[12.5px] text-[var(--color-text-muted)]">
+        {text}
+      </div>
+    )
   }
 
   // ── render ──────────────────────────────────────────────────────────────
@@ -727,6 +885,8 @@ export default function InvestmentsPage() {
                 label="Tipo"
                 options={ASSET_OPTIONS}
                 value={form.assetType}
+                disabled={editingLedger}
+                className={editingLedger ? 'opacity-60 cursor-not-allowed' : ''}
                 onChange={(e) => {
                   setForm((f) => ({ ...f, assetType: e.target.value as AssetType, ticker: '', avgPrice: '', quantity: '', investedAmount: '', manualValue: '' }))
                   lastPuKey.current = ''
@@ -757,21 +917,28 @@ export default function InvestmentsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, manualValue: e.target.value }))}
                     required
                   />
-                  <Input
-                    label="Total depositado (opcional)"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="para calcular o rendimento"
-                    value={form.avgPrice}
-                    onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
-                  />
-                  <Input
-                    label="Desde (opcional)"
-                    type="date"
-                    value={form.buyDate}
-                    onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
-                  />
+                  {editingLedger && editingPos ? (
+                    <div className="col-span-2 sm:col-span-3">{ledgerSummary(editingPos)}</div>
+                  ) : (
+                    <>
+                      <Input
+                        label="Total depositado (opcional)"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="para calcular o rendimento"
+                        value={form.avgPrice}
+                        onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
+                      />
+                      <Input
+                        label="Desde (opcional)"
+                        type="date"
+                        max={todayISO()}
+                        value={form.buyDate}
+                        onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
+                      />
+                    </>
+                  )}
                   <Input
                     label="Observação (opcional)"
                     placeholder="Reserva de emergência…"
@@ -787,6 +954,8 @@ export default function InvestmentsPage() {
                         label="Título do Tesouro"
                         options={[{ value: '', label: 'Selecione o título…' }, ...tesouroTitles.map(t => ({ value: t.name, label: t.name }))]}
                         value={form.ticker}
+                        disabled={editingLedger}
+                        className={editingLedger ? 'opacity-60 cursor-not-allowed' : ''}
                         onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
                       />
                     ) : (
@@ -794,14 +963,18 @@ export default function InvestmentsPage() {
                         label="Título do Tesouro"
                         placeholder="Ex: Tesouro Selic 2029"
                         value={form.ticker}
+                        disabled={editingLedger}
                         onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
                         required
                       />
                     )}
                   </div>
+                  {!editingLedger && (
+                    <>
                   <Input
                     label="Data da compra"
                     type="date"
+                    max={todayISO()}
                     value={form.buyDate}
                     onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
                     required
@@ -826,13 +999,18 @@ export default function InvestmentsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, avgPrice: e.target.value }))}
                     required
                   />
+                    </>
+                  )}
                   <Input
                     label="Observação (opcional)"
                     placeholder="Aposentadoria, meta…"
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   />
-                  <div className="col-span-2 sm:col-span-3 text-[12px] -mt-1">
+                  {editingLedger && editingPos ? (
+                    <div className="col-span-2 sm:col-span-3">{ledgerSummary(editingPos)}</div>
+                  ) : (
+                    <div className="col-span-2 sm:col-span-3 text-[12px] -mt-1">
                     {tesouroPuLoading ? (
                       <span className="text-[var(--color-text-muted)]">Buscando o PU do título na data da compra…</span>
                     ) : tesouroPuError ? (
@@ -852,6 +1030,7 @@ export default function InvestmentsPage() {
                       )
                     })()}
                   </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -859,10 +1038,13 @@ export default function InvestmentsPage() {
                     label="Ticker"
                     placeholder={TICKER_PLACEHOLDER[form.assetType] ?? 'PETR4'}
                     value={form.ticker}
+                    disabled={editingLedger}
                     onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value.toUpperCase() }))}
                     required
-                    className="font-mono uppercase"
+                    className={`font-mono uppercase ${editingLedger ? 'opacity-60 cursor-not-allowed' : ''}`}
                   />
+                  {!editingLedger && (
+                    <>
                   <Input
                     label="Quantidade"
                     type="number"
@@ -886,15 +1068,21 @@ export default function InvestmentsPage() {
                   <Input
                     label="Data de compra"
                     type="date"
+                    max={todayISO()}
                     value={form.buyDate}
                     onChange={(e) => setForm((f) => ({ ...f, buyDate: e.target.value }))}
                   />
+                    </>
+                  )}
                   <Input
                     label="Observação (opcional)"
                     placeholder="PGBL, Prev…"
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   />
+                  {editingLedger && editingPos ? (
+                    <div className="col-span-2 sm:col-span-3">{ledgerSummary(editingPos)}</div>
+                  ) : (
                   <div className="col-span-2 sm:col-span-3 text-[12px] -mt-1">
                     {(() => {
                       const t = form.ticker.trim().toUpperCase()
@@ -946,6 +1134,7 @@ export default function InvestmentsPage() {
                       return <>{status && <span className="block">{status}</span>}{total}</>
                     })()}
                   </div>
+                  )}
                 </>
               )}
               <Input
@@ -982,12 +1171,18 @@ export default function InvestmentsPage() {
                 />
               )}
             </div>
+            {mergeTarget && (
+              <p className="rounded-[10px] bg-[var(--color-primary-tint)] text-[var(--color-primary)] text-[12.5px] font-medium px-3 py-2.5" role="status">
+                Você já tem {mergeTarget.ticker}{mergeTarget.broker ? ` em ${mergeTarget.broker}` : ''}. Isto será registrado como nova compra dessa posição.
+              </p>
+            )}
+            {formError && <p className="text-[12.5px] neg" role="alert">{formError}</p>}
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="ghost" size="sm" onClick={cancelForm}>
+              <Button type="button" variant="ghost" size="sm" onClick={cancelForm} className="!px-4 !py-2.5 sm:!py-1.5 min-h-10 sm:min-h-0">
                 Cancelar
               </Button>
-              <Button type="submit" size="sm">
-                {editingId ? 'Salvar' : 'Adicionar'}
+              <Button type="submit" size="sm" className="!px-4 !py-2.5 sm:!py-1.5 min-h-10 sm:min-h-0">
+                {editingId ? 'Salvar' : mergeTarget ? 'Registrar compra' : 'Adicionar'}
               </Button>
             </div>
           </form>
@@ -1107,8 +1302,12 @@ export default function InvestmentsPage() {
                 key={pos.id}
                 pos={pos}
                 score={assetScores[pos.ticker.trim().toUpperCase()]}
+                opCount={opsByPos.get(pos.id)?.length ?? 0}
+                onBuy={() => setOpModal({ posId: pos.id, mode: isManualPosition(pos) ? 'deposit' : 'buy' })}
+                onSell={() => setOpModal({ posId: pos.id, mode: isManualPosition(pos) ? 'withdraw' : 'sell' })}
+                onHistory={() => setHistoryId(pos.id)}
                 onEdit={() => openEdit(pos)}
-                onRemove={() => handleRemove(pos.id)}
+                onDelete={() => setDeleteId(pos.id)}
               />
             ))}
           </div>
@@ -1166,6 +1365,66 @@ export default function InvestmentsPage() {
           )}
         </div>
       )}
+
+      {/* ── Posições encerradas (recolhida; fora dos totais) ── */}
+      <ClosedPositionsSection onOpenHistory={setHistoryId} />
+
+      {/* ── Compra / venda / aporte / resgate (e edição de operação) ── */}
+      {opModal && (() => {
+        // Operações de posição encerrada também podem ser editadas (a posição vem do arquivo de encerradas).
+        const closedSnap = closedPositions.find(c => c.position.id === opModal.posId)?.position
+        const target = enriched.find(p => p.id === opModal.posId)
+          ?? (closedSnap ? enrichPositions([closedSnap], quotes, tesouroPu)[0] : undefined)
+        if (!target) return null
+        const editing = opModal.editingId ? operations.find(o => o.id === opModal.editingId) : undefined
+        return (
+          <OperationModal
+            key={`${opModal.posId}-${opModal.mode}-${opModal.editingId ?? 'new'}`}
+            position={target}
+            mode={opModal.mode}
+            editing={editing}
+            tesouroTitles={tesouroTitles}
+            onClose={() => setOpModal(null)}
+            onDone={({ text, undoId }) => {
+              setOpModal(null)
+              showToast(text, undoId ? { label: 'Desfazer', onClick: () => undoOperation(undoId) } : undefined)
+            }}
+          />
+        )
+      })()}
+
+      {historyId && (
+        <HistoryModal
+          positionId={historyId}
+          onClose={() => setHistoryId(null)}
+          onEditOperation={(op) => {
+            const mode: OperationMode = op.type === 'opening' ? 'buy' : op.type
+            setOpModal({ posId: op.positionId, mode, editingId: op.id })
+          }}
+          onToast={showToast}
+        />
+      )}
+
+      {deleteTarget && (
+        <ModalShell
+          title={`Excluir ${deleteTarget.ticker}?`}
+          onClose={() => setDeleteId(null)}
+          role="alertdialog"
+          footer={
+            <div className="flex gap-2">
+              <button type="button" className={BTN_GHOST} onClick={() => setDeleteId(null)}>Cancelar</button>
+              <button type="button" className={BTN_DANGER} onClick={confirmDelete}>Excluir posição</button>
+            </div>
+          }
+        >
+          <p className="text-[13.5px] text-[var(--color-text-primary)]">
+            A posição e {(opsByPos.get(deleteTarget.id)?.length ?? 0) > 1 ? `as ${opsByPos.get(deleteTarget.id)!.length} operações` : 'o histórico'} dela
+            serão apagados. Não dá para desfazer.
+          </p>
+        </ModalShell>
+      )}
+
+      <Toast toast={toast} onClose={clearToast} />
     </div>
   )
 }

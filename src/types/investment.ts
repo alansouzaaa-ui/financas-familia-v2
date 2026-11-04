@@ -103,3 +103,29 @@ export interface EnrichedPosition extends InvestmentPosition {
   pnl: number
   pnlPercent: number
 }
+
+// ── Livro de operações ───────────────────────────────────────────────────────
+// As operações são a fonte da verdade de quantidade/preço médio; `quantity` e
+// `avgPrice` em InvestmentPosition viram valores em cache derivados delas.
+export type OperationType = 'opening' | 'buy' | 'sell' | 'deposit' | 'withdraw'
+
+export interface InvestmentOperation {
+  id: string
+  positionId: string
+  type: OperationType
+  date: string            // YYYY-MM-DD
+  dateUnknown?: boolean   // abertura migrada de uma posição sem data válida
+  quantity?: number       // opening, buy, sell
+  price?: number          // opening, buy, sell (preço unitário, BRL)
+  amount?: number         // deposit, withdraw (BRL)
+  balanceBefore?: number  // withdraw: saldo manual logo antes, usado no custo proporcional
+  fees?: number           // buy, sell
+  note?: string
+  createdAt: string       // ISO, desempate na ordenação
+}
+
+export interface ClosedPosition {
+  position: InvestmentPosition
+  closedAt: string
+  realizedGain: number
+}

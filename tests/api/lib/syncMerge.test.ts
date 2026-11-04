@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mergeIncoming, restoreItems, isTelegramItem } from '../../../api/lib/syncMerge'
 import type { SyncPayload } from '../../../src/lib/syncService'
 import type { MonthItem, MonthRecord } from '../../../src/types/finance'
+import type { ClosedPosition, InvestmentOperation } from '../../../src/types/investment'
 
 const NOW = new Date('2026-10-26T12:00:00.000Z')
 
@@ -134,5 +135,71 @@ describe('restoreItems', () => {
     ])
     expect(res.restored).toBe(1)
     expect(allIds(res.payload)).toEqual(['telegram:1:1', 'telegram:1:2'])
+  })
+})
+
+describe('mergeIncoming - investment operations', () => {
+  const mkOp = (id: string, over: Partial<InvestmentOperation> = {}): InvestmentOperation =>
+    ({ id, positionId: 'p1', type: 'buy', date: '2026-01-10', quantity: 1, price: 10, createdAt: '2026-01-10T00:00:00.000Z', ...over })
+  const opIds = (p: SyncPayload) => (p.investment_operations ?? []).map(o => o.id).sort()
+  const months = [month('Out', 2026, [item('a')])]
+
+  it('old client without the field keeps the current operations and does not force a pull', () => {
+    const current = payload(months, { investment_operations: [mkOp('o1'), mkOp('o2')] })
+    const incoming = payload(months)
+    const { payload: merged, restored } = mergeIncoming(current, incoming, NOW)
+    expect(opIds(merged)).toEqual(['o1', 'o2'])
+    expect(restored).toBe(0)
+  })
+
+  it('two devices each adding an op end with both, and the stale one is told to pull', () => {
+    const current = payload(months, { investment_operations: [mkOp('base'), mkOp('fromA')] })
+    const incoming = payload(months, { investment_operations: [mkOp('base'), mkOp('fromB')] })
+    const { payload: merged, restored } = mergeIncoming(current, incoming, NOW)
+    expect(opIds(merged)).toEqual(['base', 'fromA', 'fromB'])
+    expect(restored).toBe(1)
+  })
+
+  it('incoming version wins on the same id', () => {
+    const current = payload(months, { investment_operations: [mkOp('o1', { quantity: 1 })] })
+    const incoming = payload(months, { investment_operations: [mkOp('o1', { quantity: 5 })] })
+    const { payload: merged, restored } = mergeIncoming(current, incoming, NOW)
+    expect(merged.investment_operations).toHaveLength(1)
+    expect(merged.investment_operations?.[0].quantity).toBe(5)
+    expect(restored).toBe(0)
+  })
+
+  it('a tombstoned op is removed and not resurrected from the current Gist', () => {
+    const current = payload(months, { investment_operations: [mkOp('o1'), mkOp('o2')] })
+    const incoming = payload(months, { investment_operations: [mkOp('o2')], deleted_ids: [{ id: 'o1', at: iso(1) }] })
+    const { payload: merged, restored } = mergeIncoming(current, incoming, NOW)
+    expect(opIds(merged)).toEqual(['o2'])
+    expect(restored).toBe(0)
+  })
+
+  it('a tombstone already in the Gist also blocks an incoming op', () => {
+    const current = payload(months, { investment_operations: [], deleted_ids: [{ id: 'o1', at: iso(1) }] })
+    const incoming = payload(months, { investment_operations: [mkOp('o1')] })
+    expect(opIds(mergeIncoming(current, incoming, NOW).payload)).toEqual([])
+  })
+
+  it('closed_positions: preserved for old clients, union by position.id with incoming winning', () => {
+    const cp = (id: string, gain: number): ClosedPosition => ({
+      position: { id, ticker: 'X', quantity: 0, avgPrice: 1, buyDate: '2025-01-01', assetType: 'acao' },
+      closedAt: '2026-02-01T00:00:00.000Z',
+      realizedGain: gain,
+    })
+    const current = payload(months, { closed_positions: [cp('c1', 1), cp('c2', 2)] })
+    expect(mergeIncoming(current, payload(months), NOW).payload.closed_positions).toHaveLength(2)
+    const { payload: merged, restored } = mergeIncoming(current, payload(months, { closed_positions: [cp('c1', 9), cp('c3', 3)] }), NOW)
+    expect(merged.closed_positions?.map(c => c.position.id).sort()).toEqual(['c1', 'c2', 'c3'])
+    expect(merged.closed_positions?.find(c => c.position.id === 'c1')?.realizedGain).toBe(9)
+    expect(restored).toBe(1)
+  })
+
+  it('payloads without operations stay without the fields', () => {
+    const { payload: merged } = mergeIncoming(payload(months), payload(months), NOW)
+    expect('investment_operations' in merged).toBe(false)
+    expect('closed_positions' in merged).toBe(false)
   })
 })

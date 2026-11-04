@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { InvestmentPosition } from '@/types/investment'
+import { useOperationsStore } from '@/stores/useOperationsStore'
 
 interface InvestmentStore {
   positions: InvestmentPosition[]
@@ -25,10 +26,13 @@ export const useInvestmentStore = create<InvestmentStore>()(
           positions: s.positions.map((p) => (p.id === id ? { ...p, ...updates } : p)),
         })),
 
-      removePosition: (id) =>
+      removePosition: (id) => {
         set((s) => ({
           positions: s.positions.filter((p) => p.id !== id),
-        })),
+        }))
+        // As operações fazem parte da posição: apagá-la apaga o histórico dela.
+        useOperationsStore.getState().removeForPosition(id)
+      },
 
       setPositions: (positions) => set({ positions }),
     }),

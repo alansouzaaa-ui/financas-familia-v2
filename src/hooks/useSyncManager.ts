@@ -4,6 +4,9 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { useRecurringStore } from '@/stores/useRecurringStore'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
+import { useOperationsStore } from '@/stores/useOperationsStore'
+import { applyOperationsToPositions, unionClosedPositions, unionOperations } from '@/lib/operations'
+import { reconcileClosed } from '@/lib/investmentActions'
 import { useCardsStore } from '@/stores/useCardsStore'
 import { useCategoriesStore } from '@/stores/useCategoriesStore'
 import { useDebtsStore } from '@/stores/useDebtsStore'
@@ -39,6 +42,8 @@ export function useSyncManager() {
   const goals = useGoalsStore(s => s.goals)
   const recurringItems = useRecurringStore(s => s.items)
   const positions = useInvestmentStore(s => s.positions)
+  const operations = useOperationsStore(s => s.operations)
+  const closedPositions = useOperationsStore(s => s.closedPositions)
   const cardAccounts = useCardsStore(s => s.accounts)
   const expenseTags = useCategoriesStore(s => s.tags)
   const debts = useDebtsStore(s => s.items)
@@ -112,6 +117,24 @@ export function useSyncManager() {
     if (remote.investment_positions?.length) {
       useInvestmentStore.getState().setPositions(remote.investment_positions)
     }
+    // Operações: união com o local (versão remota vence por id; tombstones removem)
+    // e só então recalcula quantity/avgPrice em cache. Tudo sob isPulling: não
+    // dispara push.
+    if (remote.investment_operations?.length || remote.closed_positions?.length) {
+      const dead = new Set(useTombstoneStore.getState().items.map(t => t.id))
+      const ops = useOperationsStore.getState()
+      ops.setAll({
+        operations: unionOperations(ops.operations, remote.investment_operations, dead),
+        closedPositions: unionClosedPositions(ops.closedPositions, remote.closed_positions, dead),
+      })
+    }
+    {
+      const inv = useInvestmentStore.getState()
+      const next = applyOperationsToPositions(inv.positions, useOperationsStore.getState().operations)
+      if (next !== inv.positions) inv.setPositions(next)
+    }
+    // Encerradas ⇄ abertas segundo o replay (ainda sob isPulling).
+    reconcileClosed()
     if (remote.card_accounts?.length) {
       useCardsStore.getState().setAccounts(remote.card_accounts)
     }
@@ -173,6 +196,12 @@ export function useSyncManager() {
       goals: useGoalsStore.getState().goals,
       recurring_items: useRecurringStore.getState().items,
       investment_positions: useInvestmentStore.getState().positions,
+      // Vazio = omite o campo: um cliente que ainda não carregou o livro nunca
+      // envia "[]" (o servidor também une por id, então nada é apagado).
+      investment_operations: useOperationsStore.getState().operations.length
+        ? useOperationsStore.getState().operations : undefined,
+      closed_positions: useOperationsStore.getState().closedPositions.length
+        ? useOperationsStore.getState().closedPositions : undefined,
       card_accounts: useCardsStore.getState().accounts,
       expense_tags: useCategoriesStore.getState().tags,
       history_cutoff: useFinanceStore.getState().historyCutoff,
@@ -241,7 +270,7 @@ export function useSyncManager() {
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(() => { pendingPush.current = false; doPush() }, 1200)
     return () => { if (pushTimer.current) clearTimeout(pushTimer.current) }
-  }, [allMonths, goals, recurringItems, positions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths, reserveIncomeType, netCash, netCashAt, journeyStrategy, journeyScope, journeyBudget, budgetLimits, checklistQuestions, checklistAnswers, tombstones])
+  }, [allMonths, goals, recurringItems, positions, operations, closedPositions, cardAccounts, expenseTags, historyCutoff, debts, allocTargets, aporte, reserveCost, reserveMonths, reserveIncomeType, netCash, netCashAt, journeyStrategy, journeyScope, journeyBudget, budgetLimits, checklistQuestions, checklistAnswers, tombstones])
 
   // Flush imediato quando a aba é ocultada/fechada — evita perder alterações
   // recentes (ex: parcelamento) que ainda estavam no debounce. keepalive garante

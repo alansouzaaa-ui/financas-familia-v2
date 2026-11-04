@@ -1,4 +1,5 @@
 import type { IbovHistoryPoint } from '@/lib/brapiService'
+import type { OpenLot } from '@/lib/operations'
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -20,6 +21,33 @@ export interface PosForCompare {
   currentValue: number
   buyDate: string
   valued: boolean   // tem cotação ou saldo manual (senão o valor atual é "chute")
+}
+
+/**
+ * Uma posição vira um item por lote em aberto (cada compra com a sua data), para
+ * o IBOV ser simulado nas datas reais dos aportes. O valor atual da posição é
+ * dividido na proporção do custo de cada lote; lotes de data desconhecida ficam
+ * de fora (nos dois lados). Sem lotes (posição sem operações): comportamento antigo.
+ */
+export function expandForCompare(
+  pos: PosForCompare,
+  lots: OpenLot[] | undefined,
+): PosForCompare[] {
+  if (!lots || lots.length === 0) return [pos]
+  const totalCost = lots.reduce((s, l) => s + l.cost, 0)
+  if (!(totalCost > 0)) return [pos]
+  const out: PosForCompare[] = []
+  for (const l of lots) {
+    if (l.dateUnknown) continue
+    const share = l.cost / totalCost
+    out.push({
+      totalInvested: pos.totalInvested * share,
+      currentValue: pos.currentValue * share,
+      buyDate: l.date,
+      valued: pos.valued,
+    })
+  }
+  return out
 }
 
 export interface IbovComparison {

@@ -2,6 +2,7 @@ import type { SyncPayload } from '../../src/lib/syncService'
 import type { MonthAbbr, MonthItem, MonthRecord } from '../../src/types/finance'
 import { totalsFromItems } from '../../src/lib/monthTotals'
 import { mergeTombstones, type Tombstone } from '../../src/lib/tombstones'
+import { unionClosedPositions, unionOperations } from '../../src/lib/operations'
 
 export interface RestoreEntry {
   month: MonthAbbr
@@ -77,5 +78,32 @@ export function mergeIncoming(
       entries.push({ month: m.month, year: m.year, item })
     }
   }
-  return restoreItems(base, entries)
+  const restoredItems = restoreItems(base, entries)
+
+  // Livro de operações: união por id (a versão do cliente vence), sem os
+  // tombstonados. Cliente antigo (campo ausente) mantém a lista atual do Gist.
+  let result = restoredItems.payload
+  let extra = 0
+  const curOps = current?.investment_operations
+  const inOps = incoming.investment_operations
+  if (curOps || inOps) {
+    const merged = unionOperations(curOps, inOps, dead)
+    result = { ...result, investment_operations: merged }
+    // Só conta quando o cliente conhece o campo; senão todo push de cliente antigo forçaria um pull.
+    if (inOps) {
+      const have = new Set(inOps.map(o => o.id))
+      extra += merged.filter(o => !have.has(o.id)).length
+    }
+  }
+  const curClosed = current?.closed_positions
+  const inClosed = incoming.closed_positions
+  if (curClosed || inClosed) {
+    const merged = unionClosedPositions(curClosed, inClosed, dead)
+    result = { ...result, closed_positions: merged }
+    if (inClosed) {
+      const have = new Set(inClosed.map(c => c.position.id))
+      extra += merged.filter(c => !have.has(c.position.id)).length
+    }
+  }
+  return { payload: result, restored: restoredItems.restored + extra }
 }
