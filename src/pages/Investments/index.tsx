@@ -248,7 +248,8 @@ function PositionCard({
         </div>
       </div>
 
-      {hasQuote && pos.quote && (
+      {/* Tesouro: o PU não traz variação do dia, então um zero aqui pareceria real. */}
+      {hasQuote && pos.quote && pos.assetType !== 'tesouro' && (
         <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
           <span className="text-[11px] text-[var(--color-text-muted)]">Hoje</span>
           <span className={`text-[12px] font-medium ${trendClass(positionDayChange(pos))}`}>
