@@ -71,6 +71,17 @@ export function buildCategoryReport(
   return { rows, total, semCat, semCatCount: entries[SEM_CAT_KEY]?.length ?? 0, entries }
 }
 
+export type ReportEmptyReason = 'before-start' | 'uncategorized' | 'no-expenses'
+
+/** Por que o relatório está vazio (só faz sentido quando buildCategoryReport devolve total 0). */
+export function reportEmptyReason(months: MonthPoint[], from: number = REPORT_FROM): ReportEmptyReason {
+  if (months.length > 0 && months.every(m => monthKey(m.year, m.month) < from)) return 'before-start'
+  const hasUntagged = months.some(m =>
+    monthKey(m.year, m.month) >= from &&
+    (m.items ?? []).some(it => it.category === 'cards' && !it.tag))
+  return hasUntagged ? 'uncategorized' : 'no-expenses'
+}
+
 export function summarize(list: ReportEntry[]): { count: number; total: number; avg: number } {
   const total = list.reduce((s, e) => s + e.item.value, 0)
   return { count: list.length, total, avg: list.length ? total / list.length : 0 }

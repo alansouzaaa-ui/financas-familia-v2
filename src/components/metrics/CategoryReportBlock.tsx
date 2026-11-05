@@ -6,7 +6,7 @@ import { useCardsStore } from '@/stores/useCardsStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
 import {
-  buildCategoryReport, groupByMonth, limitGroups, summarize, dayLabel,
+  buildCategoryReport, groupByMonth, limitGroups, summarize, dayLabel, reportEmptyReason,
   SEM_CAT_KEY, type ReportEntry,
 } from '@/lib/categoryReport'
 import Card from '@/components/ui/Card'
@@ -124,14 +124,31 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
   }
 
   if (total === 0) {
+    const reason = reportEmptyReason(months)
+    const icon = <span className="text-[22px]">🏷️</span>
     return (
       <Card title="Despesas por categoria">
-        <EmptyState
-          message="Nada para relatar ainda"
-          hint="Marque a categoria de cada gasto ao lançar para ver para onde o dinheiro está indo."
-          icon={<span className="text-[22px]">🏷️</span>}
-          action={{ label: 'Categorizar lançamentos', to: '/lancar' }}
-        />
+        {reason === 'before-start' ? (
+          <EmptyState
+            message="Período anterior aos relatórios"
+            hint="Os relatórios por categoria começam em Set/2026. Escolha um período a partir desse mês."
+            icon={icon}
+          />
+        ) : reason === 'uncategorized' ? (
+          <EmptyState
+            message="Nada para relatar ainda"
+            hint="Marque a categoria de cada gasto ao lançar para ver para onde o dinheiro está indo."
+            icon={icon}
+            action={{ label: 'Categorizar lançamentos', to: '/lancar' }}
+          />
+        ) : (
+          <EmptyState
+            message="Nenhuma despesa neste período"
+            hint="Escolha outro período ou lance um gasto."
+            icon={icon}
+            action={{ label: 'Lançar gasto', to: '/lancar' }}
+          />
+        )}
       </Card>
     )
   }

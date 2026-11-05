@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCategoryReport, groupByMonth, limitGroups, summarize, dayLabel, SEM_CAT_KEY } from '../src/lib/categoryReport'
+import { buildCategoryReport, groupByMonth, limitGroups, summarize, dayLabel, reportEmptyReason, SEM_CAT_KEY } from '../src/lib/categoryReport'
 import { EXPENSE_TAGS, type MonthItem, type MonthPoint } from '../src/types/finance'
 
 const tagMap = Object.fromEntries(EXPENSE_TAGS.map(t => [t.id, t]))
@@ -63,5 +63,29 @@ describe('dayLabel', () => {
     expect(dayLabel('2026-09-03T10:00:00')).toBe('03/09')
     expect(dayLabel(undefined)).toBeNull()
     expect(dayLabel('lixo')).toBeNull()
+  })
+})
+
+describe('reportEmptyReason', () => {
+  it("'before-start' quando todos os meses são anteriores ao início", () => {
+    expect(reportEmptyReason([mp('Ago', 2026, 'Ago/26', [it_({})])])).toBe('before-start')
+  })
+  it("'uncategorized' quando há fatura de cartão sem tag a partir do início", () => {
+    expect(reportEmptyReason([mp('Set', 2026, 'Set/26', [it_({ category: 'cards', value: 800 })])])).toBe('uncategorized')
+  })
+  it("'no-expenses' com meses vazios, só receita ou lista vazia", () => {
+    expect(reportEmptyReason([])).toBe('no-expenses')
+    expect(reportEmptyReason([mp('Set', 2026, 'Set/26', [])])).toBe('no-expenses')
+    expect(reportEmptyReason([mp('Set', 2026, 'Set/26', [it_({ category: 'revenue', value: 5000 })])])).toBe('no-expenses')
+  })
+  it('cartão sem tag só em mês anterior ao início não conta como uncategorized', () => {
+    const r = reportEmptyReason([
+      mp('Ago', 2026, 'Ago/26', [it_({ category: 'cards' })]),
+      mp('Set', 2026, 'Set/26', []),
+    ])
+    expect(r).toBe('no-expenses')
+  })
+  it('respeita o parâmetro from', () => {
+    expect(reportEmptyReason([mp('Set', 2026, 'Set/26', [])], 202610)).toBe('before-start')
   })
 })

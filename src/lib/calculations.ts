@@ -256,5 +256,12 @@ export function filterByPeriod(months: MonthPoint[], preset: string, customRange
   }
 
   const count = preset === '3m' ? 3 : preset === '6m' ? 6 : 12
-  return months.slice(-count)
+  // Janela de calendário de `count` meses terminando no mês atual (inclusive); futuros ficam de fora
+  const MONTHS_WIN = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  const endKey = currentYear * 12 + currentMonthIdx
+  const startKey = endKey - (count - 1)
+  return months.filter(m => {
+    const k = m.year * 12 + MONTHS_WIN.indexOf(m.month)
+    return k >= startKey && k <= endKey
+  })
 }
