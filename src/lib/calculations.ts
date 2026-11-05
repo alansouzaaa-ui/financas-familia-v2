@@ -239,13 +239,19 @@ export function filterByPeriod(months: MonthPoint[], preset: string, customRange
 
   if (preset === 'custom' && customRange) {
     const MONTHS_ABR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-    const [fromY, fromM] = customRange.from.split('-')
-    const [toY, toM] = customRange.to.split('-')
-    const fromNum = parseInt(fromY) * 100 + MONTHS_ABR.indexOf(fromM)
-    const toNum   = parseInt(toY)   * 100 + MONTHS_ABR.indexOf(toM)
+    // Valor de <input type="month"> ("YYYY-MM") -> chave ano*100 + mês (1-12); vazio/inválido = sem limite
+    const toKey = (v: string): number | null => {
+      const match = /^(\d{4})-(\d{2})$/.exec(v ?? '')
+      if (!match) return null
+      const month = parseInt(match[2], 10)
+      if (month < 1 || month > 12) return null
+      return parseInt(match[1], 10) * 100 + month
+    }
+    const fromKey = toKey(customRange.from)
+    const toKeyEnd = toKey(customRange.to)
     return months.filter(m => {
-      const mNum = m.year * 100 + MONTHS_ABR.indexOf(m.month)
-      return mNum >= fromNum && mNum <= toNum
+      const mKey = m.year * 100 + MONTHS_ABR.indexOf(m.month) + 1
+      return (fromKey === null || mKey >= fromKey) && (toKeyEnd === null || mKey <= toKeyEnd)
     })
   }
 
