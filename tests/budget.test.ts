@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lineKeyOf, lineMeta, statusFor, computeBudget, suggestLimits } from '../src/lib/budget'
+import { lineKeyOf, lineMeta, statusFor, computeBudget, suggestLimits, splitBudgetLines } from '../src/lib/budget'
 import { EXPENSE_TAGS, type MonthItem, type MonthPoint } from '../src/types/finance'
 
 const tagMap = Object.fromEntries(EXPENSE_TAGS.map(t => [t.id, t]))
@@ -34,7 +34,9 @@ describe('statusFor', () => {
   it('faixas', () => {
     expect(statusFor(79.9, 100)).toBe('ok')
     expect(statusFor(80, 100)).toBe('alerta')
-    expect(statusFor(100, 100)).toBe('estourado')
+    expect(statusFor(100, 100)).toBe('alerta')
+    expect(statusFor(100.01, 100)).toBe('estourado')
+    expect(statusFor(120, 100)).toBe('estourado')
     expect(statusFor(50, null)).toBe('sem-limite')
     expect(statusFor(50, 0)).toBe('sem-limite')
   })
@@ -117,5 +119,73 @@ describe('suggestionBasis', () => {
     const months = [mk('Jul', 2026, true), mk('Ago', 2026, false), mk('Set', 2026, true), mk('Out', 2026, true)] as any
     const basis = suggestionBasis(months, new Date(2026, 9, 15), 3)
     expect(basis.map((m: { month: string }) => m.month)).toEqual(['Set', 'Jul'])
+  })
+})
+
+describe('splitBudgetLines', () => {
+  const split = (items: MonthItem[], limits: Record<string, number> = {}) =>
+    splitBudgetLines(computeBudget(items, limits, EXPENSE_TAGS).lines, items, EXPENSE_TAGS)
+  const keys = (ls: { key: string }[]) => ls.map(l => l.key)
+
+  it('separa fixa de variável', () => {
+    const r = split([
+      item({ description: 'zzz', category: 'fixedCosts', value: 50 }),
+      item({ description: 'qqq', category: 'variableCosts', value: 50 }),
+    ])
+    expect(keys(r.fixed)).toEqual(['grp:fixedCosts'])
+    expect(keys(r.variable)).toEqual(['grp:variableCosts'])
+  })
+
+  it('um item variável torna a linha variável', () => {
+    const r = split([
+      item({ tag: 'moradia', category: 'fixedCosts' }),
+      item({ tag: 'moradia', category: 'variableCosts' }),
+    ])
+    expect(keys(r.fixed)).toEqual([])
+    expect(keys(r.variable)).toEqual(['moradia'])
+  })
+
+  it('loans e renegociacoes contam como fixos; cards não', () => {
+    const r = split([
+      item({ description: 'zzz', category: 'loans' }),
+      item({ description: 'zzz', category: 'renegociacoes' }),
+      item({ description: 'zzz', category: 'cards' }),
+    ])
+    expect(keys(r.fixed).sort()).toEqual(['grp:loans', 'grp:renegociacoes'])
+    expect(keys(r.variable)).toEqual(['grp:cards'])
+  })
+
+  it('assinaturas é sempre variável', () => {
+    const r = split([item({ tag: 'assinaturas', category: 'fixedCosts' })])
+    expect(keys(r.fixed)).toEqual([])
+    expect(keys(r.variable)).toEqual(['assinaturas'])
+  })
+
+  it('linha só com limite é variável; receita e valores inválidos são ignorados', () => {
+    const r = split(
+      [item({ category: 'revenue', value: 1000 }), item({ tag: 'lazer', value: -5, category: 'fixedCosts' })],
+      { lazer: 200 },
+    )
+    expect(keys(r.variable)).toEqual(['lazer'])
+    expect(r.fixed).toEqual([])
+  })
+
+  it('ordena por status, depois gasto desc, depois label', () => {
+    const items = [
+      item({ tag: 'lazer', value: 50 }),        // ok
+      item({ tag: 'saude', value: 150 }),       // estourado
+      item({ tag: 'transporte', value: 90 }),   // alerta
+      item({ tag: 'alimentacao', value: 300 }), // sem limite
+      item({ tag: 'moradia', value: 20 }),      // ok, gasto menor
+    ]
+    const limits = { lazer: 100, saude: 100, transporte: 100, moradia: 100 }
+    const r = split(items, limits)
+    expect(keys(r.variable)).toEqual(['saude', 'transporte', 'lazer', 'moradia', 'alimentacao'])
+  })
+
+  it('desempata por label quando status e gasto são iguais', () => {
+    const r = split([item({ tag: 'saude', value: 10 }), item({ tag: 'lazer', value: 10 })])
+    const labels = r.variable.map(l => l.label)
+    expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b, 'pt-BR')))
   })
 })

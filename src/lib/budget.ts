@@ -43,7 +43,7 @@ export function lineMeta(key: string, tagMap: Record<string, ExpenseTag>): { lab
 export function statusFor(spent: number, limit: number | null): BudgetStatus {
   if (limit === null || !(limit > 0)) return 'sem-limite'
   const pct = spent / limit
-  if (pct >= 1) return 'estourado'
+  if (pct > 1) return 'estourado'
   if (pct >= 0.8) return 'alerta'
   return 'ok'
 }
@@ -128,4 +128,30 @@ export function suggestLimits(months: MonthPoint[], now: Date, tags: ExpenseTag[
     if (avg > 0) out[k] = Math.ceil(avg / 10 - 1e-9) * 10
   }
   return out
+}
+
+const FIXED_CATEGORIES: ReadonlySet<string> = new Set(['fixedCosts', 'loans', 'renegociacoes'])
+const STATUS_RANK: Record<BudgetStatus, number> = { estourado: 0, alerta: 1, ok: 2, 'sem-limite': 3 }
+
+// Separa as linhas do orçamento em variáveis (em destaque) e fixas (recolhidas).
+// Fixa = todos os itens do mês na linha são de categoria fixa; 'assinaturas' é sempre variável.
+export function splitBudgetLines(
+  lines: BudgetLine[], items: MonthItem[], tags: ExpenseTag[],
+): { variable: BudgetLine[]; fixed: BudgetLine[] } {
+  const tagMap = toMap(tags)
+  const allFixed = new Map<string, boolean>()
+  for (const it of items) {
+    if (!validValue(it.value) || it.category === 'revenue') continue
+    const { key } = lineKeyOf(it, tagMap)
+    allFixed.set(key, (allFixed.get(key) ?? true) && FIXED_CATEGORIES.has(it.category))
+  }
+  const cmp = (a: BudgetLine, b: BudgetLine) =>
+    STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.spent - a.spent || a.label.localeCompare(b.label, 'pt-BR')
+  const variable: BudgetLine[] = []
+  const fixed: BudgetLine[] = []
+  for (const l of lines) {
+    if (l.key !== 'assinaturas' && allFixed.get(l.key) === true) fixed.push(l)
+    else variable.push(l)
+  }
+  return { variable: variable.sort(cmp), fixed: fixed.sort(cmp) }
 }

@@ -4,7 +4,6 @@ import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import type { FinancialGoal } from '@/types/finance'
-import Money from '@/components/ui/Money'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -12,14 +11,7 @@ import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
-
-const STREAMINGS = [
-  { name: 'Netflix', value: 57.80 },
-  { name: 'Amazon Prime', value: 13.90 },
-  { name: 'Spotify Família', value: 34.90 },
-  { name: 'Globo Play', value: 14.90 },
-  { name: 'Crunchyroll', value: 14.99 },
-]
+import CategoryLimitsCard from '@/components/metrics/CategoryLimitsCard'
 
 const CAT_OPTIONS = [
   { value: 'revenue',    label: 'Meta de Receita' },
@@ -59,35 +51,29 @@ export default function GoalsPage() {
     setTargetValue('')
   }
 
-  const totalStreamings = STREAMINGS.reduce((s, i) => s + i.value, 0)
-
   return (
     <div>
       <PageHeader
         eyebrow="Orçamento"
         title="Metas financeiras"
-        subtitle="Defina limites por categoria e acompanhe o quanto já foi consumido."
+        subtitle="Limites por categoria no mês e metas por grupo."
       />
 
-      {/* Médias de referência */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {[
-          { label: 'Média Receita', value: avgRevenue, cls: 'pos' },
-          { label: 'Média Fixos',   value: avgFixedCosts, cls: 'text-[var(--color-text-primary)]' },
-          { label: 'Média Emp.',    value: avgLoans, cls: 'text-[var(--color-text-primary)]' },
-          { label: 'Média Cartões', value: avgCards, cls: 'text-[var(--color-text-primary)]' },
-        ].map(item => (
-          <div key={item.label} className="card">
-            <div className="label mb-2">{item.label}</div>
-            <div className={`font-semibold text-[18px] leading-none ${item.cls}`}><Money value={item.value} /></div>
-            <div className="text-[11px] text-[var(--color-text-muted)] mt-1.5">últimos 12 meses</div>
-          </div>
-        ))}
-      </div>
+      <CategoryLimitsCard />
 
-      {/* Set goals */}
-      <Card title="Definir meta" className="mb-4">
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* Metas por grupo */}
+      <Card title="Metas por grupo" className="mb-4">
+        <div className="text-[11px] text-[var(--color-text-muted)] mb-3">
+          <p>Médias dos últimos 12 meses</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5 mt-1">
+            {[
+              ['Receita', avgRevenue], ['Fixos', avgFixedCosts], ['Empréstimos', avgLoans], ['Cartões', avgCards],
+            ].map(([l, v]) => (
+              <span key={l as string} className="min-w-0 truncate">{l as string} <span className="font-mono">{fmt(v as number)}</span></span>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="flex-1">
             <Select
               label="Categoria"
@@ -106,15 +92,12 @@ export default function GoalsPage() {
             />
           </div>
           <div className="flex items-end">
-            <Button onClick={handleSave}>Salvar meta</Button>
+            <Button onClick={handleSave} className="min-h-[40px]">Salvar meta</Button>
           </div>
         </div>
-      </Card>
-
-      {/* Goals progress */}
-      <Card title="Progresso das metas" className="mb-4">
+        <h3 className="label mb-2">Progresso das metas</h3>
         {goals.length === 0 ? (
-          <EmptyState message="Nenhuma meta definida" hint="Defina metas acima para acompanhar o progresso" />
+          <EmptyState message="Nenhuma meta definida" hint="Defina uma meta acima para acompanhar o progresso" />
         ) : (
           <div className="flex flex-col divide-y divide-[var(--color-border)]">
             {goals.map(goal => {
@@ -123,9 +106,9 @@ export default function GoalsPage() {
               const isExpense = goal.category !== 'revenue'
               const isOver = isExpense ? pct > 100 : pct < 100
               return (
-                <div key={goal.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-[130px] font-medium text-[13px]">{CATEGORY_LABELS[goal.category]}</div>
-                  <div className="flex-1">
+                <div key={goal.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0">
+                  <div className="flex-1 sm:flex-none sm:min-w-[130px] font-medium text-[13px]">{CATEGORY_LABELS[goal.category]}</div>
+                  <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1">
                     <div className="h-1.5 bg-[var(--color-surface-2)] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
@@ -136,7 +119,7 @@ export default function GoalsPage() {
                       />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 min-w-[160px] justify-end">
+                  <div className="flex items-center gap-2 justify-end whitespace-nowrap">
                     <span className="text-[12px] font-mono text-[var(--color-text-muted)]">
                       {fmt(current)} / {fmt(goal.targetValue)}
                     </span>
@@ -155,26 +138,6 @@ export default function GoalsPage() {
             })}
           </div>
         )}
-      </Card>
-
-      {/* Streamings */}
-      <Card title="Streamings mensais">
-        <div className="flex flex-col divide-y divide-[var(--color-border)]">
-          {STREAMINGS.map(s => (
-            <div key={s.name} className="flex justify-between py-2.5 first:pt-0 text-[13px]">
-              <span>{s.name}</span>
-              <span className="font-mono neg">{fmt(s.value)}</span>
-            </div>
-          ))}
-          <div className="flex justify-between py-2.5 font-semibold text-[13px]">
-            <span>Total mensal</span>
-            <span className="font-mono neg">{fmt(totalStreamings)}</span>
-          </div>
-          <div className="flex justify-between py-2.5 text-[13px] text-[var(--color-text-muted)]">
-            <span>Total anual</span>
-            <span className="font-mono neg">{fmt(totalStreamings * 12)}</span>
-          </div>
-        </div>
       </Card>
     </div>
   )
