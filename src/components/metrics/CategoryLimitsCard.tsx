@@ -87,11 +87,18 @@ export default function CategoryLimitsCard() {
         </div>
         <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
           {l.limit === null ? (
-            !editing && <button type="button" className={`${linkBtn} min-h-[40px]`} onClick={() => setEditing(true)}>definir limite</button>
+            <>
+              {!editing && <button type="button" className={`${linkBtn} min-h-[40px]`} onClick={() => setEditing(true)}>definir limite</button>}
+              {l.pending > 0 && <span>{!editing && ' · '}+ {fmtFull(l.pending)} a pagar</span>}
+            </>
           ) : l.status === 'estourado' ? (
-            <span className="neg">estourou {fmtFull(l.spent - l.limit)} ({Math.round(pct)}%)</span>
+            <span><span className="neg">estourou {fmtFull(l.spent - l.limit)} ({Math.round(pct)}%)</span>{l.pending > 0 && ` · + ${fmtFull(l.pending)} a pagar`}</span>
           ) : (
-            <span>{Math.round(pct)}% · restam {fmtFull(l.limit - l.spent)}</span>
+            <span>
+              {Math.round(pct)}% · restam {fmtFull(l.limit - l.spent)}
+              {l.pending > 0 && ` · + ${fmtFull(l.pending)} a pagar`}
+              {l.projectedOver && <span style={{ color: 'var(--color-accent)' }}> · passa do limite se tudo for pago</span>}
+            </span>
           )}
         </div>
       </div>
@@ -124,6 +131,12 @@ export default function CategoryLimitsCard() {
               <div style={{ color: 'var(--color-accent)' }}>{summary.alertCount} perto do limite</div>
             )}
           </div>
+
+          {summary.pending > 0 && (
+            <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+              Conta só o que já está pago. {fmtFull(summary.pending)} lançado ainda a pagar.
+            </p>
+          )}
 
           <div className="mt-2 flex items-center gap-x-3 flex-wrap">
             <button type="button" className={actionBtn} onClick={() => setEditing(e => !e)}>

@@ -82,6 +82,41 @@ describe('computeBudget', () => {
   })
 })
 
+describe('computeBudget — pago x a pagar', () => {
+  const limits = { lazer: 100, saude: 100 }
+  const items = [
+    item({ tag: 'lazer', value: 60 }),
+    item({ tag: 'lazer', value: 50, isPaid: false }),
+    item({ tag: 'saude', value: 150, isPaid: false }),
+    item({ tag: 'pets', value: 40, isPaid: false }),
+    item({ category: 'revenue', value: 1000, isPaid: false }),
+  ]
+  const s = computeBudget(items, limits, EXPENSE_TAGS)
+  const line = (k: string) => s.lines.find(l => l.key === k)!
+
+  it('item não pago vai para pending e não altera spent/status/pct', () => {
+    expect(line('lazer')).toMatchObject({ spent: 60, pending: 50, status: 'ok', count: 2 })
+    expect(line('lazer').pct).toBe(60)
+    expect(line('saude')).toMatchObject({ spent: 0, pending: 150, status: 'ok' })
+  })
+  it('projectedOver quando pago + pendente > limite e ainda não estourou', () => {
+    expect(line('lazer').projectedOver).toBe(true)
+    expect(line('saude').projectedOver).toBe(true)
+  })
+  it('projectedOver false sem limite ou já estourado', () => {
+    expect(line('pets')).toMatchObject({ limit: null, pending: 40, projectedOver: false })
+    const r = computeBudget([item({ tag: 'lazer', value: 120 }), item({ tag: 'lazer', value: 10, isPaid: false })], limits, EXPENSE_TAGS)
+    expect(r.lines[0]).toMatchObject({ status: 'estourado', projectedOver: false })
+    const ok = computeBudget([item({ tag: 'lazer', value: 50 }), item({ tag: 'lazer', value: 50, isPaid: false })], limits, EXPENSE_TAGS)
+    expect(ok.lines[0].projectedOver).toBe(false)
+  })
+  it('summary.pending soma as linhas; spent só pago; receita inclui não paga', () => {
+    expect(s.pending).toBe(240)
+    expect(s.spent).toBe(60)
+    expect(s.revenue).toBe(1000)
+  })
+})
+
 describe('suggestLimits', () => {
   const now = new Date(2026, 9, 15) // outubro/2026
   const months = [

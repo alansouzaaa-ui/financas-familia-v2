@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useGoalsStore } from '@/stores/useGoalsStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { fmt } from '@/lib/formatters'
+import { groupTotals, groupPending, goalsBasis } from '@/lib/goals'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/types/finance'
 import type { FinancialGoal } from '@/types/finance'
 import Card from '@/components/ui/Card'
@@ -30,13 +31,18 @@ export default function GoalsPage() {
   const [category, setCategory] = useState<string>('revenue')
   const [targetValue, setTargetValue] = useState('')
 
-  const lastMonth = allMonths[allMonths.length - 1]
-  const last12 = allMonths.slice(-12)
+  const now = new Date()
+  const { current: currentMonth, last12 } = goalsBasis(allMonths, now)
+  const totals12 = last12.map(m => groupTotals(m))
+  const avgOf = (k: 'revenue' | 'fixedCosts' | 'loans' | 'cards') =>
+    totals12.length ? totals12.reduce((s, t) => s + t[k], 0) / totals12.length : 0
+  const currentTotals = currentMonth ? groupTotals(currentMonth, { paidOnly: true }) : null
+  const currentPending = currentMonth ? groupPending(currentMonth) : null
 
-  const avgRevenue    = last12.reduce((s, m) => s + m.revenue, 0) / (last12.length || 1)
-  const avgFixedCosts = last12.reduce((s, m) => s + m.fixedCosts, 0) / (last12.length || 1)
-  const avgLoans      = last12.reduce((s, m) => s + m.loans, 0) / (last12.length || 1)
-  const avgCards      = last12.reduce((s, m) => s + m.cards, 0) / (last12.length || 1)
+  const avgRevenue    = avgOf('revenue')
+  const avgFixedCosts = avgOf('fixedCosts')
+  const avgLoans      = avgOf('loans')
+  const avgCards      = avgOf('cards')
 
   const avgs: Record<string, number> = { revenue: avgRevenue, fixedCosts: avgFixedCosts, loans: avgLoans, cards: avgCards }
 
@@ -101,10 +107,11 @@ export default function GoalsPage() {
         ) : (
           <div className="flex flex-col divide-y divide-[var(--color-border)]">
             {goals.map(goal => {
-              const current = lastMonth ? lastMonth[goal.category] as number : 0
+              const current = currentTotals ? (currentTotals[goal.category as keyof typeof currentTotals] ?? 0) : 0
               const pct = goal.targetValue > 0 ? (current / goal.targetValue) * 100 : 0
               const isExpense = goal.category !== 'revenue'
               const isOver = isExpense ? pct > 100 : pct < 100
+              const pending = currentPending ? (currentPending[goal.category as keyof typeof currentPending] ?? 0) : 0
               return (
                 <div key={goal.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0">
                   <div className="flex-1 sm:flex-none sm:min-w-[130px] font-medium text-[13px]">{CATEGORY_LABELS[goal.category]}</div>
@@ -119,10 +126,15 @@ export default function GoalsPage() {
                       />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 justify-end whitespace-nowrap">
-                    <span className="text-[12px] font-mono text-[var(--color-text-muted)]">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 justify-end">
+                    <span className="text-[12px] font-mono text-[var(--color-text-muted)] whitespace-nowrap">
                       {fmt(current)} / {fmt(goal.targetValue)}
                     </span>
+                    {pending > 0 && (
+                      <span className="text-[11px] text-[var(--color-text-muted)]">
+                        + {fmt(pending)} {isExpense ? 'a pagar' : 'a receber'}
+                      </span>
+                    )}
                     <Badge variant={isOver ? 'red' : 'green'} size="sm">
                       {pct.toFixed(0)}%
                     </Badge>

@@ -122,6 +122,12 @@ export default function BudgetCard() {
             )}
           </div>
 
+          {summary.pending > 0 && (
+            <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+              Conta só o que já está pago. {fmtFull(summary.pending)} lançado ainda a pagar.
+            </p>
+          )}
+
           <div className="mt-3 flex items-center gap-x-4 gap-y-1 flex-wrap">
             <button type="button" className={linkBtn} onClick={() => setEditing(e => !e)}>
               {editing ? 'Concluir edição' : 'Editar limites'}
@@ -160,11 +166,18 @@ export default function BudgetCard() {
                   </div>
                   <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                     {l.limit === null ? (
-                      !editing && <button type="button" className={linkBtn} onClick={() => setEditing(true)}>definir limite</button>
+                      <>
+                        {!editing && <button type="button" className={linkBtn} onClick={() => setEditing(true)}>definir limite</button>}
+                        {l.pending > 0 && <span>{!editing && ' · '}+ {fmtFull(l.pending)} a pagar</span>}
+                      </>
                     ) : l.status === 'estourado' ? (
-                      <span className="neg">estourou {fmtFull(l.spent - l.limit)} ({Math.round(pct)}%)</span>
+                      <span><span className="neg">estourou {fmtFull(l.spent - l.limit)} ({Math.round(pct)}%)</span>{l.pending > 0 && ` · + ${fmtFull(l.pending)} a pagar`}</span>
                     ) : (
-                      <span>{Math.round(pct)}% · restam {fmtFull(l.limit - l.spent)}</span>
+                      <span>
+              {Math.round(pct)}% · restam {fmtFull(l.limit - l.spent)}
+              {l.pending > 0 && ` · + ${fmtFull(l.pending)} a pagar`}
+              {l.projectedOver && <span style={{ color: 'var(--color-accent)' }}> · passa do limite se tudo for pago</span>}
+            </span>
                     )}
                   </div>
                 </div>

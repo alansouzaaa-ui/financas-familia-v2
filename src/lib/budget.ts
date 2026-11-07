@@ -5,13 +5,14 @@ export type BudgetStatus = 'ok' | 'alerta' | 'estourado' | 'sem-limite'
 
 export interface BudgetLine {
   key: string; label: string; emoji: string; color: string
-  spent: number; limit: number | null; pct: number | null
+  spent: number; pending: number; limit: number | null; pct: number | null
+  projectedOver: boolean
   status: BudgetStatus; count: number; inferredCount: number
 }
 
 export interface BudgetSummary {
   lines: BudgetLine[]
-  revenue: number; spent: number; budgeted: number
+  revenue: number; spent: number; pending: number; budgeted: number
   plannedSurplus: number | null
   overCount: number; alertCount: number; inferredCount: number
 }
@@ -54,30 +55,34 @@ const validValue = (v: number) => typeof v === 'number' && Number.isFinite(v) &&
 export function computeBudget(items: MonthItem[], limits: Record<string, number>, tags: ExpenseTag[]): BudgetSummary {
   const tagMap = toMap(tags)
   let revenue = 0
-  const acc = new Map<string, { spent: number; count: number; inferred: number }>()
+  const acc = new Map<string, { spent: number; pending: number; count: number; inferred: number }>()
 
   for (const it of items) {
     if (!validValue(it.value)) continue
     if (it.category === 'revenue') { revenue += it.value; continue }
     const { key, inferred } = lineKeyOf(it, tagMap)
-    const a = acc.get(key) ?? { spent: 0, count: 0, inferred: 0 }
-    a.spent += it.value
+    const a = acc.get(key) ?? { spent: 0, pending: 0, count: 0, inferred: 0 }
+    if (it.isPaid === true) a.spent += it.value
+    else a.pending += it.value
     a.count += 1
     if (inferred) a.inferred += 1
     acc.set(key, a)
   }
   for (const [k, v] of Object.entries(limits)) {
-    if (validValue(v) && !acc.has(k)) acc.set(k, { spent: 0, count: 0, inferred: 0 })
+    if (validValue(v) && !acc.has(k)) acc.set(k, { spent: 0, pending: 0, count: 0, inferred: 0 })
   }
 
   const lines: BudgetLine[] = [...acc.entries()].map(([key, a]) => {
     const raw = limits[key]
     const limit = validValue(raw) ? cents(raw) : null
     const spent = cents(a.spent)
+    const pending = cents(a.pending)
+    const status = statusFor(spent, limit)
     return {
-      key, ...lineMeta(key, tagMap), spent, limit,
+      key, ...lineMeta(key, tagMap), spent, pending, limit,
       pct: limit ? (spent / limit) * 100 : null,
-      status: statusFor(spent, limit),
+      status,
+      projectedOver: limit !== null && status !== 'estourado' && spent + pending > limit,
       count: a.count, inferredCount: a.inferred,
     }
   })
@@ -90,6 +95,7 @@ export function computeBudget(items: MonthItem[], limits: Record<string, number>
     lines,
     revenue,
     spent: cents(lines.reduce((s, l) => s + l.spent, 0)),
+    pending: cents(lines.reduce((s, l) => s + l.pending, 0)),
     budgeted,
     plannedSurplus: budgeted > 0 ? cents(revenue - budgeted) : null,
     overCount: lines.filter(l => l.status === 'estourado').length,
