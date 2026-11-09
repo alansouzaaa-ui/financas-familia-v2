@@ -29,9 +29,43 @@ parcelas futuras.
    O Claude nunca vê esses valores.
 3. `CRON_SECRET` já existe e é usado pelo cron de `/api/summary`.
 
+## Ajustes após conferir a API (2026-11-09)
+
+Estes ajustes prevalecem sobre o resto do documento em caso de conflito. Fonte: docs.pluggy.ai, páginas de referência de auth, items, transactions, bills e o guia Meu Pluggy.
+
+- **Conexão sem widget.** A conexão Meu Pluggy é criada no painel da Pluggy (Applications → app → Demo → Connect Account → MeuPluggy). Itens Meu Pluggy não podem ser atualizados manualmente: espelham o Meu Pluggy, que atualiza a cada 24 h. Por isso:
+  - Não entram `react-pluggy-connect` nem a ação `connect-token`.
+  - O bloco no app tem um campo "ID da conexão" (uuid copiado do painel) que chama `register-item`.
+  - "Reconectar" vira instrução de refazer a conexão no painel e colar o novo ID.
+  - "Sincronizar agora" só relê os dados da Pluggy; não força o banco a atualizar.
+- **Auth.** `POST /auth` com `{clientId, clientSecret}` devolve `{apiKey}`, válido por 2 h. As chamadas usam o header `X-API-KEY`.
+- **Item.** `GET /items/{id}` traz `status` (UPDATED, UPDATING, LOGIN_ERROR, OUTDATED, WAITING_USER_INPUT), `executionStatus`, `lastUpdatedAt`, `consentExpiresAt`, `error {code,message}` e `connector.name` ("MeuPluggy"). A autorização expirada aparece como LOGIN_ERROR com `error.code` USER_AUTHORIZATION_EXPIRED. O bloco mostra "Autorização vence em DD/MM/AAAA" quando houver `consentExpiresAt`.
+- **Contas.** `GET /accounts?itemId=` devolve `{results:[...]}`. Filtrar `type === 'CREDIT'`. `number` = final do cartão. Usar `creditData.balanceCloseDate` e `creditData.balanceDueDate` (yyyy-mm-dd).
+- **Transações.** `GET /v2/transactions?accountId=&dateFrom=yyyy-mm-dd&dateTo=yyyy-mm-dd` devolve `{results, next}`. A próxima página é `GET /v2/transactions` + `next`, até `next === null`. O endpoint antigo `/transactions` some em 2026-12-31 e não deve ser usado.
+- **Sinal.** A documentação é contraditória sobre o sinal do `amount` em cartão. Regra: `valor = |amount|`, positivo se `type === 'DEBIT'` (compra) e negativo se `type === 'CREDIT'` (estorno, cashback ou pagamento).
+- **Faturas.** `GET /bills?accountId=&page=&pageSize=` devolve `{results, totalPages}`. Cada fatura tem `id`, `dueDate` e `billClosingDate`. A transação liga-se à fatura por `creditCardMetadata.billId`, presente só em Open Finance. Parcelas vêm em `creditCardMetadata.installmentNumber` e `creditCardMetadata.totalInstallments`.
+- **Categorias Pluggy (nomes exatos):**
+
+  | Categoria Pluggy | Tag do app |
+  |---|---|
+  | Groceries | supermercado |
+  | Eating out | alimentacao |
+  | Food delivery | alimentacao |
+  | Pharmacy | farmacia |
+  | Taxi and ride-hailing | uber |
+  | Pet supplies and vet | pets |
+  | Clothing | vestuario |
+  | Airport and airlines | viagem |
+  | Accommodation | viagem |
+  | Gyms and fitness centers | academia |
+  | Gas stations | combustivel |
+
+  `Credit card payment` é tratado como pagamento de fatura e ignorado. `category` pode vir `null`.
+- **Limitação conhecida.** Se um aparelho desatualizado enviar dados logo depois de a sincronização mover ou atualizar uma compra, a versão do aparelho vence, como acontece hoje. A compra volta ao estado antigo e passa a contar como editada pelo usuário, ou seja, não é mais mexida. O app puxa os dados do servidor com frequência, então o risco é baixo.
+
 ## Arquitetura
 
-### Servidor (Vercel, runtime Node)
+### Servidor (Vercel, runtime Edge, como api/sync.ts)
 
 - `api/lib/pluggyClient.ts`: cliente HTTP mínimo da API Pluggy (`https://api.pluggy.ai`).
   - `POST /auth` com clientId/secret devolve um `apiKey` válido por cerca de 2 h, cacheado na instância.
@@ -61,8 +95,7 @@ parcelas futuras.
   - `POST {action:'sync'}`: o botão "Sincronizar agora".
   - `GET` com `Authorization: Bearer <CRON_SECRET>`: o cron diário. Sincroniza tudo.
   - Sem `PLUGGY_CLIENT_ID`/`SECRET`, devolve 503 com a mensagem "Integração não configurada".
-- `vercel.json`: novo cron `0 10 * * *` (07:00 BRT) chamando `/api/pluggy`, e
-  `maxDuration` 60 s para a função.
+- `vercel.json`: novo cron `0 10 * * *` (07:00 BRT) chamando `/api/pluggy`. Função Edge: sem `maxDuration`.
 
 ### Estado (no mesmo Gist do sync)
 
