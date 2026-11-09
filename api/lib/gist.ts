@@ -19,10 +19,16 @@ export async function getGistPayload(fetchImpl: typeof fetch = fetch): Promise<S
     },
   })
   if (!res.ok) throw new Error(`Gist GET ${res.status}`)
-  const json = await res.json() as { files: Record<string, { content: string }> }
+  const json = await res.json() as { files: Record<string, GistFileInfo> }
   const file = json.files[GIST_FILE]
   if (!file) throw new Error(`File ${GIST_FILE} not found in Gist`)
-  const content = file.content
+  let content = file.content
+  // Acima de ~1MB a API corta o content: lê o arquivo completo em raw_url (sem o token).
+  if (file.truncated && file.raw_url) {
+    const raw = await fetchImpl(file.raw_url)
+    if (!raw.ok) throw new Error(`Gist raw ${raw.status}`)
+    content = await raw.text()
+  }
   if (!content || content === 'null') return null
   return JSON.parse(content) as SyncPayload
 }

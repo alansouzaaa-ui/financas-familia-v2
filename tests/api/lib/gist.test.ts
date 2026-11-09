@@ -37,6 +37,23 @@ describe('getGistPayload', () => {
     await expect(getGistPayload(fetchImpl as typeof fetch)).resolves.toEqual(payload)
   })
 
+  it('reads raw_url when the file is truncated (>1MB)', async () => {
+    const payload: SyncPayload = { manual_months: [], goals: [], recurring_items: [], investment_positions: [], updated_at: '2026-11-09T00:00:00.000Z' }
+    const urls: string[] = []
+    const fetchImpl = async (url: string, init?: RequestInit) => {
+      urls.push(url)
+      if (url === 'https://gist.githubusercontent.com/raw/financas-sync.json') {
+        expect(init?.headers).toBeUndefined() // não envia o token a outro host
+        return new Response(JSON.stringify(payload), { status: 200 })
+      }
+      return new Response(JSON.stringify({ files: { 'financas-sync.json': {
+        content: '{"manual_months":[', truncated: true, raw_url: 'https://gist.githubusercontent.com/raw/financas-sync.json',
+      } } }), { status: 200 })
+    }
+    await expect(getGistPayload(fetchImpl as typeof fetch)).resolves.toEqual(payload)
+    expect(urls).toHaveLength(2)
+  })
+
   it('throws when GET is not ok', async () => {
     const fetchImpl = async () => new Response('', { status: 500 })
     await expect(getGistPayload(fetchImpl as typeof fetch)).rejects.toThrow('Gist GET 500')
