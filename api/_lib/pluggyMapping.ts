@@ -81,22 +81,24 @@ export function billMonthKey(
   return addMonths(d.slice(0, 7), 1)
 }
 
+const PAYMENT_RE = /\b(pagamento|pgto)\b/i
+const REFUND_RE = /estorno|devolu|cancel|reembols|cashback/i
+const PREV_BALANCE_RE = /saldo\s+anterior|fatura\s+anterior/i
+
 export function signedValue(tx: PluggyTx): number {
   const v = cents(Math.abs(tx.amount))
+  // Estorno/cashback é sempre crédito, mesmo que a Pluggy marque como DEBIT.
+  if (REFUND_RE.test(tx.description)) return -v
   return tx.type === 'CREDIT' ? -v : v
 }
-
-const PAYMENT_RE = /^\s*(pagamento|pgto)\b/i
-const REFUND_RE = /estorno|devolu|cancel|reembols|cashback/i
-const PREV_BALANCE_RE = /saldo\s+anterior/i
 
 export function isIgnored(tx: PluggyTx): boolean {
   if (cents(Math.abs(tx.amount)) === 0) return true
   if (PREV_BALANCE_RE.test(tx.description)) return true
   if (tx.type === 'CREDIT') {
     if (tx.category === 'Credit card payment') return true
-    // Sem categoria: só "PAGAMENTO..." no início e que não seja estorno/devolução.
-    if (!tx.category && PAYMENT_RE.test(tx.description) && !REFUND_RE.test(tx.description)) return true
+    // "PAGAMENTO"/"PGTO" em qualquer posição, qualquer categoria, desde que não seja estorno/devolução.
+    if (PAYMENT_RE.test(tx.description) && !REFUND_RE.test(tx.description)) return true
   }
   return false
 }

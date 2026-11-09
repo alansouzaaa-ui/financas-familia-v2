@@ -227,3 +227,18 @@ describe('applyPluggySync', () => {
     expect(out.counts.created).toBe(0)
   })
 })
+
+describe('applyPluggySync - dados reais Caixa', () => {
+  it('parcela do PDF (data da compra original) casa com a Pluggy pela parcela (NN/TT), independente da data', () => {
+    const pdf: MonthItem = { id: 'pdf1', description: 'AMAZON PRIME BR (06/12)', value: 13.9, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-05-04T12:00:00.000Z' }
+    const t = tx({ id: 'am', description: 'AMAZON PRIME BR', amount: 13.9, date: '2026-10-30T15:00:00.000Z', creditCardMetadata: { installmentNumber: 6, totalInstallments: 12 } })
+    const out = run(pay([pdf]), st(), fetch1([t]))
+    expect(items(out.payload).map(i => i.id)).toEqual(['pdf1'])
+    expect(out.counts.skippedDuplicates).toBe(1)
+  })
+  it('parcela diferente não casa pelo critério de parcela', () => {
+    const pdf: MonthItem = { id: 'pdf1', description: 'AMAZON PRIME BR (05/12)', value: 13.9, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-05-04T12:00:00.000Z' }
+    const t = tx({ id: 'am', description: 'AMAZON PRIME BR', amount: 13.9, date: '2026-10-30T15:00:00.000Z', creditCardMetadata: { installmentNumber: 6, totalInstallments: 12 } })
+    expect(run(pay([pdf]), st(), fetch1([t])).counts.created).toBe(1)
+  })
+})

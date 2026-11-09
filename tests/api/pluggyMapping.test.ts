@@ -108,3 +108,21 @@ describe('datas ISO da Pluggy', () => {
     expect(billMonthKey(tx({ date: '2026-11-02T15:00:00.000Z' }), new Map(), { closeDate: '2026-11-03T00:00:00.000Z', dueDate: '2026-11-10T00:00:00.000Z' })).toBe('2026-11')
   })
 })
+
+describe('pluggyMapping - dados reais Caixa (Meu Pluggy)', () => {
+  it('pagamento de fatura com categoria diferente de "Credit card payment" é ignorado', () => {
+    expect(isIgnored(tx({ type: 'CREDIT', amount: -1061.11, description: 'PGTO.BOLETO REGISTRADO', category: 'Transfers' }))).toBe(true)
+    expect(isIgnored(tx({ type: 'CREDIT', amount: -1138.18, description: 'AUT. PGTO. BOLETO REGISTRADO', category: 'Other' }))).toBe(true)
+  })
+  it('estorno com "pagamento" no texto não é tratado como pagamento de fatura', () => {
+    expect(isIgnored(tx({ type: 'CREDIT', description: 'ESTORNO PAGAMENTO LOJA', category: 'Shopping' }))).toBe(false)
+  })
+  it('linha de fatura anterior é ignorada', () => {
+    expect(isIgnored(tx({ type: 'CREDIT', amount: 1146.8, description: 'TOTAL DA FATURA ANTERIOR' }))).toBe(true)
+    expect(isIgnored(tx({ type: 'DEBIT', amount: 1146.8, description: 'TOTAL DA FATURA ANTERIOR' }))).toBe(true)
+  })
+  it('cashback sempre negativo, mesmo vindo como DEBIT', () => {
+    expect(signedValue(tx({ type: 'DEBIT', amount: 8.62, description: 'CASHBACK ANUIDADE GASTOS TIT' }))).toBe(-8.62)
+    expect(signedValue(tx({ type: 'CREDIT', amount: 8.62, description: 'CASHBACK ANUIDADE GASTOS TIT' }))).toBe(-8.62)
+  })
+})
