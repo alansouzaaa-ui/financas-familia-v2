@@ -108,7 +108,12 @@ export async function runSync(deps: Deps): Promise<PluggyStatusView> {
 
   // Relê o Gist logo antes de gravar para não pisar em push recente do app.
   const fresh = (await deps.load()) ?? emptyPayload()
-  const base: PluggyState = { ...(fresh.pluggy ?? before), ...itemPart, accounts }
+  // Preserva cardId de um map-account feito durante o sync em andamento.
+  const merged = accounts.map(a => {
+    const live = fresh.pluggy?.accounts.find(x => x.id === a.id)
+    return live ? { ...a, cardId: live.cardId } : a
+  })
+  const base: PluggyState = { ...(fresh.pluggy ?? before), ...itemPart, accounts: merged }
   const cardDueDays = Object.fromEntries((fresh.card_accounts ?? []).map(c => [c.id, c.dueDay]))
   const applied = applyPluggySync(fresh, base, fetched, { now, cardDueDays })
   // lastSyncAt só avança se ao menos uma conta foi lida (ou não havia erro algum).

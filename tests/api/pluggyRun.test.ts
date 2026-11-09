@@ -77,4 +77,24 @@ describe('pluggyRun', () => {
     const v = await readStatus(deps)
     expect(v).toMatchObject({ itemStatus: 'LOGIN_ERROR', itemError: 'USER_AUTHORIZATION_EXPIRED' })
   })
+  it('runSync preserva cardId mapeado durante o sync em andamento', async () => {
+    const { deps } = makeDeps()
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await mapAccount(deps, 'acc1', 'card-alan')
+    let first = true
+    const base = await deps.load()
+    const racing: Deps = {
+      ...deps,
+      load: async () => {
+        const p = (await deps.load())!
+        if (first) { first = false; return p }
+        // segunda leitura: usuário trocou o vínculo no meio do sync
+        return { ...p, pluggy: { ...p.pluggy!, accounts: p.pluggy!.accounts.map(a => ({ ...a, cardId: null })) } }
+      },
+    }
+    expect(base?.pluggy?.accounts[0].cardId).toBe('card-alan')
+    // roda sync (passa o guard: sem lastResult)
+    const v = await runSync(racing)
+    expect(v.accounts[0].cardId).toBeNull()
+  })
 })
