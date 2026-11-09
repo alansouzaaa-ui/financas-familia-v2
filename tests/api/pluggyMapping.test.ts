@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   spDate, addMonths, billMonthKey, signedValue, isIgnored, describe as describeTx,
-  tagFor, fingerprint, windowStart, type PluggyTx,
+  tagFor, fingerprint, windowStart, toYmd, type PluggyTx,
 } from '../../api/_lib/pluggyMapping'
 
 const tx = (over: Partial<PluggyTx>): PluggyTx => ({
@@ -83,5 +83,28 @@ describe('pluggyMapping', () => {
     expect(windowStart(a, bills, null)).toBe('2026-10-04')
     expect(windowStart(a, [], null)).toBe('2026-10-04') // sem faturas: closeDate − 1 mês + 1 dia
     expect(windowStart({ ...a, syncedOnce: true }, bills, '2026-11-09T10:00:00.000Z')).toBe('2026-09-25')
+  })
+})
+
+describe('datas ISO da Pluggy', () => {
+  it('toYmd normaliza', () => {
+    expect(toYmd(null)).toBeNull()
+    expect(toYmd(undefined)).toBeNull()
+    expect(toYmd('')).toBeNull()
+    expect(toYmd('2026-10-03')).toBe('2026-10-03')
+    expect(toYmd('2026-10-03T00:00:00.000Z')).toBe('2026-10-03')
+    expect(toYmd('Oct 3, 2026 10:00:00 UTC')).toBe('2026-10-03')
+    expect(toYmd('lixo')).toBeNull()
+  })
+  it('windowStart aceita closeDate e faturas em ISO', () => {
+    const a = { id: 'x', name: 'c', last4: null, cardId: 'k', closeDate: '2026-11-03T00:00:00.000Z', dueDate: '2026-11-10T00:00:00.000Z', syncedOnce: false }
+    const bills = [{ id: 'b', dueDate: '2026-10-10T00:00:00.000Z', billClosingDate: '2026-10-03T00:00:00.000Z' }]
+    expect(windowStart(a, bills, null)).toBe('2026-10-04')
+  })
+  it('billMonthKey aceita datas ISO de fatura', () => {
+    const bills = new Map([['b', { id: 'b', dueDate: '2026-10-10T00:00:00.000Z', billClosingDate: '2026-10-03T00:00:00.000Z' }]])
+    expect(billMonthKey(tx({ creditCardMetadata: { billId: 'b' } }), bills, acct)).toBe('2026-10')
+    expect(billMonthKey(tx({ date: '2026-09-20T15:00:00.000Z' }), bills, acct)).toBe('2026-10')
+    expect(billMonthKey(tx({ date: '2026-11-02T15:00:00.000Z' }), new Map(), { closeDate: '2026-11-03T00:00:00.000Z', dueDate: '2026-11-10T00:00:00.000Z' })).toBe('2026-11')
   })
 })

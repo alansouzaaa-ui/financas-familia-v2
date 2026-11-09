@@ -3,7 +3,7 @@ import type { SyncPayload } from '../../src/lib/syncService'
 import { toStatusView, type PluggyAccountLink, type PluggyState, type PluggyStatusView } from '../../src/lib/pluggyState'
 import { PluggyError, type PluggyClient } from './pluggyClient'
 import { applyPluggySync, type AccountFetch } from './pluggySync'
-import { spDate, windowStart } from './pluggyMapping'
+import { spDate, toYmd, windowStart } from './pluggyMapping'
 
 export interface Deps {
   client: PluggyClient
@@ -35,8 +35,8 @@ async function refreshAccounts(
       name: a.name,
       last4,
       cardId: old?.cardId ?? null,
-      closeDate: a.creditData?.balanceCloseDate ?? null,
-      dueDate: a.creditData?.balanceDueDate ?? null,
+      closeDate: toYmd(a.creditData?.balanceCloseDate),
+      dueDate: toYmd(a.creditData?.balanceDueDate),
       syncedOnce: byId?.syncedOnce ?? false,
     }
   })
@@ -112,7 +112,7 @@ export async function runSync(deps: Deps): Promise<PluggyStatusView> {
         const transactions = await deps.client.getTransactions(acc.id, windowFrom, dateTo)
         fetched.push({ account: acc, transactions, bills, windowFrom })
       } catch (err) {
-        let detail = 'erro inesperado'
+        let detail = `erro inesperado (${err instanceof Error ? err.name : 'desconhecido'})`
         if (err instanceof PluggyError) {
           const m = /^Pluggy respondeu \d+: (.+)$/.exec(err.message)
           detail = m ? `${err.status} — ${m[1]}` : `${err.status}`

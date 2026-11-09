@@ -132,4 +132,16 @@ describe('pluggyRun', () => {
     expect(v.lastResult).toBeNull()
     expect(get().pluggy?.accounts[0].syncedOnce).toBe(false)
   })
+  it('runSync aceita datas ISO da Pluggy (conta e faturas)', async () => {
+    const { deps, client, get } = makeDeps({
+      getCreditAccounts: vi.fn(async () => [{ id: 'acc1', type: 'CREDIT', name: 'Caixa Visa', number: '1234', creditData: { balanceCloseDate: '2026-11-03T00:00:00.000Z', balanceDueDate: '2026-11-10T00:00:00.000Z' } }]),
+      getBills: vi.fn(async () => [{ id: 'b', dueDate: '2026-10-10T00:00:00.000Z', billClosingDate: '2026-10-03T00:00:00.000Z' }]),
+    } as never)
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await mapAccount(deps, 'acc1', 'card-alan')
+    get().pluggy!.lastResult = undefined
+    const v = await runSync(deps)
+    expect(v.lastResult?.ok).toBe(true)
+    expect(client.getTransactions).toHaveBeenCalledWith('acc1', '2026-10-04', '2026-11-10')
+  })
 })

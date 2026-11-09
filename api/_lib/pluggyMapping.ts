@@ -19,6 +19,14 @@ export interface PluggyBill { id: string; dueDate: string; billClosingDate?: str
 const cents = (n: number) => Math.round(n * 100) / 100
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
+/** Normaliza data da Pluggy (ISO datetime ou YYYY-MM-DD) para YYYY-MM-DD; inválida -> null. */
+export function toYmd(s: string | null | undefined): string | null {
+  if (!s) return null
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const t = Date.parse(s)
+  return Number.isNaN(t) ? null : new Date(t).toISOString().slice(0, 10)
+}
+
 export function spDate(iso: string): string {
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return iso.slice(0, 10)
@@ -44,19 +52,23 @@ export function billMonthKey(
 ): string {
   const billId = tx.creditCardMetadata?.billId
   const bill = billId ? bills.get(billId) : undefined
-  if (bill?.dueDate) return bill.dueDate.slice(0, 7)
+  const billDue = toYmd(bill?.dueDate)
+  if (billDue) return billDue.slice(0, 7)
 
   const d = spDate(tx.date)
   // Sem billId: a fatura mais antiga cujo fechamento ainda cobre a compra (evita
   // mandar para o mês seguinte uma compra de fatura já fechada quando o closeDate avança).
   const covering = [...bills.values()]
-    .filter(b => b.billClosingDate && d <= b.billClosingDate.slice(0, 10))
-    .sort((a, b) => a.billClosingDate!.localeCompare(b.billClosingDate!))[0]
-  if (covering?.dueDate) return covering.dueDate.slice(0, 7)
+    .map(b => ({ close: toYmd(b.billClosingDate), due: toYmd(b.dueDate) }))
+    .filter((b): b is { close: string; due: string | null } => !!b.close && d <= b.close)
+    .sort((a, b) => a.close.localeCompare(b.close))[0]
+  if (covering?.due) return covering.due.slice(0, 7)
 
-  if (acct.closeDate && acct.dueDate) {
-    const due = acct.dueDate.slice(0, 7)
-    return d <= acct.closeDate ? due : addMonths(due, 1)
+  const acctClose = toYmd(acct.closeDate)
+  const acctDue = toYmd(acct.dueDate)
+  if (acctClose && acctDue) {
+    const due = acctDue.slice(0, 7)
+    return d <= acctClose ? due : addMonths(due, 1)
   }
   if (cardDueDay && cardDueDay >= 1 && cardDueDay <= 31) {
     for (let k = 0; k <= 2; k++) {
@@ -122,13 +134,14 @@ export function fingerprint(value: number, description: string, monthKey: string
 export function windowStart(acct: PluggyAccountLink, bills: PluggyBill[], lastSyncAt: string | null): string {
   if (acct.syncedOnce && lastSyncAt) return addDays(spDate(lastSyncAt), -45)
   // 1ª sync: do dia seguinte ao fechamento anterior ao fechamento corrente.
-  const closes = bills.map(b => b.billClosingDate).filter((c): c is string => !!c).sort()
-  if (acct.closeDate) {
-    const prev = closes.filter(c => c < acct.closeDate!).pop()
+  const closes = bills.map(b => toYmd(b.billClosingDate)).filter((c): c is string => !!c).sort()
+  const closeDate = toYmd(acct.closeDate)
+  if (closeDate) {
+    const prev = closes.filter(c => c < closeDate).pop()
     // Sem fatura anterior: mesmo dia no mês anterior, limitado ao último dia dele (31/03 -> 28/02).
-    const ym = addMonths(acct.closeDate.slice(0, 7), -1)
+    const ym = addMonths(closeDate.slice(0, 7), -1)
     const [y, m] = ym.split('-').map(Number)
-    const day = Math.min(Number(acct.closeDate.slice(8, 10)), new Date(Date.UTC(y, m, 0)).getUTCDate())
+    const day = Math.min(Number(closeDate.slice(8, 10)), new Date(Date.UTC(y, m, 0)).getUTCDate())
     const prevClose = prev ?? `${ym}-${pad2(day)}`
     return addDays(prevClose, 1)
   }

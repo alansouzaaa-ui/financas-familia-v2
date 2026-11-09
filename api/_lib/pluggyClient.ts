@@ -1,5 +1,5 @@
 // Cliente mínimo da API Pluggy. Server-only. Nunca loga credenciais nem dados de transação.
-import type { PluggyBill, PluggyTx } from './pluggyMapping'
+import { toYmd, type PluggyBill, type PluggyTx } from './pluggyMapping'
 
 const BASE = 'https://api.pluggy.ai'
 const MAX_TX_PAGES = 50
@@ -90,7 +90,10 @@ export function createPluggyClient(
       for (let page = 1; page <= MAX_BILL_PAGES; page++) {
         const data = await get<{ results?: PluggyBill[]; totalPages?: number }>(
           `/bills?accountId=${encodeURIComponent(accountId)}&page=${page}&pageSize=500`)
-        out.push(...(data.results ?? []))
+        for (const b of data.results ?? []) {
+          const dueDate = toYmd(b.dueDate)
+          if (dueDate) out.push({ ...b, dueDate, billClosingDate: toYmd(b.billClosingDate) })
+        }
         if (!data.totalPages || page >= data.totalPages) return out
       }
       throw new PluggyError('Lista de faturas da Pluggy incompleta.', 502)

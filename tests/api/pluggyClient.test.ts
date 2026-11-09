@@ -90,4 +90,12 @@ describe('pluggyClient', () => {
       ? new Response(JSON.stringify({ apiKey: 'K' })) : new Response('<html>', { status: 200 })) as unknown as typeof fetch
     await expect(createPluggyClient(creds, f).getItem('it')).rejects.toMatchObject({ message: 'Resposta inválida da Pluggy.', status: 502 })
   })
+  it('getBills normaliza datas ISO para YYYY-MM-DD', async () => {
+    const f = mockFetch({ '/auth': { apiKey: 'K' }, '/bills': { results: [
+      { id: 'b1', dueDate: '2026-10-10T00:00:00.000Z', billClosingDate: '2026-10-03T00:00:00.000Z' },
+      { id: 'b2', dueDate: 'invalida' },
+    ], totalPages: 1 } })
+    const bills = await createPluggyClient(creds, f).getBills('a')
+    expect(bills).toEqual([{ id: 'b1', dueDate: '2026-10-10', billClosingDate: '2026-10-03' }])
+  })
 })
