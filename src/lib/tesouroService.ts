@@ -23,7 +23,7 @@ export async function fetchTesouroTitles(): Promise<TesouroTitle[]> {
 export interface TesouroPuOnDate { pu: number; date: string }
 
 // PU de um título (tipo + vencimento) na data da compra (ou pregão anterior mais
-// próximo), via /api/tesouro-pu. Nunca lança: em falha retorna null.
+// próximo), via /api/tesouro?data=… (roteado p/ helper de PU). Nunca lança: em falha retorna null.
 export async function fetchTesouroPuOnDate(
   tipo: string,
   venc: string,
@@ -31,7 +31,7 @@ export async function fetchTesouroPuOnDate(
 ): Promise<TesouroPuOnDate | null> {
   try {
     const qs = new URLSearchParams({ tipo, venc, data: dataISO }).toString()
-    const res = await fetch(`/api/tesouro-pu?${qs}`)
+    const res = await fetch(`/api/tesouro?${qs}`)
     if (!res.ok) return null
     const j = await res.json() as { pu?: number | null; date?: string }
     if (typeof j.pu === 'number' && isFinite(j.pu) && j.pu > 0) {

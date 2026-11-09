@@ -4,6 +4,8 @@
 // mais antigo, então lemos só o bloco da data mais recente via streaming
 // (poucos KB) em vez de baixar todo o histórico. Degrada com elegância:
 // qualquer falha devolve lista vazia e a UI mostra a posição pelo custo.
+import { handleTesouroPu } from './lib/tesouroPu'
+
 export const config = { runtime: 'edge' }
 
 const CSV_URL =
@@ -28,7 +30,9 @@ function brNum(s: string | undefined): number | null {
 
 interface Title { name: string; tipo: string; pu: number; buyPu: number | null; sellRate: number | null; maturity: string | null }
 
-export default async function handler(): Promise<Response> {
+export default async function handler(req: Request): Promise<Response> {
+  // Consulta de PU histórico (tipo+venc+data) é roteada aqui para poupar uma Function.
+  if (new URL(req.url).searchParams.has('data')) return handleTesouroPu(req)
   try {
     const res = await fetch(CSV_URL, {
       headers: {

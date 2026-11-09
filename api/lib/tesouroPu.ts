@@ -1,10 +1,8 @@
-// api/tesouro-pu.ts — Vercel Edge Function
+// api/lib/tesouroPu.ts — helper (roteado por api/tesouro.ts quando há ?data=)
 // PU (preço unitário) de um título do Tesouro Direto numa DATA de compra, a partir
 // dos DADOS ABERTOS do Tesouro Transparente. O CSV vem do mais recente para o mais
 // antigo, então transmitimos até cruzar a data pedida e pegamos o primeiro pregão
 // <= data para o título (tipo + vencimento). Degrada com elegância: {pu:null}.
-export const config = { runtime: 'edge' }
-
 const CSV_URL =
   'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv'
 
@@ -30,7 +28,7 @@ function toIso(ddmmyyyy: string): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export async function handleTesouroPu(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const tipo = (url.searchParams.get('tipo') ?? '').trim()
   const venc = (url.searchParams.get('venc') ?? '').trim()
