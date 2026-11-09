@@ -7,9 +7,7 @@ const CSV = [
   HEADER,
   'Tesouro Selic;01/03/2029;02/11/2026;0,01;0,02;14.900,00;15.000,00;15.000,00',
   'Tesouro Selic;01/03/2029;30/10/2026;0,01;0,02;14.800,00;14.950,00;14.950,00',
-].join('
-') + '
-'
+].join('\n') + '\n'
 
 function mockCsv() {
   const f = vi.fn(async () => new Response(CSV, { status: 200 }))
