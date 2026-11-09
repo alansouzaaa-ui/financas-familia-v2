@@ -1,0 +1,80 @@
+import { describe, it, expect, vi } from 'vitest'
+import { registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/lib/pluggyRun'
+import type { SyncPayload } from '../../src/lib/syncService'
+
+const NOW = new Date('2026-11-09T10:00:00.000Z')
+const empty = (): SyncPayload => ({ manual_months: [], goals: [], recurring_items: [], investment_positions: [], card_accounts: [{ id: 'card-alan', name: 'Alan', dueDay: 10 }] })
+
+function makeDeps(over: Partial<Deps['client']> = {}, initial: SyncPayload = empty()) {
+  let stored: SyncPayload = initial
+  const client = {
+    getItem: vi.fn(async () => ({ id: 'it', status: 'UPDATED', consentExpiresAt: '2027-11-01T00:00:00.000Z', connector: { name: 'MeuPluggy' } })),
+    getCreditAccounts: vi.fn(async () => [{ id: 'acc1', type: 'CREDIT', name: 'Caixa Visa', number: '1234', creditData: { balanceCloseDate: '2026-11-03', balanceDueDate: '2026-11-10' } }]),
+    getBills: vi.fn(async () => []),
+    getTransactions: vi.fn(async () => [{ id: 't1', description: 'MERCADO BOM', amount: 100, type: 'DEBIT', date: '2026-11-05T15:00:00.000Z', status: 'POSTED', category: null }]),
+    ...over,
+  }
+  const deps: Deps = {
+    client: client as unknown as Deps['client'],
+    load: async () => stored,
+    save: vi.fn(async (p: SyncPayload) => { stored = p }),
+    now: () => NOW,
+  }
+  return { deps, client, get: () => stored }
+}
+
+describe('pluggyRun', () => {
+  it('registerItem valida uuid', async () => {
+    const { deps } = makeDeps()
+    await expect(registerItem(deps, 'nao-e-uuid')).rejects.toThrow(/ID da conexão/)
+  })
+  it('registerItem grava item e contas sem cartão', async () => {
+    const { deps, get } = makeDeps()
+    const v = await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    expect(v.connected).toBe(true)
+    expect(v.accounts).toEqual([{ id: 'acc1', name: 'Caixa Visa', last4: '1234', cardId: null }])
+    expect(get().pluggy?.itemId).toBe('11111111-2222-3333-4444-555555555555')
+  })
+  it('mapAccount liga a conta e rejeita cartão inexistente', async () => {
+    const { deps } = makeDeps()
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await expect(mapAccount(deps, 'acc1', 'nao-existe')).rejects.toThrow(/Cartão/)
+    expect((await mapAccount(deps, 'acc1', 'card-alan')).accounts[0].cardId).toBe('card-alan')
+  })
+  it('runSync cria lançamentos só de conta ligada e grava lastResult', async () => {
+    const { deps, client, get } = makeDeps()
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    let v = await runSync(deps)
+    expect(client.getTransactions).not.toHaveBeenCalled()
+    expect(v.lastResult?.created).toBe(0)
+    await mapAccount(deps, 'acc1', 'card-alan')
+    // força passar do guard de 60 s
+    get().pluggy!.lastResult = { ...get().pluggy!.lastResult!, at: '2026-11-09T09:00:00.000Z' }
+    v = await runSync(deps)
+    expect(v.lastResult).toMatchObject({ ok: true, created: 1 })
+    expect(v.lastSyncAt).toBe(NOW.toISOString())
+    expect(client.getTransactions).toHaveBeenCalledWith('acc1', '2026-10-04', '2026-11-10')
+  })
+  it('runSync em < 60 s devolve o resultado anterior sem chamar a Pluggy', async () => {
+    const { deps, client } = makeDeps()
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await runSync(deps)
+    client.getItem.mockClear()
+    await runSync(deps)
+    expect(client.getItem).not.toHaveBeenCalled()
+  })
+  it('falha na Pluggy grava ok=false e mantém lastSyncAt', async () => {
+    const { deps, get } = makeDeps({ getCreditAccounts: vi.fn(async () => { throw new Error('boom') }) })
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555').catch(() => {})
+    get().pluggy = { itemId: 'it', itemStatus: 'UPDATED', itemError: null, consentExpiresAt: null, accounts: [], lastSyncAt: '2026-11-08T10:00:00.000Z', lastResult: null, seen: {} }
+    const v = await runSync(deps)
+    expect(v.lastResult?.ok).toBe(false)
+    expect(v.lastSyncAt).toBe('2026-11-08T10:00:00.000Z')
+  })
+  it('status de erro do item é exposto', async () => {
+    const { deps } = makeDeps({ getItem: vi.fn(async () => ({ id: 'it', status: 'LOGIN_ERROR', error: { code: 'USER_AUTHORIZATION_EXPIRED' } })) })
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    const v = await readStatus(deps)
+    expect(v).toMatchObject({ itemStatus: 'LOGIN_ERROR', itemError: 'USER_AUTHORIZATION_EXPIRED' })
+  })
+})
