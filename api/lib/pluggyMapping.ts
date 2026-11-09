@@ -47,6 +47,13 @@ export function billMonthKey(
   if (bill?.dueDate) return bill.dueDate.slice(0, 7)
 
   const d = spDate(tx.date)
+  // Sem billId: a fatura mais antiga cujo fechamento ainda cobre a compra (evita
+  // mandar para o mês seguinte uma compra de fatura já fechada quando o closeDate avança).
+  const covering = [...bills.values()]
+    .filter(b => b.billClosingDate && d <= b.billClosingDate.slice(0, 10))
+    .sort((a, b) => a.billClosingDate!.localeCompare(b.billClosingDate!))[0]
+  if (covering?.dueDate) return covering.dueDate.slice(0, 7)
+
   if (acct.closeDate && acct.dueDate) {
     const due = acct.dueDate.slice(0, 7)
     return d <= acct.closeDate ? due : addMonths(due, 1)
@@ -67,13 +74,18 @@ export function signedValue(tx: PluggyTx): number {
   return tx.type === 'CREDIT' ? -v : v
 }
 
-const PAYMENT_RE = /\b(pagamento|pgto)\b/i
+const PAYMENT_RE = /^\s*(pagamento|pgto)\b/i
+const REFUND_RE = /estorno|devolu|cancel|reembols|cashback/i
 const PREV_BALANCE_RE = /saldo\s+anterior/i
 
 export function isIgnored(tx: PluggyTx): boolean {
   if (cents(Math.abs(tx.amount)) === 0) return true
   if (PREV_BALANCE_RE.test(tx.description)) return true
-  if (tx.type === 'CREDIT' && (tx.category === 'Credit card payment' || PAYMENT_RE.test(tx.description))) return true
+  if (tx.type === 'CREDIT') {
+    if (tx.category === 'Credit card payment') return true
+    // Sem categoria: só "PAGAMENTO..." no início e que não seja estorno/devolução.
+    if (!tx.category && PAYMENT_RE.test(tx.description) && !REFUND_RE.test(tx.description)) return true
+  }
   return false
 }
 
@@ -113,7 +125,11 @@ export function windowStart(acct: PluggyAccountLink, bills: PluggyBill[], lastSy
   const closes = bills.map(b => b.billClosingDate).filter((c): c is string => !!c).sort()
   if (acct.closeDate) {
     const prev = closes.filter(c => c < acct.closeDate!).pop()
-    const prevClose = prev ?? `${addMonths(acct.closeDate.slice(0, 7), -1)}${acct.closeDate.slice(7)}`
+    // Sem fatura anterior: mesmo dia no mês anterior, limitado ao último dia dele (31/03 -> 28/02).
+    const ym = addMonths(acct.closeDate.slice(0, 7), -1)
+    const [y, m] = ym.split('-').map(Number)
+    const day = Math.min(Number(acct.closeDate.slice(8, 10)), new Date(Date.UTC(y, m, 0)).getUTCDate())
+    const prevClose = prev ?? `${ym}-${pad2(day)}`
     return addDays(prevClose, 1)
   }
   const lastClose = closes.pop()

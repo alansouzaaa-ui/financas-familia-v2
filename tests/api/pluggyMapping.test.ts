@@ -58,6 +58,22 @@ describe('pluggyMapping', () => {
     expect(tagFor('XPTO 123', 'Gas stations')).toBe('combustivel')
     expect(tagFor('XPTO 123', null)).toBeUndefined()
   })
+  it('windowStart sem faturas: fechamento em dia 29-31 limita ao último dia do mês anterior', () => {
+    const a = { id: 'a', name: 'n', last4: null, cardId: 'c', closeDate: '2026-03-31', dueDate: '2026-04-10', syncedOnce: false }
+    expect(windowStart(a, [], null)).toBe('2026-03-01') // dia seguinte a 28/02
+    expect(windowStart({ ...a, closeDate: '2026-05-31' }, [], null)).toBe('2026-05-01') // dia seguinte a 30/04
+  })
+  it('isIgnored: estorno que menciona pagamento não é descartado; pagamento sem categoria é', () => {
+    const r = tx({ type: 'CREDIT', description: 'ESTORNO PAGAMENTO LOJA X' })
+    expect(isIgnored(r)).toBe(false)
+    expect(signedValue(r)).toBe(-50)
+    expect(isIgnored(tx({ type: 'CREDIT', description: 'PAGAMENTO RECEBIDO', category: null }))).toBe(true)
+  })
+  it('sem billId: usa a fatura cujo fechamento cobre a compra antes do closeDate da conta', () => {
+    const bills = new Map([['b', { id: 'b', dueDate: '2026-11-10', billClosingDate: '2026-11-03' }]])
+    const advanced = { closeDate: '2026-12-03', dueDate: '2026-12-10' }
+    expect(billMonthKey(tx({ date: '2026-10-20T15:00:00.000Z' }), bills, advanced)).toBe('2026-11')
+  })
   it('fingerprint estável', () => {
     expect(fingerprint(10, 'A', '2026-11')).toBe('10.00|A|2026-11')
   })
