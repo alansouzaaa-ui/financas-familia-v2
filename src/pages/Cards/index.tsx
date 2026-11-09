@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import PageHeader from '@/components/ui/PageHeader'
 import NovaDespesaModal from '@/pages/Launch/NovaDespesaModal'
 import ImportInvoiceModal from './ImportInvoiceModal'
+import BankConnectionCard from './BankConnectionCard'
 
 // Dias até o próximo vencimento (dia `dueDay`) a partir de hoje.
 function daysUntilDue(dueDay?: number): number | null {
@@ -121,6 +122,8 @@ export default function CardsPage() {
           Nova despesa
         </button>
       </PageHeader>
+
+      <BankConnectionCard />
 
       {showModal && (
         <NovaDespesaModal

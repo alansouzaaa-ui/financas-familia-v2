@@ -163,6 +163,7 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
     const chips: string[] = []
     if (e.item.category === 'cards') chips.push((e.item.cardId && cardName[e.item.cardId]) || 'Cartão')
     if (e.item.source === 'telegram') chips.push('Telegram')
+    if (e.item.source === 'pluggy') chips.push('Banco')
     else if (e.item.source === 'import') chips.push('Fatura')
     return chips
   }

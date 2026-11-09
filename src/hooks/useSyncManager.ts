@@ -290,10 +290,13 @@ export function useSyncManager() {
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('pagehide', flush)
     window.addEventListener('focus', onFocus)
+    const onForcePull = () => { lastPullAt.current = 0; void refreshIfStale() }
+    window.addEventListener('ff:force-pull', onForcePull)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pagehide', flush)
       window.removeEventListener('focus', onFocus)
+      window.removeEventListener('ff:force-pull', onForcePull)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
