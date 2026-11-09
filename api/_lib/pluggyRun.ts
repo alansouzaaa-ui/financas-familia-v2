@@ -1,7 +1,7 @@
 // Orquestração da integração Pluggy (testável: dependências injetadas). Sem logs de dados.
 import type { SyncPayload } from '../../src/lib/syncService'
 import { toStatusView, type PluggyAccountLink, type PluggyState, type PluggyStatusView } from '../../src/lib/pluggyState'
-import type { PluggyClient } from './pluggyClient'
+import { PluggyError, type PluggyClient } from './pluggyClient'
 import { applyPluggySync, type AccountFetch } from './pluggySync'
 import { spDate, windowStart } from './pluggyMapping'
 
@@ -104,13 +104,20 @@ export async function runSync(deps: Deps): Promise<PluggyStatusView> {
     const dateTo = spDate(new Date(now.getTime() + 86_400_000).toISOString())
     for (const acc of accounts) {
       if (!acc.cardId) continue
+      let stage = 'faturas'
       try {
         const bills = await deps.client.getBills(acc.id)
+        stage = 'compras'
         const windowFrom = windowStart(acc, bills, before.lastSyncAt)
         const transactions = await deps.client.getTransactions(acc.id, windowFrom, dateTo)
         fetched.push({ account: acc, transactions, bills, windowFrom })
-      } catch {
-        errors.push(`Falha ao ler ${acc.name}.`)
+      } catch (err) {
+        let detail = 'erro inesperado'
+        if (err instanceof PluggyError) {
+          const m = /^Pluggy respondeu \d+: (.+)$/.exec(err.message)
+          detail = m ? `${err.status} — ${m[1]}` : `${err.status}`
+        }
+        errors.push(`Falha ao ler ${acc.name} (${stage}: ${detail}).`)
       }
     }
   } catch {

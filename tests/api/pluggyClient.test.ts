@@ -75,4 +75,19 @@ describe('pluggyClient', () => {
     }) as unknown as typeof fetch
     await expect(createPluggyClient(creds, f).getBills('a')).rejects.toMatchObject({ name: 'PluggyError', status: 502 })
   })
+  it('erro HTTP traz descrição curta da Pluggy sem vazar a apiKey', async () => {
+    const f = vi.fn(async (url: string) => {
+      if (String(url).endsWith('/auth')) return new Response(JSON.stringify({ apiKey: 'SECRET-KEY' }))
+      return new Response('{"codeDescription":"X_Y","message":"something"}', { status: 400 })
+    }) as unknown as typeof fetch
+    const err = await createPluggyClient(creds, f).getBills('a').catch(e => e)
+    expect(err).toMatchObject({ name: 'PluggyError', status: 400 })
+    expect(err.message).toContain('X_Y')
+    expect(err.message).not.toContain('SECRET-KEY')
+  })
+  it('corpo 200 não-JSON vira PluggyError 502', async () => {
+    const f = vi.fn(async (url: string) => String(url).endsWith('/auth')
+      ? new Response(JSON.stringify({ apiKey: 'K' })) : new Response('<html>', { status: 200 })) as unknown as typeof fetch
+    await expect(createPluggyClient(creds, f).getItem('it')).rejects.toMatchObject({ message: 'Resposta inválida da Pluggy.', status: 502 })
+  })
 })

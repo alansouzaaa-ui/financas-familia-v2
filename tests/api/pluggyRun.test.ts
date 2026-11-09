@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/_lib/pluggyRun'
+import { PluggyError } from '../../api/_lib/pluggyClient'
 import type { SyncPayload } from '../../src/lib/syncService'
 
 const NOW = new Date('2026-11-09T10:00:00.000Z')
@@ -70,6 +71,25 @@ describe('pluggyRun', () => {
     const v = await runSync(deps)
     expect(v.lastResult?.ok).toBe(false)
     expect(v.lastSyncAt).toBe('2026-11-08T10:00:00.000Z')
+  })
+  it('falha por conta informa etapa e status', async () => {
+    const { deps, get } = makeDeps({ getBills: vi.fn(async () => { throw new PluggyError('Pluggy respondeu 403: NOT_AVAILABLE', 403) }) })
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await mapAccount(deps, 'acc1', 'card-alan')
+    get().pluggy!.lastResult = null
+    const v = await runSync(deps)
+    expect(v.lastResult?.error).toContain('faturas')
+    expect(v.lastResult?.error).toContain('403')
+    expect(v.lastResult?.error).toContain('NOT_AVAILABLE')
+  })
+  it('falha em getTransactions marca etapa compras', async () => {
+    const { deps, get } = makeDeps({ getTransactions: vi.fn(async () => { throw new Error('x') }) })
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await mapAccount(deps, 'acc1', 'card-alan')
+    get().pluggy!.lastResult = null
+    const v = await runSync(deps)
+    expect(v.lastResult?.error).toContain('compras')
+    expect(v.lastResult?.error).toContain('erro inesperado')
   })
   it('status de erro do item é exposto', async () => {
     const { deps } = makeDeps({ getItem: vi.fn(async () => ({ id: 'it', status: 'LOGIN_ERROR', error: { code: 'USER_AUTHORIZATION_EXPIRED' } })) })

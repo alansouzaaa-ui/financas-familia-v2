@@ -30,6 +30,17 @@ export interface PluggyAccount {
   creditData?: { balanceCloseDate?: string | null; balanceDueDate?: string | null } | null
 }
 
+// Extrai só uma descrição curta do erro (sem URL, ids ou chave). Nunca lança.
+async function errorDescription(res: Response): Promise<string> {
+  try {
+    const parsed = JSON.parse(await res.text()) as { codeDescription?: unknown; message?: unknown; error?: unknown }
+    for (const v of [parsed.codeDescription, parsed.message, parsed.error]) {
+      if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 120)
+    }
+  } catch { /* corpo ausente ou não-JSON */ }
+  return ''
+}
+
 export function createPluggyClient(
   creds: { clientId: string; clientSecret: string },
   fetchImpl: typeof fetch = fetch,
@@ -55,8 +66,15 @@ export function createPluggyClient(
   async function get<T>(path: string): Promise<T> {
     const key = await auth()
     const res = await fetchImpl(`${BASE}${path}`, { headers: { 'X-API-KEY': key } })
-    if (!res.ok) throw new PluggyError(`Pluggy respondeu ${res.status}.`, res.status)
-    return (await res.json()) as T
+    if (!res.ok) {
+      const desc = await errorDescription(res)
+      throw new PluggyError(desc ? `Pluggy respondeu ${res.status}: ${desc}` : `Pluggy respondeu ${res.status}.`, res.status)
+    }
+    try {
+      return (await res.json()) as T
+    } catch {
+      throw new PluggyError('Resposta inválida da Pluggy.', 502)
+    }
   }
 
   return {
