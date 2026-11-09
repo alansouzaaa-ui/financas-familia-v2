@@ -625,6 +625,7 @@ export interface SyncCounts { created: number; updated: number; moved: number; r
 
 const SEEN_TTL_DAYS = 400
 const keyOf = (m: Pick<MonthRecord, 'month' | 'year'>) => `${m.year}-${String(MONTHS.indexOf(m.month) + 1).padStart(2, '0')}`
+const sameCents = (a: number, b: number) => Math.round(Math.abs(a - b) * 100) <= 1 // ±R$0,01 sem erro de ponto flutuante
 const dayDiff = (a: string, b: string) => Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000
 
 export function applyPluggySync(
@@ -715,7 +716,7 @@ export function applyPluggySync(
       // Pendente antigo que sumiu e reaparece com id novo.
       const replaced = Object.entries(seen).find(([id, e]) =>
         e.pending && e.accountId === account.id && e.appItemId && !fetchedIds.has(id) && !reusedPending.has(id) &&
-        Math.abs(e.value - value) <= 0.01 && dayDiff(e.date, date) <= 3)
+        sameCents(e.value, value) && dayDiff(e.date, date) <= 3)
       if (replaced) {
         const [oldId, oldEntry] = replaced
         reusedPending.add(oldId)
@@ -732,7 +733,7 @@ export function applyPluggySync(
       const dup = target.items!.find(it =>
         !usedManual.has(it.id) && it.cardId === account.cardId && it.source !== 'pluggy' &&
         !(it.externalId ?? '').startsWith('pluggy:') &&
-        Math.abs(it.value - value) <= 0.01 &&
+        sameCents(it.value, value) &&
         (!it.occurredAt || dayDiff(spDate(it.occurredAt), date) <= 3))
       if (dup) {
         usedManual.add(dup.id)
