@@ -17,6 +17,13 @@ export function isTelegramItem(i: MonthItem): boolean {
     || (typeof i.externalId === 'string' && i.externalId.startsWith('telegram:'))
 }
 
+/** Item gravado pelo servidor (Telegram ou Pluggy): preservado se o cliente desatualizado não o conhece. */
+export function isServerItem(i: MonthItem): boolean {
+  return isTelegramItem(i)
+    || i.source === 'pluggy'
+    || (typeof i.externalId === 'string' && i.externalId.startsWith('pluggy:'))
+}
+
 function allItemIds(months: MonthRecord[]): Set<string> {
   const ids = new Set<string>()
   for (const m of months) for (const i of m.items ?? []) ids.add(i.id)
@@ -66,14 +73,21 @@ export function mergeIncoming(
   now: Date = new Date(),
 ): { payload: SyncPayload; restored: number } {
   const tombstones: Tombstone[] = mergeTombstones(current?.deleted_ids, incoming.deleted_ids, now)
-  const base: SyncPayload = { ...incoming, deleted_ids: tombstones }
+  // `pluggy` é do servidor: o cliente nunca sobrescreve (nem cria).
+  const { pluggy: _ignored, ...incomingRest } = incoming
+  void _ignored
+  const base: SyncPayload = {
+    ...incomingRest,
+    deleted_ids: tombstones,
+    ...(current?.pluggy ? { pluggy: current.pluggy } : {}),
+  }
 
   const dead = new Set(tombstones.map(t => t.id))
   const incomingIds = allItemIds(incoming.manual_months ?? [])
   const entries: RestoreEntry[] = []
   for (const m of current?.manual_months ?? []) {
     for (const item of m.items ?? []) {
-      if (!isTelegramItem(item)) continue
+      if (!isServerItem(item)) continue
       if (incomingIds.has(item.id) || dead.has(item.id)) continue
       entries.push({ month: m.month, year: m.year, item })
     }

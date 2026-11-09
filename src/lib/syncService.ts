@@ -5,6 +5,7 @@ import type { MonthPoint } from '@/types/finance'
 import type { AllocClass } from '@/lib/aporte'
 import type { ChecklistKind, ChecklistQuestion, Answers } from '@/lib/checklist'
 import type { PayoffStrategy, PayoffScope } from '@/lib/journey'
+import type { PluggyState } from './pluggyState'
 
 export interface SyncPayload {
   manual_months: MonthRecord[]
@@ -27,6 +28,8 @@ export interface SyncPayload {
   checklist?: { questions: Record<ChecklistKind, ChecklistQuestion[]>; answers: Record<string, Answers> }
   /** Tombstones de MonthItems apagados (evita o servidor ressuscitar itens do Telegram). */
   deleted_ids?: { id: string; at: string }[]
+  /** Integração Pluggy — escrito só pelo servidor (api/pluggy.ts); clientes não enviam. */
+  pluggy?: PluggyState
   updated_at?: string
 }
 

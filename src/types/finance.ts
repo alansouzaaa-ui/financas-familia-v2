@@ -27,7 +27,7 @@ export interface MonthItem {
   value: number
   category: 'revenue' | 'fixedCosts' | 'loans' | 'cards' | 'variableCosts' | 'renegociacoes'
   isPaid: boolean
-  source?: 'manual' | 'telegram' | 'import'
+  source?: 'manual' | 'telegram' | 'import' | 'pluggy'
   occurredAt?: string   // ISO 8601
   externalId?: string   // 'telegram:<chatId>:<updateId>'
   cardId?: string       // qual cartão (titular), só para itens da categoria 'cards'
