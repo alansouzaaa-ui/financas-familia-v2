@@ -37,4 +37,23 @@ describe('mergeIncoming + pluggy', () => {
     const out = mergeIncoming(base([p]), base([], { deleted_ids: [{ id: 'pluggy:abc', at: new Date().toISOString() }] }))
     expect(out.payload.manual_months[0].items?.some(i => i.id === 'pluggy:abc')).toBe(false)
   })
+  it('push atrasado com item pluggy tombstonado (pendente cancelado) não o traz de volta', () => {
+    const at = new Date().toISOString()
+    const p = item({ id: 'pluggy:pend', externalId: 'pluggy:pend', source: 'pluggy', value: 100 })
+    const m = item({ id: 'm1', source: 'manual', value: 30 })
+    const current = base([m], { deleted_ids: [{ id: 'pluggy:pend', at }] })
+    const stale = base([m, p])
+    stale.manual_months[0].cards = 130
+    const out = mergeIncoming(current, stale)
+    expect(out.payload.manual_months[0].items?.map(i => i.id)).toEqual(['m1'])
+    expect(out.payload.manual_months[0].cards).toBe(30)
+    expect(out.payload.deleted_ids?.map(t => t.id)).toEqual(['pluggy:pend'])
+  })
+  it('item manual do cliente não é afetado por tombstone de outro id', () => {
+    const m = item({ id: 'm1', source: 'manual', value: 30 })
+    const current = base([], { deleted_ids: [{ id: 'pluggy:x', at: new Date().toISOString() }] })
+    const incoming = base([m])
+    incoming.manual_months[0].cards = 30
+    expect(mergeIncoming(current, incoming).payload.manual_months[0]).toMatchObject({ cards: 30, items: [m] })
+  })
 })

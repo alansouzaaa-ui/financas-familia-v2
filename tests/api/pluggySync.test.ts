@@ -82,16 +82,17 @@ describe('applyPluggySync', () => {
   })
   it('pendente cancelado é removido se não pago nem editado', () => {
     const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
-    const b = run(a.payload, a.state, fetch1([]))
-    expect(items(b.payload)).toHaveLength(0)
+    const b = run(a.payload, a.state, fetch1([tx({ id: 'outra', amount: 7, description: 'OUTRA LOJA' })]))
+    expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:outra'])
     expect(b.counts.removed).toBe(1)
   })
   it('pendente cancelado é preservado se pago ou editado', () => {
     const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
     const paid = { ...a.payload, manual_months: a.payload.manual_months.map(m => ({ ...m, items: (m.items ?? []).map(i => ({ ...i, isPaid: true })) })) }
-    expect(items(run(paid, a.state, fetch1([])).payload)).toHaveLength(1)
+    const other = fetch1([tx({ id: 'outra', amount: 7, description: 'OUTRA LOJA' })])
+    expect(items(run(paid, a.state, other).payload).some(i => i.id === 'pluggy:pend')).toBe(true)
     const edited = { ...a.payload, manual_months: a.payload.manual_months.map(m => ({ ...m, items: (m.items ?? []).map(i => ({ ...i, description: 'Mercado do mês' })) })) }
-    expect(items(run(edited, a.state, fetch1([])).payload)).toHaveLength(1)
+    expect(items(run(edited, a.state, other).payload).some(i => i.id === 'pluggy:pend')).toBe(true)
   })
   it('billId que aparece move o item de mês', () => {
     const a = run(pay(), st(), fetch1([tx({})]))                 // estimado: Dez/2026
@@ -135,5 +136,81 @@ describe('applyPluggySync', () => {
     expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:pend2'])
     expect(b.counts.created).toBe(1)
     expect(b.counts.removed).toBe(1)
+  })
+  // --- revisão final ---
+  const manualM1: MonthItem = { id: 'm1', description: 'mercado', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-11-05T12:00:00.000Z' }
+  const otherTx = () => tx({ id: 'outra', amount: 7, description: 'OUTRA LOJA' })
+
+  it('pendente casado com manual que posta com id novo não duplica', () => {
+    const a = run(pay([manualM1]), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    expect(a.counts.skippedDuplicates).toBe(1)
+    const b = run(a.payload, a.state, fetch1([tx({ id: 'post', status: 'POSTED', date: '2026-11-06T15:00:00.000Z' })]))
+    expect(b.counts.created).toBe(0)
+    expect(items(b.payload).map(i => i.id)).toEqual(['m1'])
+    expect(b.state.seen.post.matchedItemId).toBe('m1')
+    expect(b.state.seen.pend.matchedItemId).toBeUndefined()
+  })
+  it('pendente casado com manual e cancelado libera o manual', () => {
+    const a = run(pay([manualM1]), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    const b = run(a.payload, a.state, fetch1([otherTx()]))
+    expect(b.state.seen.pend.matchedItemId).toBeUndefined()
+    const c = run(b.payload, b.state, fetch1([otherTx(), tx({ id: 'nova' })]))
+    expect(c.counts.skippedDuplicates).toBe(1)
+    expect(c.state.seen.nova.matchedItemId).toBe('m1')
+    expect(items(c.payload).map(i => i.id).sort()).toEqual(['m1', 'pluggy:outra'])
+  })
+  it('sem billId, item de fatura já fechada não muda de mês quando o closeDate avança', () => {
+    const a = run(pay([], 'Nov'), st(), fetch1([tx({ date: '2026-10-20T15:00:00.000Z' })]))
+    expect(items(a.payload).find(i => i.id === 'pluggy:t1')!._m).toBe('Nov/2026')
+    const next = { ...acct, closeDate: '2026-12-03', dueDate: '2026-12-10' }
+    const bills = [{ id: 'b', dueDate: '2026-11-10', billClosingDate: '2026-11-03' }]
+    const b = applyPluggySync(a.payload, st({ ...a.state, accounts: [next] }),
+      [{ account: next, transactions: [tx({ date: '2026-10-20T15:00:00.000Z' })], bills, windowFrom: '2026-10-04' }], { now: NOW, cardDueDays: {} })
+    expect(b.counts.moved).toBe(0)
+    expect(items(b.payload).find(i => i.id === 'pluggy:t1')!._m).toBe('Nov/2026')
+  })
+  it('reconectar (conta com id novo) não duplica item Pluggy órfão', () => {
+    const a = run(pay(), st(), fetch1([tx({})]))
+    const acc2 = { ...acct, id: 'acc2' }
+    const b = applyPluggySync(a.payload, st({ ...a.state, accounts: [acc2] }),
+      [{ account: acc2, transactions: [tx({ id: 't1-novo' })], bills: [], windowFrom: '2026-10-04' }], { now: NOW, cardDueDays: {} })
+    expect(b.counts.skippedDuplicates).toBe(1)
+    expect(b.counts.created).toBe(0)
+    expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:t1'])
+    expect(b.state.seen['t1-novo'].matchedItemId).toBe('pluggy:t1')
+  })
+  it('lista vazia não cancela pendentes', () => {
+    const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    const b = run(a.payload, a.state, fetch1([]))
+    expect(b.counts.removed).toBe(0)
+    expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:pend'])
+    expect(b.state.seen.pend.pending).toBe(true)
+  })
+  it('pendente cancelado que reaparece é recriado', () => {
+    const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    const b = run(a.payload, a.state, fetch1([otherTx()]))
+    expect(b.counts.removed).toBe(1)
+    expect(b.state.seen.pend.cancelled).toBe(true)
+    const c = run(b.payload, b.state, fetch1([otherTx(), tx({ id: 'pend', status: 'POSTED' })]))
+    expect(c.counts.created).toBe(1)
+    const back = items(c.payload).filter(i => i.id !== 'pluggy:outra')
+    expect(back).toHaveLength(1)
+    expect(back[0]).toMatchObject({ source: 'pluggy', value: 100 })
+    // o id antigo está em tombstone (o cliente o apagaria): o recriado usa id novo
+    expect(back[0].id).not.toBe('pluggy:pend')
+    expect(c.state.seen.pend.appItemId).toBe(back[0].id)
+    expect(c.state.seen.pend.cancelled).toBeUndefined()
+  })
+  it('duplicata do Telegram um mês ao lado é reconhecida', () => {
+    const tg: MonthItem = { id: 'telegram:1:2', source: 'telegram', description: 'mercado', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-11-03T12:00:00.000Z' }
+    // compra em 02/11 (fecha 03/11) -> fatura de Nov; o item do Telegram está em Dez
+    const out = run(pay([tg], 'Dez'), st(), fetch1([tx({ date: '2026-11-02T15:00:00.000Z' })]))
+    expect(out.counts.skippedDuplicates).toBe(1)
+    expect(out.counts.created).toBe(0)
+  })
+  it('cancelamento grava tombstone do item removido', () => {
+    const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    const b = run(a.payload, a.state, fetch1([otherTx()]))
+    expect(b.payload.deleted_ids).toEqual([{ id: 'pluggy:pend', at: NOW.toISOString() }])
   })
 })

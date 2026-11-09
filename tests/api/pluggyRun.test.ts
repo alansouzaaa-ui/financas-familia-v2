@@ -97,4 +97,19 @@ describe('pluggyRun', () => {
     const v = await runSync(racing)
     expect(v.accounts[0].cardId).toBeNull()
   })
+  it('registerItem com item novo (reconectar) leva o cardId pela last4 e zera lastResult', async () => {
+    const prevAcc = { id: 'accOld', name: 'Caixa Visa', last4: '1234', cardId: 'card-alan', closeDate: '2026-11-03', dueDate: '2026-11-10', syncedOnce: true }
+    const initial: SyncPayload = { ...empty(), pluggy: {
+      itemId: 'aaaaaaaa-2222-3333-4444-555555555555', itemStatus: 'UPDATED', itemError: null, consentExpiresAt: null,
+      accounts: [prevAcc], lastSyncAt: '2026-11-08T10:00:00.000Z',
+      lastResult: { at: '2026-11-08T10:00:00.000Z', ok: true, created: 3, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 }, seen: {},
+    } }
+    const { deps, get } = makeDeps({
+      getCreditAccounts: vi.fn(async () => [{ id: 'accNew', type: 'CREDIT', name: 'Caixa Visa', number: '9999 1234', creditData: { balanceCloseDate: '2026-11-03', balanceDueDate: '2026-11-10' } }]),
+    }, initial)
+    const v = await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    expect(v.accounts).toEqual([{ id: 'accNew', name: 'Caixa Visa', last4: '1234', cardId: 'card-alan' }])
+    expect(v.lastResult).toBeNull()
+    expect(get().pluggy?.accounts[0].syncedOnce).toBe(false)
+  })
 })

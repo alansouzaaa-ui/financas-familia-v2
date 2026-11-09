@@ -16,18 +16,28 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const GUARD_MS = 60_000
 const emptyPayload = (): SyncPayload => ({ manual_months: [], goals: [], recurring_items: [], investment_positions: [] })
 
-async function refreshAccounts(client: PluggyClient, itemId: string, prev: PluggyAccountLink[]): Promise<PluggyAccountLink[]> {
+/**
+ * Lê as contas de cartão do item e herda o vínculo (cardId) das contas anteriores.
+ * Item novo (reconectar): as contas mudam de id, então casa também pelos 4 últimos
+ * dígitos; essas contas começam com syncedOnce=false (janela da 1ª sync).
+ */
+async function refreshAccounts(
+  client: PluggyClient, itemId: string, prev: PluggyAccountLink[], newItem = false,
+): Promise<PluggyAccountLink[]> {
   const accounts = await client.getCreditAccounts(itemId)
   return accounts.map(a => {
-    const old = prev.find(p => p.id === a.id)
+    const last4 = a.number ? String(a.number).slice(-4) : null
+    const byId = prev.find(p => p.id === a.id)
+    const byLast4 = !byId && newItem && last4 ? prev.find(p => p.last4 === last4) : undefined
+    const old = byId ?? byLast4
     return {
       id: a.id,
       name: a.name,
-      last4: a.number ? String(a.number).slice(-4) : null,
+      last4,
       cardId: old?.cardId ?? null,
       closeDate: a.creditData?.balanceCloseDate ?? null,
       dueDate: a.creditData?.balanceDueDate ?? null,
-      syncedOnce: old?.syncedOnce ?? false,
+      syncedOnce: byId?.syncedOnce ?? false,
     }
   })
 }
@@ -50,13 +60,14 @@ export async function registerItem(deps: Deps, itemId: string): Promise<PluggySt
   const item = await deps.client.getItem(id)
   const current = (await deps.load()) ?? emptyPayload()
   const prev = current.pluggy
-  const accounts = await refreshAccounts(deps.client, id, prev?.accounts ?? [])
+  const newItem = !!prev && prev.itemId !== id
+  const accounts = await refreshAccounts(deps.client, id, prev?.accounts ?? [], newItem)
   const state: PluggyState = {
     itemId: id,
     ...itemFields(item),
     accounts,
     lastSyncAt: prev?.lastSyncAt ?? null,
-    lastResult: prev?.lastResult ?? null,
+    lastResult: newItem ? null : prev?.lastResult ?? null,
     seen: prev?.seen ?? {},
   }
   const fresh = (await deps.load()) ?? emptyPayload()

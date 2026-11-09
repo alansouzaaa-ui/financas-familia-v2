@@ -76,13 +76,21 @@ export function mergeIncoming(
   // `pluggy` é do servidor: o cliente nunca sobrescreve (nem cria).
   const { pluggy: _ignored, ...incomingRest } = incoming
   void _ignored
+  const dead = new Set(tombstones.map(t => t.id))
+  // Item Pluggy tombstonado (pendente cancelado pelo servidor) que um cliente
+  // desatualizado ainda tem: descarta e recalcula o total do mês.
+  const incomingMonths = (incomingRest.manual_months ?? []).map(m => {
+    const items = m.items ?? []
+    const kept = items.filter(i => !(i.source === 'pluggy' && dead.has(i.id)))
+    return kept.length === items.length ? m : { ...m, items: kept, ...totalsFromItems(kept) }
+  })
   const base: SyncPayload = {
     ...incomingRest,
+    manual_months: incomingMonths,
     deleted_ids: tombstones,
     ...(current?.pluggy ? { pluggy: current.pluggy } : {}),
   }
 
-  const dead = new Set(tombstones.map(t => t.id))
   const incomingIds = allItemIds(incoming.manual_months ?? [])
   const entries: RestoreEntry[] = []
   for (const m of current?.manual_months ?? []) {

@@ -2,6 +2,8 @@
 import type { PluggyBill, PluggyTx } from './pluggyMapping'
 
 const BASE = 'https://api.pluggy.ai'
+const MAX_TX_PAGES = 50
+const MAX_BILL_PAGES = 20
 
 export class PluggyError extends Error {
   status: number
@@ -67,24 +69,26 @@ export function createPluggyClient(
 
     async getBills(accountId: string): Promise<PluggyBill[]> {
       const out: PluggyBill[] = []
-      for (let page = 1; page <= 20; page++) {
+      for (let page = 1; page <= MAX_BILL_PAGES; page++) {
         const data = await get<{ results?: PluggyBill[]; totalPages?: number }>(
           `/bills?accountId=${encodeURIComponent(accountId)}&page=${page}&pageSize=500`)
         out.push(...(data.results ?? []))
-        if (!data.totalPages || page >= data.totalPages) break
+        if (!data.totalPages || page >= data.totalPages) return out
       }
-      return out
+      throw new PluggyError('Lista de faturas da Pluggy incompleta.', 502)
     },
 
     async getTransactions(accountId: string, dateFrom: string, dateTo: string): Promise<PluggyTx[]> {
       const out: PluggyTx[] = []
       let path: string | null =
         `/v2/transactions?accountId=${encodeURIComponent(accountId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`
-      for (let i = 0; path && i < 50; i++) {
+      for (let i = 0; path && i < MAX_TX_PAGES; i++) {
         const data: { results?: PluggyTx[]; next?: string | null } = await get(path)
         out.push(...(data.results ?? []))
         path = data.next ? `/v2/transactions${data.next}` : null
       }
+      // Lista parcial faria pendentes parecerem cancelados: melhor falhar a conta.
+      if (path) throw new PluggyError('Lista de transações da Pluggy incompleta.', 502)
       return out
     },
   }

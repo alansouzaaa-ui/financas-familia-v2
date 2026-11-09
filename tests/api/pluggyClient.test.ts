@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createPluggyClient, PluggyError } from '../../api/lib/pluggyClient'
+import { createPluggyClient } from '../../api/lib/pluggyClient'
 
 function mockFetch(routes: Record<string, unknown>, calls: string[] = []) {
   return vi.fn(async (url: string, init?: RequestInit) => {
@@ -57,5 +57,22 @@ describe('pluggyClient', () => {
     const f = mockFetch({ '/auth': new Response(JSON.stringify({ message: 'bad' }), { status: 401 }) })
     await expect(createPluggyClient(creds, f).getItem('it')).rejects.toMatchObject({ name: 'PluggyError', status: 401 })
     await expect(createPluggyClient(creds, f).getItem('it')).rejects.not.toThrow(/sec/)
+  })
+  it('lista de transações que não termina em 50 páginas dá erro (não devolve lista parcial)', async () => {
+    const f = vi.fn(async (url: string) => {
+      if (String(url).endsWith('/auth')) return new Response(JSON.stringify({ apiKey: 'K' }))
+      return new Response(JSON.stringify({ results: [{ id: 'x' }], next: '?accountId=a&after=MAIS' }))
+    }) as unknown as typeof fetch
+    await expect(createPluggyClient(creds, f).getTransactions('a', '2026-10-04', '2026-11-10'))
+      .rejects.toMatchObject({ name: 'PluggyError', status: 502, message: 'Lista de transações da Pluggy incompleta.' })
+  })
+  it('faturas com mais de 20 páginas dão erro', async () => {
+    const f = vi.fn(async (url: string) => {
+      const u = String(url)
+      if (u.endsWith('/auth')) return new Response(JSON.stringify({ apiKey: 'K' }))
+      const page = Number(new URL(u).searchParams.get('page'))
+      return new Response(JSON.stringify({ page, totalPages: 99, results: [{ id: `b${page}`, dueDate: '2026-11-10' }] }))
+    }) as unknown as typeof fetch
+    await expect(createPluggyClient(creds, f).getBills('a')).rejects.toMatchObject({ name: 'PluggyError', status: 502 })
   })
 })

@@ -3,8 +3,9 @@ import type { SyncPayload } from '../../src/lib/syncService'
 import type { PluggyAccountLink, PluggySeen, PluggyState } from '../../src/lib/pluggyState'
 import { MONTHS, type MonthAbbr, type MonthItem, type MonthRecord } from '../../src/types/finance'
 import { totalsFromItems } from '../../src/lib/monthTotals'
+import { mergeTombstones, type Tombstone } from '../../src/lib/tombstones'
 import {
-  billMonthKey, describe, fingerprint, isIgnored, signedValue, spDate, tagFor,
+  addMonths, billMonthKey, describe, fingerprint, isIgnored, signedValue, spDate, tagFor,
   type PluggyBill, type PluggyTx,
 } from './pluggyMapping'
 
@@ -15,6 +16,11 @@ const SEEN_TTL_DAYS = 400
 const keyOf = (m: Pick<MonthRecord, 'month' | 'year'>) => `${m.year}-${String(MONTHS.indexOf(m.month) + 1).padStart(2, '0')}`
 const sameCents = (a: number, b: number) => Math.round(Math.abs(a - b) * 100) <= 1 // ±R$0,01 sem erro de ponto flutuante
 const dayDiff = (a: string, b: string) => Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000
+const withoutMatch = (e: PluggySeen): PluggySeen => {
+  const copy = { ...e }
+  delete copy.matchedItemId
+  return copy
+}
 
 export function applyPluggySync(
   payload: SyncPayload,
@@ -27,6 +33,12 @@ export function applyPluggySync(
   const counts: SyncCounts = { created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 }
   const touched = new Set<MonthRecord>()
   const nowIso = opts.now.toISOString()
+  // Ids apagados (tombstones): não reaproveitar ao recriar um item.
+  const dead = new Set((payload.deleted_ids ?? []).map(t => t.id))
+  const newTombstones: Tombstone[] = []
+  // Itens Pluggy de contas que não existem mais (reconexão gera ids de conta novos).
+  const live = new Set(state.accounts.map(a => a.id))
+  const orphan = new Set(Object.values(seen).flatMap(e => (e.appItemId && !live.has(e.accountId) ? [e.appItemId] : [])))
 
   const monthFor = (ym: string): MonthRecord => {
     const [y, m] = ym.split('-').map(Number)
@@ -86,7 +98,12 @@ export function applyPluggySync(
       const value = signedValue(tx)
       const desc = describe(tx)
       const pending = tx.status === 'PENDING'
-      const known = seen[tx.id]
+      let known: PluggySeen | undefined = seen[tx.id]
+      // Pendente que cancelamos e voltou: trata como transação nova.
+      if (known?.cancelled) {
+        delete seen[tx.id]
+        known = undefined
+      }
 
       if (known) {
         if (known.appItemId) {
@@ -104,12 +121,21 @@ export function applyPluggySync(
 
       // Pendente antigo que sumiu e reaparece com id novo.
       const replaced = Object.entries(seen).find(([id, e]) =>
-        !pending && e.pending && e.accountId === account.id && e.appItemId && !fetchedIds.has(id) && !reusedPending.has(id) &&
+        !pending && e.pending && e.accountId === account.id && (e.appItemId || e.matchedItemId) &&
+        !fetchedIds.has(id) && !reusedPending.has(id) &&
         sameCents(e.value, value) && dayDiff(e.date, date) <= 3)
       if (replaced) {
         const [oldId, oldEntry] = replaced
         reusedPending.add(oldId)
-        const loc = find(oldEntry.appItemId!)
+        if (!oldEntry.appItemId) {
+          // O pendente tinha casado com um item manual/Telegram: o POSTED herda o casamento.
+          entry.matchedItemId = oldEntry.matchedItemId
+          seen[oldId] = { ...withoutMatch(oldEntry), pending: false }
+          seen[tx.id] = entry
+          counts.skippedDuplicates++
+          continue
+        }
+        const loc = find(oldEntry.appItemId)
         entry.appItemId = oldEntry.appItemId
         entry.fp = loc && untouched(loc, oldEntry) ? reconcileItem(loc, value, desc, ym) : oldEntry.fp
         seen[oldId] = { ...oldEntry, appItemId: null, pending: false }
@@ -117,11 +143,13 @@ export function applyPluggySync(
         continue
       }
 
-      // Duplicata de lançamento não-Pluggy do mesmo cartão no mesmo mês.
-      const target = monthFor(ym)
-      const dup = target.items!.find(it =>
-        !usedManual.has(it.id) && it.cardId === account.cardId && it.source !== 'pluggy' &&
-        !(it.externalId ?? '').startsWith('pluggy:') &&
+      // Duplicata de lançamento não-Pluggy (ou Pluggy órfão) do mesmo cartão, no mês da
+      // fatura ou num mês vizinho (Telegram/manual podem cair um mês ao lado).
+      const candidates = [ym, addMonths(ym, -1), addMonths(ym, 1)].flatMap(k =>
+        months.filter(r => keyOf(r) === k).flatMap(r => r.items ?? []))
+      const dup = candidates.find(it =>
+        !usedManual.has(it.id) && it.cardId === account.cardId &&
+        (orphan.has(it.id) || (it.source !== 'pluggy' && !(it.externalId ?? '').startsWith('pluggy:'))) &&
         sameCents(it.value, value) &&
         (!it.occurredAt || dayDiff(spDate(it.occurredAt), date) <= 3))
       if (dup) {
@@ -132,7 +160,10 @@ export function applyPluggySync(
         continue
       }
 
-      const id = `pluggy:${tx.id}`
+      // Id tombstonado (pendente cancelado que voltou): usa sufixo para o cliente não apagá-lo.
+      let id = `pluggy:${tx.id}`
+      for (let n = 2; dead.has(id); n++) id = `pluggy:${tx.id}:${n}`
+      const target = monthFor(ym)
       const tag = value > 0 ? tagFor(desc, tx.category) : undefined
       target.items!.push({
         id, externalId: id, source: 'pluggy', description: desc, value, category: 'cards',
@@ -147,18 +178,26 @@ export function applyPluggySync(
     }
 
     // Pendentes que sumiram na janela consultada -> cancelados.
+    // Lista vazia pode ser leitura incompleta: não cancela nada (é irreversível).
+    if (transactions.length === 0) continue
     for (const [id, e] of Object.entries(seen)) {
       if (e.accountId !== account.id || !e.pending || fetchedIds.has(id) || reusedPending.has(id)) continue
       if (e.date < windowFrom) continue
+      let kept = false // item pago/editado/apagado pelo usuário: não recriar se o id voltar
       if (e.appItemId) {
         const loc = find(e.appItemId)
         if (loc && untouched(loc, e)) {
           loc.rec.items!.splice(loc.idx, 1)
           touched.add(loc.rec)
           counts.removed++
+          dead.add(e.appItemId)
+          newTombstones.push({ id: e.appItemId, at: nowIso })
+        } else {
+          kept = true
         }
       }
-      seen[id] = { ...e, appItemId: null, pending: false }
+      // Sem matchedItemId: o item manual casado fica livre para outra transação.
+      seen[id] = { ...withoutMatch(e), appItemId: null, pending: false, ...(kept ? {} : { cancelled: true }) }
     }
   }
 
@@ -171,7 +210,12 @@ export function applyPluggySync(
   for (const rec of touched) Object.assign(rec, totalsFromItems(rec.items ?? []))
 
   return {
-    payload: { ...payload, manual_months: months },
+    payload: {
+      ...payload,
+      manual_months: months,
+      // Tombstone impede que push atrasado de outro aparelho traga o pendente cancelado de volta.
+      ...(newTombstones.length ? { deleted_ids: mergeTombstones(payload.deleted_ids, newTombstones, opts.now) } : {}),
+    },
     state: {
       ...state,
       seen,
