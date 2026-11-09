@@ -113,4 +113,27 @@ describe('applyPluggySync', () => {
     const out = run(pay(), st({ accounts: [{ ...acct, syncedOnce: false }] }), [{ account: { ...acct, syncedOnce: false }, transactions: [], bills: [], windowFrom: '2026-10-04' }])
     expect(out.state.accounts[0].syncedOnce).toBe(true)
   })
+
+  it('item manual casa uma vez só entre execuções', () => {
+    const manual: MonthItem = { id: 'm1', description: 'mercado', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-11-05T12:00:00.000Z' }
+    const a = run(pay([manual]), st(), fetch1([tx({ id: 'A' })]))
+    expect(a.counts.skippedDuplicates).toBe(1)
+    expect(a.state.seen.A.matchedItemId).toBe('m1')
+    const b = run(a.payload, a.state, fetch1([tx({ id: 'A' }), tx({ id: 'B', date: '2026-11-06T15:00:00.000Z' })]))
+    expect(b.counts.created).toBe(1)
+    expect(items(b.payload).map(i => i.id).sort()).toEqual(['m1', 'pluggy:B'])
+  })
+  it('na mesma execução, dois lançamentos iguais casam um manual só uma vez', () => {
+    const manual: MonthItem = { id: 'm1', description: 'mercado', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-11-05T12:00:00.000Z' }
+    const out = run(pay([manual]), st(), fetch1([tx({ id: 'A' }), tx({ id: 'B' })]))
+    expect(out.counts.skippedDuplicates).toBe(1)
+    expect(out.counts.created).toBe(1)
+  })
+  it('pendente novo não reaproveita pendente antigo que sumiu', () => {
+    const a = run(pay(), st(), fetch1([tx({ id: 'pend', status: 'PENDING' })]))
+    const b = run(a.payload, a.state, fetch1([tx({ id: 'pend2', status: 'PENDING' })]))
+    expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:pend2'])
+    expect(b.counts.created).toBe(1)
+    expect(b.counts.removed).toBe(1)
+  })
 })

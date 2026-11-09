@@ -17,6 +17,7 @@ export interface PluggySeen {
   value: number
   date: string                   // yyyy-mm-dd (data da compra, fuso SP)
   pending: boolean
+  matchedItemId?: string         // item manual com o qual foi casada como duplicata (casa uma vez só)
 }
 
 export interface PluggyLastResult {

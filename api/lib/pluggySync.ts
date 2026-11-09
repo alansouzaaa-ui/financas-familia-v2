@@ -77,7 +77,7 @@ export function applyPluggySync(
     const billMap = new Map(bills.map(b => [b.id, b]))
     const fetchedIds = new Set(transactions.map(t => t.id))
     const reusedPending = new Set<string>()
-    const usedManual = new Set<string>()
+    const usedManual = new Set<string>(Object.values(seen).flatMap(e => (e.matchedItemId ? [e.matchedItemId] : [])))
     const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
 
     for (const tx of sorted) {
@@ -94,6 +94,7 @@ export function applyPluggySync(
           if (loc && untouched(loc, known)) known.fp = reconcileItem(loc, value, desc, ym)
         }
         known.pending = pending
+        known.date = date
         known.value = value
         continue
       }
@@ -103,7 +104,7 @@ export function applyPluggySync(
 
       // Pendente antigo que sumiu e reaparece com id novo.
       const replaced = Object.entries(seen).find(([id, e]) =>
-        e.pending && e.accountId === account.id && e.appItemId && !fetchedIds.has(id) && !reusedPending.has(id) &&
+        !pending && e.pending && e.accountId === account.id && e.appItemId && !fetchedIds.has(id) && !reusedPending.has(id) &&
         sameCents(e.value, value) && dayDiff(e.date, date) <= 3)
       if (replaced) {
         const [oldId, oldEntry] = replaced
@@ -125,6 +126,7 @@ export function applyPluggySync(
         (!it.occurredAt || dayDiff(spDate(it.occurredAt), date) <= 3))
       if (dup) {
         usedManual.add(dup.id)
+        entry.matchedItemId = dup.id
         counts.skippedDuplicates++
         seen[tx.id] = entry
         continue
