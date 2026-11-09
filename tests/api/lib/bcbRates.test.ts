@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fetchBcbRates, parseBcbValue } from '../../../api/lib/bcbRates'
+import { fetchBcbRates, parseBcbValue } from '../../../api/_lib/bcbRates'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 

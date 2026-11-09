@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { signPayload } from '../../api/lib/auth'
+import { signPayload } from '../../api/_lib/auth'
 
 // ---- Module mocks (hoisted before any import of the handler) ----
 
-vi.mock('../../api/lib/gist.ts', () => ({
+vi.mock('../../api/_lib/gist.ts', () => ({
   getGistPayload: vi.fn().mockResolvedValue({
     manual_months: [],
     goals: [],
@@ -218,7 +218,7 @@ describe('POST /api/telegram — callback confirm', () => {
     const msgText = `💰 mercado — R$ 150,00\nCategoria: Variáveis\n\nConfirmar este lançamento?\n${token}`
 
     const { default: telegram } = await import('../../api/telegram.ts')
-    const { getGistPayload, setGistPayload } = await import('../../api/lib/gist.ts')
+    const { getGistPayload, setGistPayload } = await import('../../api/_lib/gist.ts')
 
     const update = callbackUpdate('{"a":"c"}', msgText, 42, ALLOWED_CHAT)
     const res = await telegram(buildRequest(update))
@@ -238,7 +238,7 @@ describe('POST /api/telegram — callback confirm', () => {
   })
 
   it('returns 200 and edits to "Já registrado" on duplicate confirm (idempotent)', async () => {
-    const { getGistPayload } = await import('../../api/lib/gist.ts')
+    const { getGistPayload } = await import('../../api/_lib/gist.ts')
     const existingExternalId = `telegram:${ALLOWED_CHAT}:99`
 
     // Gist already contains the transaction

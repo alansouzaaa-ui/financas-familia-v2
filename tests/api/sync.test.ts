@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock the gist module to avoid real HTTP calls
-vi.mock('../../api/lib/gist.ts', () => ({
+vi.mock('../../api/_lib/gist.ts', () => ({
   getGistPayload: vi.fn().mockResolvedValue({ manual_months: [], goals: [], recurring_items: [], investment_positions: [] }),
   setGistPayload: vi.fn().mockResolvedValue(undefined),
 }))

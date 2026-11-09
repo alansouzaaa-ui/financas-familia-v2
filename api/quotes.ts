@@ -1,4 +1,4 @@
-import { fetchManyQuotes, type QuoteOut } from './lib/yahooQuote'
+import { fetchManyQuotes, type QuoteOut } from './_lib/yahooQuote'
 
 export const config = { runtime: 'edge' }
 

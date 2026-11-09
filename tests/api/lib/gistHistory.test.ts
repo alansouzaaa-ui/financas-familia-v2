@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { listGistRevisions, getGistRevision } from '../../../api/lib/gist'
+import { listGistRevisions, getGistRevision } from '../../../api/_lib/gist'
 
 beforeAll(() => {
   process.env.GITHUB_GIST_TOKEN = 'token'

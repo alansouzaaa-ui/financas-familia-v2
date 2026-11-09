@@ -4,7 +4,7 @@
 // mais antigo, então lemos só o bloco da data mais recente via streaming
 // (poucos KB) em vez de baixar todo o histórico. Degrada com elegância:
 // qualquer falha devolve lista vazia e a UI mostra a posição pelo custo.
-import { handleTesouroPu } from './lib/tesouroPu'
+import { handleTesouroPu } from './_lib/tesouroPu'
 
 export const config = { runtime: 'edge' }
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   spDate, addMonths, billMonthKey, signedValue, isIgnored, describe as describeTx,
   tagFor, fingerprint, windowStart, type PluggyTx,
-} from '../../api/lib/pluggyMapping'
+} from '../../api/_lib/pluggyMapping'
 
 const tx = (over: Partial<PluggyTx>): PluggyTx => ({
   id: 't1', description: 'COMPRA', amount: 50, type: 'DEBIT', date: '2026-11-05T15:00:00.000Z',

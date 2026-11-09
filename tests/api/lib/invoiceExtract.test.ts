@@ -5,7 +5,7 @@ import {
   buildExtractionRequest,
   extractInvoice,
   InvoiceExtractError,
-} from '../../../api/lib/invoiceExtract'
+} from '../../../api/_lib/invoiceExtract'
 
 function fakeClient(result: unknown | (() => unknown)) {
   const create = vi.fn(async () => (typeof result === 'function' ? (result as () => unknown)() : result))

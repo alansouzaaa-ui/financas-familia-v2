@@ -1,6 +1,6 @@
-import { getGistPayload, setGistPayload } from './lib/gist'
-import { verifySession } from './lib/auth'
-import { mergeIncoming } from './lib/syncMerge'
+import { getGistPayload, setGistPayload } from './_lib/gist'
+import { verifySession } from './_lib/auth'
+import { mergeIncoming } from './_lib/syncMerge'
 import type { SyncPayload } from '../src/lib/syncService'
 
 export const config = { runtime: 'edge' }

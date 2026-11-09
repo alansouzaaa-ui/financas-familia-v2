@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { getGistPayload, setGistPayload } from '../../../api/lib/gist'
+import { getGistPayload, setGistPayload } from '../../../api/_lib/gist'
 import type { SyncPayload } from '../../../src/lib/syncService'
 
 beforeAll(() => {

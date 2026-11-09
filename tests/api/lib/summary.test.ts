@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSummary } from '../../../api/lib/summary'
+import { buildSummary } from '../../../api/_lib/summary'
 import type { SyncPayload } from '../../../src/lib/syncService'
 
 const NOW = '2026-09-15T12:00:00.000Z' // Set/2026 em SP

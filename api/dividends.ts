@@ -1,4 +1,4 @@
-import { fetchManyDividends, type DividendEvent } from './lib/yahooDividends'
+import { fetchManyDividends, type DividendEvent } from './_lib/yahooDividends'
 
 export const config = { runtime: 'edge' }
 

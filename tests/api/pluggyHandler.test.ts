@@ -3,12 +3,12 @@ import type { SyncPayload } from '../../src/lib/syncService'
 
 const h = vi.hoisted(() => ({ payload: null as unknown, getItem: null as null | (() => Promise<unknown>) }))
 
-vi.mock('../../api/lib/gist', () => ({
+vi.mock('../../api/_lib/gist', () => ({
   getGistPayload: vi.fn(async () => h.payload),
   setGistPayload: vi.fn(async () => {}),
 }))
-vi.mock('../../api/lib/pluggyClient', async () => {
-  const actual = await vi.importActual<typeof import('../../api/lib/pluggyClient')>('../../api/lib/pluggyClient')
+vi.mock('../../api/_lib/pluggyClient', async () => {
+  const actual = await vi.importActual<typeof import('../../api/_lib/pluggyClient')>('../../api/_lib/pluggyClient')
   return {
     ...actual,
     createPluggyClient: () => ({
@@ -21,8 +21,8 @@ vi.mock('../../api/lib/pluggyClient', async () => {
 })
 
 import handler from '../../api/pluggy'
-import { createSession } from '../../api/lib/auth'
-import { PluggyError } from '../../api/lib/pluggyClient'
+import { createSession } from '../../api/_lib/auth'
+import { PluggyError } from '../../api/_lib/pluggyClient'
 
 const AUTH = 'fake-auth-secret'
 const CRON = 'fake-cron-secret'

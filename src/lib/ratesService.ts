@@ -1,5 +1,5 @@
-import { fetchBcbRates } from '../../api/lib/bcbRates'
-import type { BcbRates } from '../../api/lib/bcbRates'
+import { fetchBcbRates } from '../../api/_lib/bcbRates'
+import type { BcbRates } from '../../api/_lib/bcbRates'
 
 export interface Rates {
   selic: number

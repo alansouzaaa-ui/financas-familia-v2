@@ -1,7 +1,7 @@
-import { getGistPayload, setGistPayload } from './lib/gist'
-import { verifySession } from './lib/auth'
-import { DEFAULT_RECOVER_SINCE, scanLostTelegramItems, summarizeLostItem } from './lib/recover'
-import { restoreItems } from './lib/syncMerge'
+import { getGistPayload, setGistPayload } from './_lib/gist'
+import { verifySession } from './_lib/auth'
+import { DEFAULT_RECOVER_SINCE, scanLostTelegramItems, summarizeLostItem } from './_lib/recover'
+import { restoreItems } from './_lib/syncMerge'
 
 export const config = { runtime: 'edge' }
 

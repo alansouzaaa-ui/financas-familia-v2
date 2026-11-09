@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeIncoming, isServerItem } from '../../api/lib/syncMerge'
+import { mergeIncoming, isServerItem } from '../../api/_lib/syncMerge'
 import type { SyncPayload } from '../../src/lib/syncService'
 import type { MonthItem } from '../../src/types/finance'
 

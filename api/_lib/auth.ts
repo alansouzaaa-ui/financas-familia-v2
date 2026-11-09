@@ -1,4 +1,4 @@
-// api/lib/auth.ts — server-only, no VITE_ secrets
+// api/_lib/auth.ts — server-only, no VITE_ secrets
 
 const enc = new TextEncoder()
 

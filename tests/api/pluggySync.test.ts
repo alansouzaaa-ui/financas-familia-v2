@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { applyPluggySync, type AccountFetch } from '../../api/lib/pluggySync'
+import { applyPluggySync, type AccountFetch } from '../../api/_lib/pluggySync'
 import type { SyncPayload } from '../../src/lib/syncService'
 import type { PluggyState } from '../../src/lib/pluggyState'
-import type { PluggyTx } from '../../api/lib/pluggyMapping'
+import type { PluggyTx } from '../../api/_lib/pluggyMapping'
 import type { MonthItem } from '../../src/types/finance'
 
 const NOW = new Date('2026-11-09T10:00:00.000Z')

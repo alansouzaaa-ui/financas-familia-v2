@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseTransaction, appendTelegramTransaction } from '../../../api/lib/telegram'
+import { parseTransaction, appendTelegramTransaction } from '../../../api/_lib/telegram'
 import type { SyncPayload } from '../../../src/lib/syncService'
 
 const emptyPayload: SyncPayload = {

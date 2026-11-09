@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/lib/pluggyRun'
+import { registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/_lib/pluggyRun'
 import type { SyncPayload } from '../../src/lib/syncService'
 
 const NOW = new Date('2026-11-09T10:00:00.000Z')

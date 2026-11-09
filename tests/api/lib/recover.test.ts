@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { findLostTelegramItems, scanLostTelegramItems, summarizeLostItem } from '../../../api/lib/recover'
+import { findLostTelegramItems, scanLostTelegramItems, summarizeLostItem } from '../../../api/_lib/recover'
 import type { SyncPayload } from '../../../src/lib/syncService'
 import type { MonthItem, MonthRecord } from '../../../src/types/finance'
 

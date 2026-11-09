@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseYahooDividends, fetchYahooDividends, fetchManyDividends } from '../../../api/lib/yahooDividends'
+import { parseYahooDividends, fetchYahooDividends, fetchManyDividends } from '../../../api/_lib/yahooDividends'
 
 // Baseado em resposta real (range=5y&interval=1mo&events=div) de MXRF11.SA
 const mxrf11 = {

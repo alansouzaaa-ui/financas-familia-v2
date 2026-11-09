@@ -1,4 +1,4 @@
-// api/lib/tesouroPu.ts — helper (roteado por api/tesouro.ts quando há ?data=)
+// api/_lib/tesouroPu.ts — helper (roteado por api/tesouro.ts quando há ?data=)
 // PU (preço unitário) de um título do Tesouro Direto numa DATA de compra, a partir
 // dos DADOS ABERTOS do Tesouro Transparente. O CSV vem do mais recente para o mais
 // antigo, então transmitimos até cruzar a data pedida e pegamos o primeiro pregão

@@ -1,4 +1,4 @@
-import { verifySession } from '../lib/auth'
+import { verifySession } from '../_lib/auth'
 
 export const config = { runtime: 'edge' }
 

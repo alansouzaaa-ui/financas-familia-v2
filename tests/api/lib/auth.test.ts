@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSession, verifySession, getSessionCookie, signPayload, verifyPayload } from '../../../api/lib/auth'
+import { createSession, verifySession, getSessionCookie, signPayload, verifyPayload } from '../../../api/_lib/auth'
 
 describe('session signatures', () => {
   it('accepts a session before its seven-day expiry', async () => {

@@ -2,10 +2,10 @@
 //   POST {action:'status'|'register-item'|'map-account'|'sync'} (sessão do app)
 //   GET  com Authorization: Bearer <CRON_SECRET> (cron diário)
 // Runtime Edge (como api/sync.ts). Nunca loga credenciais nem dados de transação.
-import { verifySession } from './lib/auth'
-import { getGistPayload, setGistPayload } from './lib/gist'
-import { createPluggyClient, PluggyError } from './lib/pluggyClient'
-import { mapAccount, readStatus, registerItem, runSync, type Deps } from './lib/pluggyRun'
+import { verifySession } from './_lib/auth'
+import { getGistPayload, setGistPayload } from './_lib/gist'
+import { createPluggyClient, PluggyError } from './_lib/pluggyClient'
+import { mapAccount, readStatus, registerItem, runSync, type Deps } from './_lib/pluggyRun'
 import { toStatusView } from '../src/lib/pluggyState'
 
 export const config = { runtime: 'edge' }

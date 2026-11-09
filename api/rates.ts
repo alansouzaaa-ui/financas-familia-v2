@@ -1,4 +1,4 @@
-import { fetchBcbRates } from './lib/bcbRates'
+import { fetchBcbRates } from './_lib/bcbRates'
 
 // gru1 (São Paulo): a API do BCB recusa/derruba requisições vindas de fora do
 // Brasil — na região padrão (EUA) todas as séries voltavam null.

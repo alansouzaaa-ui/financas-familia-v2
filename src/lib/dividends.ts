@@ -1,4 +1,4 @@
-import type { DividendEvent } from '../../api/lib/yahooDividends'
+import type { DividendEvent } from '../../api/_lib/yahooDividends'
 
 export type { DividendEvent }
 

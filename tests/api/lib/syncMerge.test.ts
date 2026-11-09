@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeIncoming, restoreItems, isTelegramItem } from '../../../api/lib/syncMerge'
+import { mergeIncoming, restoreItems, isTelegramItem } from '../../../api/_lib/syncMerge'
 import type { SyncPayload } from '../../../src/lib/syncService'
 import type { MonthItem, MonthRecord } from '../../../src/types/finance'
 import type { ClosedPosition, InvestmentOperation } from '../../../src/types/investment'

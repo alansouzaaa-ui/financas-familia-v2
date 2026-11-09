@@ -1,4 +1,4 @@
-import type { DividendEvent } from '../../api/lib/yahooDividends'
+import type { DividendEvent } from '../../api/_lib/yahooDividends'
 
 // Em dev (vite) não existe /api (são funções Vercel Edge); por isso apontamos para
 // a produção, cujo endpoint libera CORS (dado público).

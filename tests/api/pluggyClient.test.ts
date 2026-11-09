@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createPluggyClient } from '../../api/lib/pluggyClient'
+import { createPluggyClient } from '../../api/_lib/pluggyClient'
 
 function mockFetch(routes: Record<string, unknown>, calls: string[] = []) {
   return vi.fn(async (url: string, init?: RequestInit) => {

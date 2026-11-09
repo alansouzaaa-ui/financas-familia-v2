@@ -4,7 +4,7 @@ import {
   parseYahooChart,
   fetchYahooQuote,
   fetchManyQuotes,
-} from '../../../api/lib/yahooQuote'
+} from '../../../api/_lib/yahooQuote'
 
 // Baseado em resposta real (range=5d) de ITSA4.SA
 const itsa4 = {

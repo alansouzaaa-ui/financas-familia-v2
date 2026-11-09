@@ -1,8 +1,8 @@
 // api/summary.ts — Vercel Edge Function (disparada por Vercel Cron)
 export const config = { runtime: 'edge' }
 
-import { getGistPayload } from './lib/gist'
-import { buildSummary } from './lib/summary'
+import { getGistPayload } from './_lib/gist'
+import { buildSummary } from './_lib/summary'
 
 async function tgSend(token: string, chatId: string, text: string): Promise<void> {
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

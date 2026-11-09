@@ -1,4 +1,4 @@
-// api/lib/invoiceExtract.ts — extrai as linhas de uma fatura de cartão (PDF) via Claude.
+// api/_lib/invoiceExtract.ts — extrai as linhas de uma fatura de cartão (PDF) via Claude.
 // Server-only. Sem logs do conteúdo do PDF.
 import Anthropic from '@anthropic-ai/sdk'
 
