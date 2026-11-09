@@ -213,4 +213,17 @@ describe('applyPluggySync', () => {
     const b = run(a.payload, a.state, fetch1([otherTx()]))
     expect(b.payload.deleted_ids).toEqual([{ id: 'pluggy:pend', at: NOW.toISOString() }])
   })
+  it('item sem data (recorrente) num mês vizinho não engole a compra', () => {
+    const rec: MonthItem = { id: 'rec-dez', description: 'assinatura', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan' }
+    // compra em 02/11 -> fatura de Nov; o recorrente sem occurredAt está em Dez
+    const out = run(pay([rec], 'Dez'), st(), fetch1([tx({ date: '2026-11-02T15:00:00.000Z' })]))
+    expect(out.counts.created).toBe(1)
+    expect(out.counts.skippedDuplicates).toBe(0)
+  })
+  it('item sem data no mesmo mês da fatura ainda casa', () => {
+    const rec: MonthItem = { id: 'rec-dez', description: 'assinatura', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan' }
+    const out = run(pay([rec], 'Dez'), st(), fetch1([tx({})])) // 05/11 -> fatura de Dez
+    expect(out.counts.skippedDuplicates).toBe(1)
+    expect(out.counts.created).toBe(0)
+  })
 })

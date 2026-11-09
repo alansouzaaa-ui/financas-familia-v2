@@ -145,13 +145,14 @@ export function applyPluggySync(
 
       // Duplicata de lançamento não-Pluggy (ou Pluggy órfão) do mesmo cartão, no mês da
       // fatura ou num mês vizinho (Telegram/manual podem cair um mês ao lado).
+      // Item sem data (ex.: recorrente) só vale no próprio mês da fatura; nos vizinhos exige data a ≤ 3 dias.
       const candidates = [ym, addMonths(ym, -1), addMonths(ym, 1)].flatMap(k =>
-        months.filter(r => keyOf(r) === k).flatMap(r => r.items ?? []))
-      const dup = candidates.find(it =>
+        months.filter(r => keyOf(r) === k).flatMap(r => (r.items ?? []).map(it => ({ it, sameMonth: k === ym }))))
+      const dup = candidates.find(({ it, sameMonth }) =>
         !usedManual.has(it.id) && it.cardId === account.cardId &&
         (orphan.has(it.id) || (it.source !== 'pluggy' && !(it.externalId ?? '').startsWith('pluggy:'))) &&
         sameCents(it.value, value) &&
-        (!it.occurredAt || dayDiff(spDate(it.occurredAt), date) <= 3))
+        (it.occurredAt ? dayDiff(spDate(it.occurredAt), date) <= 3 : sameMonth))?.it
       if (dup) {
         usedManual.add(dup.id)
         entry.matchedItemId = dup.id
