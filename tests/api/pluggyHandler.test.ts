@@ -15,6 +15,7 @@ vi.mock('../../api/_lib/pluggyClient', async () => {
       getItem: () => h.getItem!(),
       getCreditAccounts: async () => [],
       getBills: async () => [],
+      getBillsRaw: async () => [],
       getTransactions: async () => [],
     }),
   }
@@ -79,6 +80,9 @@ describe('GET (cron)', () => {
 describe('POST', () => {
   it('403 em origem cruzada', async () => {
     expect((await post({ action: 'status' }, { origin: 'https://evil.test' })).status).toBe(403)
+  })
+  it('inspect exige sessão: 401 sem cookie', async () => {
+    expect((await post({ action: 'inspect' }, { cookie: false })).status).toBe(401)
   })
   it('401 sem cookie de sessão', async () => {
     expect((await post({ action: 'status' }, { cookie: false })).status).toBe(401)

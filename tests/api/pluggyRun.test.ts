@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/_lib/pluggyRun'
+import { inspect, registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/_lib/pluggyRun'
 import { PluggyError } from '../../api/_lib/pluggyClient'
 import type { SyncPayload } from '../../src/lib/syncService'
 
@@ -143,5 +143,25 @@ describe('pluggyRun', () => {
     const v = await runSync(deps)
     expect(v.lastResult?.ok).toBe(true)
     expect(client.getTransactions).toHaveBeenCalledWith('acc1', '2026-10-04', '2026-11-10')
+  })
+  it('inspect devolve campos brutos e não grava', async () => {
+    const { deps, get } = makeDeps({
+      getBillsRaw: vi.fn(async () => [{ id: 'bill-abcdef123456', dueDate: '2026-11-10T00:00:00.000Z', billClosingDate: '2026-11-03T00:00:00.000Z' }]),
+    } as never)
+    await registerItem(deps, '11111111-2222-3333-4444-555555555555')
+    await mapAccount(deps, 'acc1', 'card-alan')
+    const saves = (deps.save as ReturnType<typeof vi.fn>).mock.calls.length
+    const before = JSON.stringify(get())
+    const r = await inspect(deps)
+    expect((deps.save as ReturnType<typeof vi.fn>).mock.calls.length).toBe(saves)
+    expect(JSON.stringify(get())).toBe(before)
+    expect(r.item).toMatchObject({ status: 'UPDATED', consentExpiresAt: '2027-11-01T00:00:00.000Z' })
+    expect(r.accounts[0]).toMatchObject({ id: 'acc1', number: '1234', balanceCloseDate: '2026-11-03' })
+    expect(r.cards[0].bills[0]).toEqual({ idTail: '123456', dueDate: '2026-11-10T00:00:00.000Z', billClosingDate: '2026-11-03T00:00:00.000Z' })
+    expect(r.cards[0].transactions[0]).toMatchObject({ idTail: 't1', amount: 100, ignored: false, signedValue: 100, installment: null, seen: null })
+  })
+  it('inspect sem conexão lança', async () => {
+    const { deps } = makeDeps()
+    await expect(inspect(deps)).rejects.toThrow(/Nenhuma conexão/)
   })
 })

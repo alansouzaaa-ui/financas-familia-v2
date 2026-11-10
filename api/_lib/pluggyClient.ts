@@ -99,6 +99,18 @@ export function createPluggyClient(
       throw new PluggyError('Lista de faturas da Pluggy incompleta.', 502)
     },
 
+    /** Diagnóstico: faturas exatamente como recebidas (sem normalizar datas). */
+    async getBillsRaw(accountId: string): Promise<PluggyBill[]> {
+      const out: PluggyBill[] = []
+      for (let page = 1; page <= MAX_BILL_PAGES; page++) {
+        const data = await get<{ results?: PluggyBill[]; totalPages?: number }>(
+          `/bills?accountId=${encodeURIComponent(accountId)}&page=${page}&pageSize=500`)
+        out.push(...(data.results ?? []))
+        if (!data.totalPages || page >= data.totalPages) return out
+      }
+      throw new PluggyError('Lista de faturas da Pluggy incompleta.', 502)
+    },
+
     async getTransactions(accountId: string, dateFrom: string, dateTo: string): Promise<PluggyTx[]> {
       const out: PluggyTx[] = []
       let path: string | null =

@@ -3,7 +3,7 @@ import type { SyncPayload } from '../../src/lib/syncService'
 import { toStatusView, type PluggyAccountLink, type PluggyState, type PluggyStatusView } from '../../src/lib/pluggyState'
 import { PluggyError, type PluggyClient } from './pluggyClient'
 import { applyPluggySync, type AccountFetch } from './pluggySync'
-import { spDate, toYmd, windowStart } from './pluggyMapping'
+import { billMonthKey, isIgnored, signedValue, spDate, toYmd, windowStart } from './pluggyMapping'
 
 export interface Deps {
   client: PluggyClient
@@ -143,4 +143,57 @@ export async function runSync(deps: Deps): Promise<PluggyStatusView> {
   }
   await deps.save({ ...applied.payload, pluggy: state })
   return toStatusView(state, true)
+}
+
+const tail = (s: string | null | undefined) => (s ? String(s).slice(-6) : null)
+
+/** Diagnóstico somente leitura: nunca grava no Gist nem loga. Campos mínimos, ids truncados. */
+export async function inspect(deps: Deps) {
+  const payload = await deps.load()
+  const state = payload?.pluggy
+  if (!state) throw new Error('Nenhuma conexão registrada.')
+  const now = deps.now()
+  const item = await deps.client.getItem(state.itemId)
+  const rawAccounts = await deps.client.getCreditAccounts(state.itemId)
+  const dateTo = spDate(new Date(now.getTime() + 86_400_000).toISOString())
+  const cardDueDays = Object.fromEntries((payload?.card_accounts ?? []).map(c => [c.id, c.dueDay]))
+  const cards = []
+  for (const acc of state.accounts) {
+    if (!acc.cardId) continue
+    const rawBills = await deps.client.getBillsRaw(acc.id)
+    const bills = await deps.client.getBills(acc.id)
+    const billMap = new Map(bills.map(b => [b.id, b]))
+    const windowFrom = windowStart(acc, bills, state.lastSyncAt)
+    const txs = await deps.client.getTransactions(acc.id, windowFrom, dateTo)
+    cards.push({
+      link: { name: acc.name, closeDate: acc.closeDate, dueDate: acc.dueDate, syncedOnce: acc.syncedOnce },
+      windowFrom,
+      bills: rawBills.map(b => ({ idTail: tail(b.id), dueDate: b.dueDate, billClosingDate: b.billClosingDate ?? null })),
+      transactions: txs.map(tx => {
+        const seen = state.seen[tx.id]
+        const md = tx.creditCardMetadata
+        return {
+          idTail: tail(tx.id),
+          date: tx.date,
+          description: tx.description,
+          amount: tx.amount,
+          type: tx.type,
+          status: tx.status,
+          category: tx.category,
+          billIdTail: tail(md?.billId),
+          installment: md?.installmentNumber && md?.totalInstallments ? `${md.installmentNumber}/${md.totalInstallments}` : null,
+          ignored: isIgnored(tx),
+          month: billMonthKey(tx, billMap, acc, cardDueDays[acc.cardId!]),
+          signedValue: signedValue(tx),
+          seen: seen ? { appItemTail: tail(seen.appItemId), matchedTail: tail(seen.matchedItemId), cancelled: !!seen.cancelled, pending: seen.pending } : null,
+        }
+      }),
+    })
+  }
+  return {
+    item: { status: item.status, executionStatus: item.executionStatus ?? null, lastUpdatedAt: (item as { lastUpdatedAt?: string | null }).lastUpdatedAt ?? null, consentExpiresAt: item.consentExpiresAt ?? null },
+    accounts: rawAccounts.map(a => ({ id: tail(a.id), name: a.name, number: a.number ?? null, balanceCloseDate: a.creditData?.balanceCloseDate ?? null, balanceDueDate: a.creditData?.balanceDueDate ?? null })),
+    lastSyncAt: state.lastSyncAt,
+    cards,
+  }
 }

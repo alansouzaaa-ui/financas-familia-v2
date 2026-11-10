@@ -1,11 +1,11 @@
 // /api/pluggy: integração Pluggy (cartões via Meu Pluggy).
-//   POST {action:'status'|'register-item'|'map-account'|'sync'} (sessão do app)
+//   POST {action:'status'|'register-item'|'map-account'|'sync'|'inspect'} (sessão do app)
 //   GET  com Authorization: Bearer <CRON_SECRET> (cron diário)
 // Runtime Edge (como api/sync.ts). Nunca loga credenciais nem dados de transação.
 import { verifySession } from './_lib/auth'
 import { getGistPayload, setGistPayload } from './_lib/gist'
 import { createPluggyClient, PluggyError } from './_lib/pluggyClient'
-import { mapAccount, readStatus, registerItem, runSync, type Deps } from './_lib/pluggyRun'
+import { inspect, mapAccount, readStatus, registerItem, runSync, type Deps } from './_lib/pluggyRun'
 import { toStatusView } from '../src/lib/pluggyState'
 
 export const config = { runtime: 'edge' }
@@ -108,6 +108,8 @@ async function handlePost(req: Request): Promise<Response> {
         return reply({ ok: true, status: await mapAccount(deps, body.accountId, body.cardId as string | null) })
       case 'sync':
         return reply({ ok: true, status: await runSync(deps) })
+      case 'inspect':
+        return reply({ ok: true, inspect: await inspect(deps) })
       default:
         return fail('Ação desconhecida.', 400)
     }
