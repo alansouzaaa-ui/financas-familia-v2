@@ -120,6 +120,7 @@ export default function BankConnectionCard() {
               <input
                 id="pluggy-start-date"
                 type="date"
+                max={new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })}
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
                 className="flex-1 min-w-[160px] min-h-[40px] px-3 rounded-[10px] bg-[var(--color-surface-2)] text-[13px]"

@@ -19,6 +19,7 @@ export interface PluggySeen {
   pending: boolean
   matchedItemId?: string         // item manual com o qual foi casada como duplicata (casa uma vez só)
   cancelled?: boolean            // pendente cancelado: se o id reaparecer, é processado como novo
+  skip?: 'start' | 'import'      // pulada pela data inicial / mês com PDF: reavaliada se o motivo deixar de valer
 }
 
 export interface PluggyLastResult {

@@ -185,6 +185,12 @@ describe('pluggyRun - data inicial', () => {
     await expect(setStartDate(deps, '01/11/2026')).rejects.toThrow(/inválida/)
     await expect(setStartDate(deps, '2026-13-01')).rejects.toThrow(/inválida/)
   })
+  it('setStartDate rejeita data futura (apagaria itens) e aceita hoje', async () => {
+    const { deps } = makeDeps()
+    await registerItem(deps, UUID)
+    await expect(setStartDate(deps, '2026-11-10')).rejects.toThrow(/Data inicial inválida/)
+    expect((await setStartDate(deps, '2026-11-09')).startDate).toBe('2026-11-09')
+  })
   it('runSync começa a janela na data inicial quando ela é posterior', async () => {
     const { deps, client, get } = makeDeps()
     await registerItem(deps, UUID)

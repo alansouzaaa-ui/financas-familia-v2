@@ -388,3 +388,54 @@ describe('applyPluggySync - data inicial, limpeza e PDF', () => {
     expect(b.payload.deleted_ids).toEqual(a.payload.deleted_ids)
   })
 })
+
+describe('applyPluggySync - pulos reversíveis (data inicial / PDF)', () => {
+  const lagBills = [
+    { id: 'b10', dueDate: '2026-10-11', billClosingDate: '2026-10-01' },
+    { id: 'b11', dueDate: '2026-11-11', billClosingDate: '2026-10-30' },
+  ]
+  const caixa = { ...acct, closeDate: null, dueDate: '2026-10-11' }
+  const runC = (p: SyncPayload, s: PluggyState, txs: PluggyTx[]) =>
+    applyPluggySync(p, s, [{ account: caixa, transactions: txs, bills: lagBills, windowFrom: '2026-10-01' }], { now: NOW, cardDueDays: {} })
+  const novImport: MonthItem = { id: 'i1', description: 'PADARIA', value: 33.3, category: 'cards', isPaid: false, cardId: 'card-alan', source: 'import', occurredAt: '2026-10-10T12:00:00.000Z' }
+  const nov = (its: MonthItem[]) => ({ ...pay(), manual_months: [{ month: 'Nov' as const, year: 2026, revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, source: 'manual' as const, items: its }] })
+
+  it('data inicial movida para trás: compra antes pulada é criada na rodada seguinte; repetir é idempotente', () => {
+    const t = tx({ id: 'old', date: '2026-11-03T15:00:00.000Z' })
+    const a = runC(pay([], 'Dez'), st({ accounts: [caixa], startDate: '2026-11-05' }), [t])
+    expect(a.counts.created).toBe(0)
+    expect(a.state.seen.old.skip).toBe('start')
+    const a2 = runC(a.payload, a.state, [t])
+    expect(a2.counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+    const b = runC(a2.payload, { ...a2.state, startDate: '2026-11-01' }, [t])
+    expect(b.counts.created).toBe(1)
+    expect(items(b.payload).map(i => i.id)).toEqual(['pluggy:old'])
+    expect(b.state.seen.old.skip).toBeUndefined()
+    const c = runC(b.payload, b.state, [t])
+    expect(c.counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+  })
+  it('item removido pela data inicial volta (com id novo) quando a data é corrigida', () => {
+    const t = tx({ id: 'u', date: '2026-11-03T15:00:00.000Z' })
+    const a = runC(pay([], 'Dez'), st({ accounts: [caixa] }), [t])
+    expect(a.counts.created).toBe(1)
+    const b = runC(a.payload, { ...a.state, startDate: '2026-11-05' }, [t])
+    expect(b.counts.removed).toBe(1)
+    expect(b.state.seen.u.skip).toBe('start')
+    const c = runC(b.payload, { ...b.state, startDate: null }, [t])
+    expect(c.counts.created).toBe(1)
+    expect(items(c.payload).map(i => i.id)).toEqual(['pluggy:u:2'])
+    expect(runC(c.payload, c.state, [t]).counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+  })
+  it('pulada pelo PDF e depois com billId para mês sem importação: é criada', () => {
+    const t0 = tx({ id: 'n', date: '2026-10-15T15:00:00.000Z', amount: 77 })
+    const a = runC(nov([novImport]), st({ accounts: [caixa] }), [t0])
+    expect(a.counts.created).toBe(0)
+    expect(a.state.seen.n.skip).toBe('import')
+    expect(runC(a.payload, a.state, [t0]).counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+    const t1 = { ...t0, creditCardMetadata: { billId: 'b10' } }
+    const b = runC(a.payload, a.state, [t1])
+    expect(b.counts.created).toBe(1)
+    expect(items(b.payload).find(i => i.id === 'pluggy:n')!._m).toBe('Out/2026')
+    expect(runC(b.payload, b.state, [t1]).counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+  })
+})

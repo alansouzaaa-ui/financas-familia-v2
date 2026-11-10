@@ -122,6 +122,12 @@ describe('POST set-start-date', () => {
     expect((await post({ action: 'set-start-date', startDate: '01/11/2026' })).status).toBe(400)
     expect((await post({ action: 'set-start-date', startDate: 20261101 })).status).toBe(400)
   })
+  it('data inexistente (2026-13-01) -> 400 com a mensagem', async () => {
+    h.payload = { ...base(), pluggy: { itemId: UUID, itemStatus: 'UPDATED', itemError: null, consentExpiresAt: null, accounts: [], lastSyncAt: null, lastResult: null, seen: {} } }
+    const r = await post({ action: 'set-start-date', startDate: '2026-13-01' })
+    expect(r.status).toBe(400)
+    expect((await r.json()).error).toMatch(/Data inicial inválida/)
+  })
   it('grava a data e devolve o status', async () => {
     h.payload = { ...base(), pluggy: { itemId: UUID, itemStatus: 'UPDATED', itemError: null, consentExpiresAt: null, accounts: [], lastSyncAt: null, lastResult: null, seen: {} } }
     const r = await post({ action: 'set-start-date', startDate: '2026-11-01' })

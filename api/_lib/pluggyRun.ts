@@ -97,6 +97,7 @@ const isValidYmd = (s: string) => {
 /** Data inicial do sync: compras anteriores nunca entram (e itens Pluggy intocados delas saem). */
 export async function setStartDate(deps: Deps, startDate: string | null): Promise<PluggyStatusView> {
   if (startDate !== null && !isValidYmd(startDate)) throw new Error('Data inicial inválida: use AAAA-MM-DD.')
+  if (startDate !== null && startDate > spDate(deps.now().toISOString())) throw new Error('Data inicial inválida: não pode ser no futuro.')
   const current = (await deps.load()) ?? emptyPayload()
   const state = current.pluggy
   if (!state) throw new Error('Nenhuma conexão registrada.')

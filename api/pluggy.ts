@@ -59,7 +59,7 @@ function errorStatus(err: unknown): { msg: string; status: number } {
     if (err.status === 404) return { msg: 'Conexão não encontrada na Pluggy. Confira o ID copiado do painel.', status: 404 }
     return { msg: 'A Pluggy está indisponível no momento. Tente novamente.', status: 502 }
   }
-  if (err instanceof Error && /inválido|não encontrad|Nenhuma conexão/.test(err.message)) return { msg: err.message, status: 400 }
+  if (err instanceof Error && /inválid[ao]|não encontrad|Nenhuma conexão/.test(err.message)) return { msg: err.message, status: 400 }
   return { msg: 'Erro inesperado na integração com o banco.', status: 500 }
 }
 

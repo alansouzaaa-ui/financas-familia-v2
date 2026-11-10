@@ -122,11 +122,20 @@ export function applyPluggySync(
         delete seen[tx.id]
         known = undefined
       }
+      // Pulada pela data inicial ou pelo PDF e o motivo não vale mais: processa como nova.
+      if (known && !known.appItemId && known.skip &&
+        !(known.skip === 'start' ? beforeStart(date) : hasImport(ym, account.cardId))) {
+        delete seen[tx.id]
+        known = undefined
+      }
 
       if (known) {
         if (known.appItemId && (isIgnored(tx) || beforeStart(date))) {
           // Passou a ser ignorada (ex.: linha de fatura anterior) ou é anterior à data inicial.
-          if (removeUntouched(known)) known.appItemId = null
+          if (removeUntouched(known)) {
+            known.appItemId = null
+            if (!isIgnored(tx)) known.skip = 'start'
+          }
         } else if (known.appItemId) {
           const loc = find(known.appItemId)
           if (loc && untouched(loc, known)) known.fp = reconcileItem(loc, value, desc, ym)
@@ -138,7 +147,8 @@ export function applyPluggySync(
       }
 
       const entry: PluggySeen = { appItemId: null, fp: '', at: nowIso, accountId: account.id, value, date, pending }
-      if (isIgnored(tx) || beforeStart(date)) { seen[tx.id] = entry; continue }
+      if (isIgnored(tx)) { seen[tx.id] = entry; continue }
+      if (beforeStart(date)) { seen[tx.id] = { ...entry, skip: 'start' }; continue }
 
       // Pendente antigo que sumiu e reaparece com id novo.
       const replaced = Object.entries(seen).find(([id, e]) =>
@@ -186,7 +196,7 @@ export function applyPluggySync(
       }
       if (hasImport(ym, account.cardId)) {
         counts.skippedDuplicates++
-        seen[tx.id] = entry
+        seen[tx.id] = { ...entry, skip: 'import' }
         continue
       }
 
@@ -223,7 +233,10 @@ export function applyPluggySync(
   // Limpeza: itens Pluggy intocados de compras anteriores à data inicial (mesmo fora da janela lida).
   if (startDate) {
     for (const e of Object.values(seen)) {
-      if (e.appItemId && beforeStart(e.date) && removeUntouched(e)) e.appItemId = null
+      if (e.appItemId && beforeStart(e.date) && removeUntouched(e)) {
+        e.appItemId = null
+        e.skip = 'start'
+      }
     }
   }
 
