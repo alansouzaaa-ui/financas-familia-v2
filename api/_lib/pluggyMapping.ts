@@ -58,11 +58,17 @@ export function billMonthKey(
   const d = spDate(tx.date)
   // Sem billId: a fatura mais antiga cujo fechamento ainda cobre a compra (evita
   // mandar para o mês seguinte uma compra de fatura já fechada quando o closeDate avança).
-  const covering = [...bills.values()]
+  // Compra no dia do fechamento já pertence à fatura seguinte (d < close, estrito).
+  const usable = [...bills.values()]
     .map(b => ({ close: toYmd(b.billClosingDate), due: toYmd(b.dueDate) }))
-    .filter((b): b is { close: string; due: string | null } => !!b.close && d <= b.close)
-    .sort((a, b) => a.close.localeCompare(b.close))[0]
-  if (covering?.due) return covering.due.slice(0, 7)
+    .filter((b): b is { close: string; due: string } => !!b.close && !!b.due)
+    .sort((a, b) => a.close.localeCompare(b.close))
+  const covering = usable.find(b => d < b.close)
+  if (covering) return covering.due.slice(0, 7)
+  // Nenhuma fatura cobre: a compra é da fatura seguinte à última fechada (o creditData
+  // da conta ainda aponta para o vencimento da fatura já fechada).
+  const latest = usable[usable.length - 1]
+  if (latest) return addMonths(latest.due.slice(0, 7), 1)
 
   const acctClose = toYmd(acct.closeDate)
   const acctDue = toYmd(acct.dueDate)

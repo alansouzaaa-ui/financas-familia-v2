@@ -126,3 +126,15 @@ describe('pluggyMapping - dados reais Caixa (Meu Pluggy)', () => {
     expect(signedValue(tx({ type: 'CREDIT', amount: 8.62, description: 'CASHBACK ANUIDADE GASTOS TIT' }))).toBe(-8.62)
   })
 })
+
+describe('billMonthKey - fechamento Caixa (compras até o dia do fechamento)', () => {
+  const bills = new Map([['b', { id: 'b', dueDate: '2026-11-11', billClosingDate: '2026-10-30' }]])
+  const caixa = { closeDate: '2026-11-30', dueDate: '2026-11-11' }
+  const at = (d: string) => billMonthKey(tx({ date: `${d}T15:00:00.000Z` }), bills, caixa)
+  it('antes do fechamento -> fatura fechada (Nov)', () => { expect(at('2026-10-29')).toBe('2026-11') })
+  it('no dia do fechamento -> próxima fatura (Dez)', () => { expect(at('2026-10-30')).toBe('2026-12') })
+  it('depois do fechamento, sem fatura aberta -> próxima fatura (Dez)', () => {
+    expect(at('2026-10-31')).toBe('2026-12')
+    expect(at('2026-11-01')).toBe('2026-12')
+  })
+})

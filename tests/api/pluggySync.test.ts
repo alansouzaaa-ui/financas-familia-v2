@@ -242,3 +242,25 @@ describe('applyPluggySync - dados reais Caixa', () => {
     expect(run(pay([pdf]), st(), fetch1([t])).counts.created).toBe(1)
   })
 })
+
+describe('applyPluggySync - fechamento Caixa (30/10, vence 11/11)', () => {
+  const bills = [{ id: 'b', dueDate: '2026-11-11', billClosingDate: '2026-10-30' }]
+  const caixa = { ...acct, closeDate: '2026-11-30', dueDate: '2026-11-11' }
+  it('item Pluggy intocado em Nov, de 31/10, é movido para Dez', () => {
+    const t = tx({ id: 'ub', description: 'UBER', date: '2026-10-31T15:00:00.000Z' })
+    const a = run(pay([], 'Nov'), st(), fetch1([t]))
+    expect(items(a.payload).find(i => i.id === 'pluggy:ub')!._m).toBe('Nov/2026')
+    const b = applyPluggySync(a.payload, st({ ...a.state, accounts: [caixa] }),
+      [{ account: caixa, transactions: [t], bills, windowFrom: '2026-10-04' }], { now: NOW, cardDueDays: {} })
+    expect(b.counts.moved).toBe(1)
+    expect(items(b.payload).find(i => i.id === 'pluggy:ub')!._m).toBe('Dez/2026')
+  })
+  it('item do PDF em Nov de 30/10 ainda deduplica a compra Pluggy de 30/10 (Dez)', () => {
+    const pdf: MonthItem = { id: 'pdf-uber', description: 'UBER', value: 100, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-10-30T12:00:00.000Z' }
+    const t = tx({ id: 'ub2', description: 'UBER', date: '2026-10-30T15:00:00.000Z' })
+    const out = applyPluggySync(pay([pdf], 'Nov'), st({ accounts: [caixa] }),
+      [{ account: caixa, transactions: [t], bills, windowFrom: '2026-10-04' }], { now: NOW, cardDueDays: {} })
+    expect(out.counts.skippedDuplicates).toBe(1)
+    expect(out.counts.created).toBe(0)
+  })
+})
