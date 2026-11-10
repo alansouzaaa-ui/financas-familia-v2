@@ -7,17 +7,21 @@ const ERROR_STATUSES = new Set(['LOGIN_ERROR', 'OUTDATED', 'WAITING_USER_INPUT']
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+const fmtYmd = (ymd: string) => ymd.split('-').reverse().join('/')
 const btn = 'inline-flex items-center min-h-[40px] px-3 rounded-[10px] text-[13px] font-semibold'
 
 export default function BankConnectionCard() {
   const cards = useCardsStore(s => s.accounts)
   const [status, setStatus] = useState<PluggyStatusView | null>(null)
   const [itemId, setItemId] = useState('')
+  const [startDate, setStartDate] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    pluggyCall('status').then(setStatus).catch(e => setError(e.message))
+    pluggyCall('status')
+      .then(s => { setStatus(s); setStartDate(s.startDate ?? '') })
+      .catch(e => setError(e.message))
   }, [])
 
   const run = async (label: string, fn: () => Promise<PluggyStatusView>, pull = false) => {
@@ -109,6 +113,27 @@ export default function BankConnectionCard() {
               ))}
             </ul>
           )}
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="pluggy-start-date" className="text-[12.5px] text-[var(--color-text-muted)]">Trazer compras a partir de</label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="pluggy-start-date"
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="flex-1 min-w-[160px] min-h-[40px] px-3 rounded-[10px] bg-[var(--color-surface-2)] text-[13px]"
+              />
+              <button type="button" disabled={!!busy || startDate === (status.startDate ?? '')}
+                className={`${btn} border border-[var(--color-border)] disabled:opacity-50`}
+                onClick={() => run('start', () => pluggyCall('set-start-date', { startDate: startDate || null }))}>
+                {busy === 'start' ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+            <p className="text-[11.5px] text-[var(--color-text-muted)]">
+              {status.startDate ? `Compras anteriores a ${fmtYmd(status.startDate)} não entram (e as já trazidas pelo banco saem, se não foram editadas).` : 'Sem data inicial: traz as compras da fatura aberta.'}
+            </p>
+          </div>
 
           <div className="text-[12px] text-[var(--color-text-muted)]">
             {status.lastSyncAt ? <>Última sincronização: {fmtDateTime(status.lastSyncAt)}</> : 'Ainda não sincronizado.'}
