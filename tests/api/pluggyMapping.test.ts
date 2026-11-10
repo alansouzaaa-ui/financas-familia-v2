@@ -138,3 +138,23 @@ describe('billMonthKey - fechamento Caixa (compras até o dia do fechamento)', (
     expect(at('2026-11-01')).toBe('2026-12')
   })
 })
+
+describe('billMonthKey - faturas atrasadas na Pluggy (fechamento estimado)', () => {
+  // Pluggy só conhece até a fatura que fechou em 01/10 (vence 11/10); a de Nov (fecha 30/10) não veio.
+  const bills = new Map([
+    ['b10', { id: 'b10', dueDate: '2026-10-11', billClosingDate: '2026-10-01' }],
+    ['b09', { id: 'b09', dueDate: '2026-09-11', billClosingDate: '2026-09-01' }],
+  ])
+  const caixa = { closeDate: null, dueDate: '2026-10-11' }
+  const at = (d: string) => billMonthKey(tx({ date: `${d}T15:00:00.000Z` }), bills, caixa)
+  it.each([
+    ['2026-09-30', '2026-10'],
+    ['2026-10-01', '2026-11'],
+    ['2026-10-29', '2026-11'],
+    ['2026-10-30', '2026-12'],
+    ['2026-10-31', '2026-12'],
+    ['2026-11-01', '2026-12'],
+    ['2026-11-28', '2026-12'],
+    ['2026-11-29', '2027-01'],
+  ])('compra em %s -> fatura %s', (d, ym) => { expect(at(d)).toBe(ym) })
+})

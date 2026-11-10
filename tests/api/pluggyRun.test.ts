@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { inspect, registerItem, mapAccount, runSync, readStatus, type Deps } from '../../api/_lib/pluggyRun'
+import { inspect, registerItem, mapAccount, runSync, readStatus, setStartDate, type Deps } from '../../api/_lib/pluggyRun'
 import { PluggyError } from '../../api/_lib/pluggyClient'
 import type { SyncPayload } from '../../src/lib/syncService'
 
@@ -163,5 +163,44 @@ describe('pluggyRun', () => {
   it('inspect sem conexão lança', async () => {
     const { deps } = makeDeps()
     await expect(inspect(deps)).rejects.toThrow(/Nenhuma conexão/)
+  })
+})
+
+describe('pluggyRun - data inicial', () => {
+  const UUID = '11111111-2222-3333-4444-555555555555'
+  it('setStartDate grava e devolve no status; registerItem preserva', async () => {
+    const { deps, get } = makeDeps()
+    await registerItem(deps, UUID)
+    expect((await readStatus(deps)).startDate).toBeNull()
+    const v = await setStartDate(deps, '2026-11-01')
+    expect(v.startDate).toBe('2026-11-01')
+    expect(get().pluggy?.startDate).toBe('2026-11-01')
+    await registerItem(deps, UUID)
+    expect(get().pluggy?.startDate).toBe('2026-11-01')
+    expect((await setStartDate(deps, null)).startDate).toBeNull()
+  })
+  it('setStartDate rejeita formato inválido', async () => {
+    const { deps } = makeDeps()
+    await registerItem(deps, UUID)
+    await expect(setStartDate(deps, '01/11/2026')).rejects.toThrow(/inválida/)
+    await expect(setStartDate(deps, '2026-13-01')).rejects.toThrow(/inválida/)
+  })
+  it('runSync começa a janela na data inicial quando ela é posterior', async () => {
+    const { deps, client, get } = makeDeps()
+    await registerItem(deps, UUID)
+    await mapAccount(deps, 'acc1', 'card-alan')
+    await setStartDate(deps, '2026-11-01')
+    get().pluggy!.lastResult = null
+    await runSync(deps)
+    expect(client.getTransactions).toHaveBeenCalledWith('acc1', '2026-11-01', '2026-11-10')
+  })
+  it('runSync mantém a janela normal quando a data inicial é anterior', async () => {
+    const { deps, client, get } = makeDeps()
+    await registerItem(deps, UUID)
+    await mapAccount(deps, 'acc1', 'card-alan')
+    await setStartDate(deps, '2026-01-01')
+    get().pluggy!.lastResult = null
+    await runSync(deps)
+    expect(client.getTransactions).toHaveBeenCalledWith('acc1', '2026-10-04', '2026-11-10')
   })
 })

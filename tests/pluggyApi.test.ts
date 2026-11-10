@@ -19,3 +19,14 @@ describe('pluggyCall', () => {
     await expect(pluggyCall('register-item', { itemId: 'x' })).rejects.toThrow('ID da conexão inválido')
   })
 })
+
+describe('pluggyCall set-start-date', () => {
+  it('envia a data inicial', async () => {
+    const f = vi.fn(async () => new Response(JSON.stringify({ ok: true, status: { configured: true, connected: true, startDate: '2026-11-01' } })))
+    vi.stubGlobal('fetch', f)
+    const s = await pluggyCall('set-start-date', { startDate: '2026-11-01' })
+    expect(s.startDate).toBe('2026-11-01')
+    const [, init] = f.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ action: 'set-start-date', startDate: '2026-11-01' })
+  })
+})

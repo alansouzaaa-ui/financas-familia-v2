@@ -82,6 +82,24 @@ export function applyPluggySync(
     return fingerprint(value, desc, ym)
   }
 
+  /** Remove item Pluggy intocado (com tombstone). Devolve true se removeu. */
+  const removeUntouched = (entry: PluggySeen): boolean => {
+    if (!entry.appItemId) return false
+    const loc = find(entry.appItemId)
+    if (!loc || !untouched(loc, entry)) return false
+    loc.rec.items!.splice(loc.idx, 1)
+    touched.add(loc.rec)
+    counts.removed++
+    dead.add(entry.appItemId)
+    newTombstones.push({ id: entry.appItemId, at: nowIso })
+    return true
+  }
+  const startDate = state.startDate ?? null
+  const beforeStart = (date: string) => !!startDate && date < startDate
+  // Fatura importada por PDF manda no mês: Pluggy não cria item novo nele (mesmo cartão).
+  const hasImport = (ym: string, cardId: string) =>
+    months.some(r => keyOf(r) === ym && (r.items ?? []).some(it => it.source === 'import' && it.cardId === cardId))
+
   const processedAccounts = new Set<string>()
   for (const { account, transactions, bills, windowFrom } of fetched) {
     if (!account.cardId) continue
@@ -106,7 +124,10 @@ export function applyPluggySync(
       }
 
       if (known) {
-        if (known.appItemId) {
+        if (known.appItemId && (isIgnored(tx) || beforeStart(date))) {
+          // Passou a ser ignorada (ex.: linha de fatura anterior) ou é anterior à data inicial.
+          if (removeUntouched(known)) known.appItemId = null
+        } else if (known.appItemId) {
           const loc = find(known.appItemId)
           if (loc && untouched(loc, known)) known.fp = reconcileItem(loc, value, desc, ym)
         }
@@ -117,7 +138,7 @@ export function applyPluggySync(
       }
 
       const entry: PluggySeen = { appItemId: null, fp: '', at: nowIso, accountId: account.id, value, date, pending }
-      if (isIgnored(tx)) { seen[tx.id] = entry; continue }
+      if (isIgnored(tx) || beforeStart(date)) { seen[tx.id] = entry; continue }
 
       // Pendente antigo que sumiu e reaparece com id novo.
       const replaced = Object.entries(seen).find(([id, e]) =>
@@ -163,6 +184,11 @@ export function applyPluggySync(
         seen[tx.id] = entry
         continue
       }
+      if (hasImport(ym, account.cardId)) {
+        counts.skippedDuplicates++
+        seen[tx.id] = entry
+        continue
+      }
 
       // Id tombstonado (pendente cancelado que voltou): usa sufixo para o cliente não apagá-lo.
       let id = `pluggy:${tx.id}`
@@ -188,20 +214,16 @@ export function applyPluggySync(
       if (e.accountId !== account.id || !e.pending || fetchedIds.has(id) || reusedPending.has(id)) continue
       if (e.date < windowFrom) continue
       let kept = false // item pago/editado/apagado pelo usuário: não recriar se o id voltar
-      if (e.appItemId) {
-        const loc = find(e.appItemId)
-        if (loc && untouched(loc, e)) {
-          loc.rec.items!.splice(loc.idx, 1)
-          touched.add(loc.rec)
-          counts.removed++
-          dead.add(e.appItemId)
-          newTombstones.push({ id: e.appItemId, at: nowIso })
-        } else {
-          kept = true
-        }
-      }
+      if (e.appItemId && !removeUntouched(e)) kept = true
       // Sem matchedItemId: o item manual casado fica livre para outra transação.
       seen[id] = { ...withoutMatch(e), appItemId: null, pending: false, ...(kept ? {} : { cancelled: true }) }
+    }
+  }
+
+  // Limpeza: itens Pluggy intocados de compras anteriores à data inicial (mesmo fora da janela lida).
+  if (startDate) {
+    for (const e of Object.values(seen)) {
+      if (e.appItemId && beforeStart(e.date) && removeUntouched(e)) e.appItemId = null
     }
   }
 

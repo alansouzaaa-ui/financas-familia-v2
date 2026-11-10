@@ -41,6 +41,7 @@ export interface PluggyState {
   lastSyncAt: string | null
   lastResult: PluggyLastResult | null
   seen: Record<string, PluggySeen>
+  startDate?: string | null      // yyyy-mm-dd: compras anteriores não entram (ausente em Gists antigos = null)
 }
 
 /** O que o app recebe (sem `seen`). */
@@ -53,6 +54,7 @@ export interface PluggyStatusView {
   accounts: { id: string; name: string; last4: string | null; cardId: string | null }[]
   lastSyncAt: string | null
   lastResult: PluggyLastResult | null
+  startDate: string | null
 }
 
 export function toStatusView(state: PluggyState | undefined, configured: boolean): PluggyStatusView {
@@ -65,5 +67,6 @@ export function toStatusView(state: PluggyState | undefined, configured: boolean
     accounts: (state?.accounts ?? []).map(a => ({ id: a.id, name: a.name, last4: a.last4, cardId: a.cardId })),
     lastSyncAt: state?.lastSyncAt ?? null,
     lastResult: state?.lastResult ?? null,
+    startDate: state?.startDate ?? null,
   }
 }

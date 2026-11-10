@@ -1,6 +1,6 @@
 import type { PluggyStatusView } from './pluggyState'
 
-type Action = 'status' | 'register-item' | 'map-account' | 'sync'
+type Action = 'status' | 'register-item' | 'map-account' | 'sync' | 'set-start-date'
 
 export async function pluggyCall(action: Action, body: Record<string, unknown> = {}): Promise<PluggyStatusView> {
   const res = await fetch('/api/pluggy', {

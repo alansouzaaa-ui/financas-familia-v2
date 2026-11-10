@@ -44,6 +44,14 @@ function addDays(ymd: string, n: number): string {
   return new Date(t).toISOString().slice(0, 10)
 }
 
+/** Mesmo dia do mês, n meses depois, limitado ao último dia do mês (31/01 + 1 -> 28/02). */
+function sameDayMonthsLater(ymd: string, n: number): string {
+  const ym = addMonths(ymd.slice(0, 7), n)
+  const [y, m] = ym.split('-').map(Number)
+  const day = Math.min(Number(ymd.slice(8, 10)), new Date(Date.UTC(y, m, 0)).getUTCDate())
+  return `${ym}-${pad2(day)}`
+}
+
 export function billMonthKey(
   tx: PluggyTx,
   bills: Map<string, PluggyBill>,
@@ -65,10 +73,14 @@ export function billMonthKey(
     .sort((a, b) => a.close.localeCompare(b.close))
   const covering = usable.find(b => d < b.close)
   if (covering) return covering.due.slice(0, 7)
-  // Nenhuma fatura cobre: a compra é da fatura seguinte à última fechada (o creditData
-  // da conta ainda aponta para o vencimento da fatura já fechada).
+  // Nenhuma fatura cobre: a Pluggy pode estar atrasada (faltam faturas recentes). Estima os
+  // fechamentos seguintes: mesmo dia da última fechada, k meses depois, menos 2 dias.
   const latest = usable[usable.length - 1]
-  if (latest) return addMonths(latest.due.slice(0, 7), 1)
+  if (latest) {
+    for (let k = 1; k <= 600; k++) {
+      if (d < addDays(sameDayMonthsLater(latest.close, k), -2)) return addMonths(latest.due.slice(0, 7), k)
+    }
+  }
 
   const acctClose = toYmd(acct.closeDate)
   const acctDue = toYmd(acct.dueDate)
@@ -147,10 +159,7 @@ export function windowStart(acct: PluggyAccountLink, bills: PluggyBill[], lastSy
   if (closeDate) {
     const prev = closes.filter(c => c < closeDate).pop()
     // Sem fatura anterior: mesmo dia no mês anterior, limitado ao último dia dele (31/03 -> 28/02).
-    const ym = addMonths(closeDate.slice(0, 7), -1)
-    const [y, m] = ym.split('-').map(Number)
-    const day = Math.min(Number(closeDate.slice(8, 10)), new Date(Date.UTC(y, m, 0)).getUTCDate())
-    const prevClose = prev ?? `${ym}-${pad2(day)}`
+    const prevClose = prev ?? sameDayMonthsLater(closeDate, -1)
     return addDays(prevClose, 1)
   }
   const lastClose = closes.pop()

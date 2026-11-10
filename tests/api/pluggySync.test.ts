@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { applyPluggySync, type AccountFetch } from '../../api/_lib/pluggySync'
 import type { SyncPayload } from '../../src/lib/syncService'
 import type { PluggyState } from '../../src/lib/pluggyState'
-import type { PluggyTx } from '../../api/_lib/pluggyMapping'
+import { fingerprint, type PluggyTx } from '../../api/_lib/pluggyMapping'
 import type { MonthItem } from '../../src/types/finance'
 
 const NOW = new Date('2026-11-09T10:00:00.000Z')
@@ -262,5 +262,129 @@ describe('applyPluggySync - fechamento Caixa (30/10, vence 11/11)', () => {
       [{ account: caixa, transactions: [t], bills, windowFrom: '2026-10-04' }], { now: NOW, cardDueDays: {} })
     expect(out.counts.skippedDuplicates).toBe(1)
     expect(out.counts.created).toBe(0)
+  })
+})
+
+describe('applyPluggySync - data inicial, limpeza e PDF', () => {
+  const lagBills = [
+    { id: 'b10', dueDate: '2026-10-11', billClosingDate: '2026-10-01' },
+    { id: 'b09', dueDate: '2026-09-11', billClosingDate: '2026-09-01' },
+  ]
+  const caixa = { ...acct, closeDate: null, dueDate: '2026-10-11' }
+  const runC = (p: SyncPayload, s: PluggyState, txs: PluggyTx[]) =>
+    applyPluggySync(p, s, [{ account: caixa, transactions: txs, bills: lagBills, windowFrom: '2026-11-01' }], { now: NOW, cardDueDays: {} })
+  const imp = (id: string, description: string, value: number, d: string): MonthItem => ({
+    id, description, value, category: 'cards', isPaid: false, cardId: 'card-alan', source: 'import', occurredAt: `${d}T12:00:00.000Z`,
+  })
+  const month = (m: 'Out' | 'Nov' | 'Dez', its: MonthItem[]) =>
+    ({ month: m, year: 2026, revenue: 0, fixedCosts: 0, loans: 0, cards: 0, variableCosts: 0, source: 'manual' as const, items: its })
+  const seenOf = (appItemId: string, value: number, desc: string, ym: string, date: string) =>
+    ({ appItemId, fp: fingerprint(value, desc, ym), at: NOW.toISOString(), accountId: 'acc1', value, date, pending: true })
+
+  it('compra anterior à data inicial não é criada (fica vista sem item)', () => {
+    const out = runC(pay([], 'Dez'), st({ accounts: [caixa], startDate: '2026-11-01' }),
+      [tx({ id: 'old', date: '2026-10-31T15:00:00.000Z' }), tx({ id: 'new', date: '2026-11-01T15:00:00.000Z' })])
+    expect(items(out.payload).map(i => i.id)).toEqual(['pluggy:new'])
+    expect(out.state.seen.old).toMatchObject({ appItemId: null, date: '2026-10-31' })
+  })
+  it('mês com fatura importada por PDF (mesmo cartão) não recebe item Pluggy novo', () => {
+    const p = { ...pay(), manual_months: [month('Nov', [imp('i1', 'PADARIA', 33.3, '2026-10-10')])] }
+    const out = runC(p, st({ accounts: [caixa] }), [tx({ id: 'n', date: '2026-10-15T15:00:00.000Z', amount: 77 })])
+    expect(out.counts.created).toBe(0)
+    expect(out.counts.skippedDuplicates).toBe(1)
+    expect(out.state.seen.n.appItemId).toBeNull()
+    expect(items(out.payload).map(i => i.id)).toEqual(['i1'])
+  })
+  it('PDF de outro cartão não bloqueia', () => {
+    const p = { ...pay(), manual_months: [month('Nov', [{ ...imp('i1', 'PADARIA', 33.3, '2026-10-10'), cardId: 'card-pai' }])] }
+    expect(runC(p, st({ accounts: [caixa] }), [tx({ id: 'n', date: '2026-10-15T15:00:00.000Z', amount: 77 })]).counts.created).toBe(1)
+  })
+  it('item intocado cuja transação passou a ser ignorada é removido com tombstone', () => {
+    const t = tx({ id: 'tfa', description: 'TOTAL DA FATURA ANTERIOR', amount: 1069.74, date: '2026-10-01T15:00:00.000Z' })
+    const it0: MonthItem = { id: 'pluggy:tfa', externalId: 'pluggy:tfa', source: 'pluggy', description: 'TOTAL DA FATURA ANTERIOR', value: 1069.74, category: 'cards', isPaid: false, cardId: 'card-alan', occurredAt: '2026-10-01T15:00:00.000Z' }
+    const s = st({ accounts: [caixa], seen: { tfa: seenOf('pluggy:tfa', 1069.74, 'TOTAL DA FATURA ANTERIOR', '2026-11', '2026-10-01') } })
+    const out = runC({ ...pay(), manual_months: [month('Nov', [it0])] }, s, [t])
+    expect(items(out.payload)).toHaveLength(0)
+    expect(out.counts.removed).toBe(1)
+    expect(out.state.seen.tfa.appItemId).toBeNull()
+    expect(out.payload.deleted_ids).toEqual([{ id: 'pluggy:tfa', at: NOW.toISOString() }])
+    expect(out.payload.manual_months.find(m => m.month === 'Nov')!.cards).toBe(0)
+  })
+  it('item ignorado mas pago pelo usuário fica', () => {
+    const t = tx({ id: 'tfa', description: 'TOTAL DA FATURA ANTERIOR', amount: 1069.74, date: '2026-10-01T15:00:00.000Z' })
+    const it0: MonthItem = { id: 'pluggy:tfa', source: 'pluggy', description: 'TOTAL DA FATURA ANTERIOR', value: 1069.74, category: 'cards', isPaid: true, cardId: 'card-alan' }
+    const s = st({ accounts: [caixa], seen: { tfa: seenOf('pluggy:tfa', 1069.74, 'TOTAL DA FATURA ANTERIOR', '2026-11', '2026-10-01') } })
+    const out = runC({ ...pay(), manual_months: [month('Nov', [it0])] }, s, [t])
+    expect(items(out.payload).map(i => i.id)).toEqual(['pluggy:tfa'])
+    expect(out.counts.removed).toBe(0)
+  })
+  it('item intocado anterior à data inicial que não veio na consulta também é removido', () => {
+    const it0: MonthItem = { id: 'pluggy:x', source: 'pluggy', description: 'ANUIDADE', value: 17.25, category: 'cards', isPaid: false, cardId: 'card-alan' }
+    const s = st({ accounts: [caixa], startDate: '2026-11-01', seen: { x: seenOf('pluggy:x', 17.25, 'ANUIDADE', '2026-10', '2026-10-01') } })
+    const out = runC({ ...pay(), manual_months: [month('Out', [it0])] }, s, [tx({ id: 'other', date: '2026-11-05T15:00:00.000Z' })])
+    expect(items(out.payload).map(i => i.id)).toEqual(['pluggy:other'])
+    expect(out.counts.removed).toBe(1)
+    expect(out.state.seen.x.appItemId).toBeNull()
+  })
+
+  it('cenário real Caixa: limpa Out/Nov, Nov fica só com o PDF, Ubers a partir de 01/11 vão para Dez; 2ª rodada idempotente', () => {
+    const C = 'card-alan'
+    const seen: PluggyState['seen'] = {}
+    const pl = (txId: string, description: string, value: number, d: string, ym: string): MonthItem => {
+      const id = `pluggy:${txId}`
+      seen[txId] = { ...seenOf(id, value, description, ym, d), at: '2026-11-02T10:00:00.000Z' }
+      return { id, externalId: id, source: 'pluggy', description, value, category: 'cards', isPaid: false, cardId: C, occurredAt: `${d}T15:00:00.000Z` }
+    }
+    const telegram: MonthItem = { id: 'tg1', source: 'telegram', description: 'pague menos', value: 59.78, category: 'cards', isPaid: false, cardId: C, occurredAt: '2026-09-02T12:00:00.000Z' }
+    const out1 = [
+      pl('o1', 'PAGUE MENOS (02/02)', 59.78, '2026-10-01', '2026-10'),
+      pl('o2', 'AMAZON PRIME BR (05/12)', 13.9, '2026-10-01', '2026-10'),
+      pl('o3', 'ANUIDADE', 17.25, '2026-10-01', '2026-10'),
+      pl('o4', 'CASHBACK ANUIDADE GASTOS TIT', -8.62, '2026-10-01', '2026-10'),
+    ]
+    const uberDays = ['2026-10-30', '2026-10-30', '2026-10-31', '2026-10-31', '2026-11-01', '2026-11-01', '2026-11-01']
+    const ubers = uberDays.map((d, i) => pl(`u${i}`, 'UBER *TRIP', 20 + i, d, '2026-11'))
+    const novPluggy = [
+      pl('tfa', 'TOTAL DA FATURA ANTERIOR', 1069.74, '2026-10-01', '2026-11'),
+      pl('cb', 'CASHBACK ANUIDADE GASTOS TIT', -8.62, '2026-10-01', '2026-11'),
+      ...ubers,
+    ]
+    const imports = [
+      imp('i1', 'PADARIA REAL', 33.3, '2026-10-05'),
+      imp('i2', 'POSTO SHELL', 150, '2026-10-12'),
+      imp('i3', 'NETFLIX', 55.9, '2026-10-20'),
+      imp('i4', 'MERCADO LIVRE (03/10)', 89.9, '2026-08-15'),
+      imp('i5', 'FARMACIA SP', 42.15, '2026-10-28'),
+    ]
+    const p: SyncPayload = { ...pay(), manual_months: [month('Out', [telegram, ...out1]), month('Nov', [...imports, ...novPluggy])] }
+    const s = st({ accounts: [caixa], startDate: '2026-11-01', seen })
+    const bill10 = { billId: 'b10' }
+    const txs: PluggyTx[] = [
+      tx({ id: 'o1', description: 'PAGUE MENOS', amount: 59.78, date: '2026-10-01T15:00:00.000Z', status: 'PENDING', creditCardMetadata: { ...bill10, installmentNumber: 2, totalInstallments: 2 } }),
+      tx({ id: 'o2', description: 'AMAZON PRIME BR', amount: 13.9, date: '2026-10-01T15:00:00.000Z', status: 'PENDING', creditCardMetadata: { ...bill10, installmentNumber: 5, totalInstallments: 12 } }),
+      tx({ id: 'o3', description: 'ANUIDADE', amount: 17.25, date: '2026-10-01T15:00:00.000Z', status: 'PENDING', creditCardMetadata: bill10 }),
+      tx({ id: 'o4', description: 'CASHBACK ANUIDADE GASTOS TIT', amount: 8.62, date: '2026-10-01T15:00:00.000Z', status: 'PENDING', creditCardMetadata: bill10 }),
+      tx({ id: 'tfa', description: 'TOTAL DA FATURA ANTERIOR', amount: 1069.74, date: '2026-10-01T15:00:00.000Z', status: 'PENDING' }),
+      tx({ id: 'cb', description: 'CASHBACK ANUIDADE GASTOS TIT', amount: 8.62, date: '2026-10-01T15:00:00.000Z', status: 'PENDING' }),
+      ...uberDays.map((d, i) => tx({ id: `u${i}`, description: 'UBER *TRIP', amount: 20 + i, date: `${d}T15:00:00.000Z`, status: 'PENDING', category: 'Taxi and ride-hailing' })),
+      tx({ id: 'nv', description: 'IFOOD', amount: 64.5, date: '2026-11-05T15:00:00.000Z', status: 'PENDING' }),
+    ]
+
+    const a = runC(p, s, txs)
+    const at = (m: string) => items(a.payload).filter(i => i._m === m)
+    expect(at('Out/2026').map(i => i.id)).toEqual(['tg1'])
+    expect(at('Nov/2026').map(i => i.id).sort()).toEqual(['i1', 'i2', 'i3', 'i4', 'i5'])
+    expect(at('Dez/2026').map(i => i.id).sort()).toEqual(['pluggy:nv', 'pluggy:u4', 'pluggy:u5', 'pluggy:u6'])
+    const removed = ['pluggy:o1', 'pluggy:o2', 'pluggy:o3', 'pluggy:o4', 'pluggy:tfa', 'pluggy:cb', 'pluggy:u0', 'pluggy:u1', 'pluggy:u2', 'pluggy:u3']
+    expect((a.payload.deleted_ids ?? []).map(t => t.id).sort()).toEqual([...removed].sort())
+    expect(a.counts).toMatchObject({ removed: 10, moved: 3, created: 1 })
+    expect(a.payload.manual_months.find(m => m.month === 'Out')!.cards).toBe(59.78)
+    expect(a.payload.manual_months.find(m => m.month === 'Nov')!.cards).toBe(371.25)
+    for (const id of ['o1', 'tfa', 'u0']) expect(a.state.seen[id].appItemId).toBeNull()
+
+    const b = runC(a.payload, a.state, txs)
+    expect(b.counts).toEqual({ created: 0, updated: 0, moved: 0, removed: 0, skippedDuplicates: 0 })
+    expect(b.payload.manual_months).toEqual(a.payload.manual_months)
+    expect(b.payload.deleted_ids).toEqual(a.payload.deleted_ids)
   })
 })

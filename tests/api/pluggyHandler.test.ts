@@ -115,3 +115,17 @@ describe('mapeamento de erros', () => {
     expect((await r.json()).error).toMatch(/ID da conexão/)
   })
 })
+
+describe('POST set-start-date', () => {
+  beforeEach(() => setPluggyEnv())
+  it('400 com data em formato inválido', async () => {
+    expect((await post({ action: 'set-start-date', startDate: '01/11/2026' })).status).toBe(400)
+    expect((await post({ action: 'set-start-date', startDate: 20261101 })).status).toBe(400)
+  })
+  it('grava a data e devolve o status', async () => {
+    h.payload = { ...base(), pluggy: { itemId: UUID, itemStatus: 'UPDATED', itemError: null, consentExpiresAt: null, accounts: [], lastSyncAt: null, lastResult: null, seen: {} } }
+    const r = await post({ action: 'set-start-date', startDate: '2026-11-01' })
+    expect(r.status).toBe(200)
+    expect((await r.json()).status.startDate).toBe('2026-11-01')
+  })
+})

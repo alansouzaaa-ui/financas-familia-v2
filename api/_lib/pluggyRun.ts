@@ -3,7 +3,7 @@ import type { SyncPayload } from '../../src/lib/syncService'
 import { toStatusView, type PluggyAccountLink, type PluggyState, type PluggyStatusView } from '../../src/lib/pluggyState'
 import { PluggyError, type PluggyClient } from './pluggyClient'
 import { applyPluggySync, type AccountFetch } from './pluggySync'
-import { billMonthKey, isIgnored, signedValue, spDate, toYmd, windowStart } from './pluggyMapping'
+import { billMonthKey, isIgnored, signedValue, spDate, toYmd, windowStart, type PluggyBill } from './pluggyMapping'
 
 export interface Deps {
   client: PluggyClient
@@ -69,6 +69,7 @@ export async function registerItem(deps: Deps, itemId: string): Promise<PluggySt
     lastSyncAt: prev?.lastSyncAt ?? null,
     lastResult: newItem ? null : prev?.lastResult ?? null,
     seen: prev?.seen ?? {},
+    startDate: prev?.startDate ?? null,
   }
   const fresh = (await deps.load()) ?? emptyPayload()
   await deps.save({ ...fresh, pluggy: state })
@@ -84,6 +85,30 @@ export async function mapAccount(deps: Deps, accountId: string, cardId: string |
   const next: PluggyState = { ...state, accounts: state.accounts.map(a => (a.id === accountId ? { ...a, cardId } : a)) }
   await deps.save({ ...current, pluggy: next })
   return toStatusView(next, true)
+}
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+const isValidYmd = (s: string) => {
+  if (!YMD_RE.test(s)) return false
+  const t = Date.parse(`${s}T12:00:00Z`)
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s
+}
+
+/** Data inicial do sync: compras anteriores nunca entram (e itens Pluggy intocados delas saem). */
+export async function setStartDate(deps: Deps, startDate: string | null): Promise<PluggyStatusView> {
+  if (startDate !== null && !isValidYmd(startDate)) throw new Error('Data inicial inválida: use AAAA-MM-DD.')
+  const current = (await deps.load()) ?? emptyPayload()
+  const state = current.pluggy
+  if (!state) throw new Error('Nenhuma conexão registrada.')
+  const next: PluggyState = { ...state, startDate }
+  await deps.save({ ...current, pluggy: next })
+  return toStatusView(next, true)
+}
+
+/** Janela de consulta: nunca antes da data inicial. */
+function fetchFrom(acc: PluggyAccountLink, bills: PluggyBill[], state: PluggyState): string {
+  const from = windowStart(acc, bills, state.lastSyncAt)
+  return state.startDate && state.startDate > from ? state.startDate : from
 }
 
 export async function runSync(deps: Deps): Promise<PluggyStatusView> {
@@ -108,7 +133,7 @@ export async function runSync(deps: Deps): Promise<PluggyStatusView> {
       try {
         const bills = await deps.client.getBills(acc.id)
         stage = 'compras'
-        const windowFrom = windowStart(acc, bills, before.lastSyncAt)
+        const windowFrom = fetchFrom(acc, bills, before)
         const transactions = await deps.client.getTransactions(acc.id, windowFrom, dateTo)
         fetched.push({ account: acc, transactions, bills, windowFrom })
       } catch (err) {
@@ -163,7 +188,7 @@ export async function inspect(deps: Deps) {
     const rawBills = await deps.client.getBillsRaw(acc.id)
     const bills = await deps.client.getBills(acc.id)
     const billMap = new Map(bills.map(b => [b.id, b]))
-    const windowFrom = windowStart(acc, bills, state.lastSyncAt)
+    const windowFrom = fetchFrom(acc, bills, state)
     const txs = await deps.client.getTransactions(acc.id, windowFrom, dateTo)
     cards.push({
       link: { name: acc.name, closeDate: acc.closeDate, dueDate: acc.dueDate, syncedOnce: acc.syncedOnce },

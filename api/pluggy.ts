@@ -1,11 +1,11 @@
 // /api/pluggy: integração Pluggy (cartões via Meu Pluggy).
-//   POST {action:'status'|'register-item'|'map-account'|'sync'|'inspect'} (sessão do app)
+//   POST {action:'status'|'register-item'|'map-account'|'sync'|'inspect'|'set-start-date'} (sessão do app)
 //   GET  com Authorization: Bearer <CRON_SECRET> (cron diário)
 // Runtime Edge (como api/sync.ts). Nunca loga credenciais nem dados de transação.
 import { verifySession } from './_lib/auth'
 import { getGistPayload, setGistPayload } from './_lib/gist'
 import { createPluggyClient, PluggyError } from './_lib/pluggyClient'
-import { inspect, mapAccount, readStatus, registerItem, runSync, type Deps } from './_lib/pluggyRun'
+import { inspect, mapAccount, readStatus, registerItem, runSync, setStartDate, type Deps } from './_lib/pluggyRun'
 import { toStatusView } from '../src/lib/pluggyState'
 
 export const config = { runtime: 'edge' }
@@ -86,7 +86,7 @@ async function handlePost(req: Request): Promise<Response> {
   if (!isSameOrigin(req)) return fail('forbidden', 403)
   if (!(await isAuthorized(req))) return fail('unauthorized', 401)
 
-  let body: { action?: unknown; itemId?: unknown; accountId?: unknown; cardId?: unknown }
+  let body: { action?: unknown; itemId?: unknown; accountId?: unknown; cardId?: unknown; startDate?: unknown }
   try { body = await req.json() } catch { return fail('Corpo da requisição inválido.', 400) }
 
   const deps = makeDeps()
@@ -108,6 +108,11 @@ async function handlePost(req: Request): Promise<Response> {
         return reply({ ok: true, status: await mapAccount(deps, body.accountId, body.cardId as string | null) })
       case 'sync':
         return reply({ ok: true, status: await runSync(deps) })
+      case 'set-start-date':
+        if (body.startDate !== null && (typeof body.startDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.startDate))) {
+          return fail('startDate inválida: use AAAA-MM-DD ou null.', 400)
+        }
+        return reply({ ok: true, status: await setStartDate(deps, body.startDate as string | null) })
       case 'inspect':
         return reply({ ok: true, inspect: await inspect(deps) })
       default:
