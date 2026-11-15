@@ -165,6 +165,7 @@ export default function CategoryReportBlock({ months, compact = false, topN = 6 
     if (e.item.source === 'telegram') chips.push('Telegram')
     else if (e.item.source === 'pluggy') chips.push('Banco')
     else if (e.item.source === 'import') chips.push('Fatura')
+    else if (e.item.source === 'invest') chips.push('Investimento')
     return chips
   }
 

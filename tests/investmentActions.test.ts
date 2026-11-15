@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useInvestmentStore } from '../src/stores/useInvestmentStore'
 import { useOperationsStore } from '../src/stores/useOperationsStore'
 import { useTombstoneStore } from '../src/stores/useTombstoneStore'
+import { useFinanceStore } from '../src/stores/useFinanceStore'
 import {
   createPosition, deletePosition, reconcileClosed, registerOperation, removeOperation, updateOperation,
 } from '../src/lib/investmentActions'
@@ -11,8 +12,8 @@ const inv = () => useInvestmentStore.getState()
 const led = () => useOperationsStore.getState()
 const tomb = () => useTombstoneStore.getState().items.map(t => t.id)
 
-function newStock(over: Partial<Omit<InvestmentPosition, 'id'>> = {}): string {
-  return createPosition({ ticker: 'PETR4', quantity: 10, avgPrice: 30, buyDate: '2025-01-10', assetType: 'acao', ...over })
+function newStock(over: Partial<Omit<InvestmentPosition, 'id'>> = {}, launchExpense = false): string {
+  return createPosition({ ticker: 'PETR4', quantity: 10, avgPrice: 30, buyDate: '2025-01-10', assetType: 'acao', ...over }, launchExpense ? { launchExpense: true } : undefined)
 }
 function newSavings(over: Partial<Omit<InvestmentPosition, 'id'>> = {}): string {
   return createPosition({ ticker: 'Poupança', quantity: 1, avgPrice: 1000, manualValue: 1200, buyDate: '2025-01-10', assetType: 'poupanca', ...over })
@@ -241,5 +242,89 @@ describe('reconcileClosed', () => {
     useOperationsStore.setState({ closedPositions: [legacy] })
     reconcileClosed()
     expect(led().closedPositions).toEqual([legacy])
+  })
+})
+
+describe('despesa vinculada (invest:<opId>)', () => {
+  const fin = () => useFinanceStore.getState()
+  const itemsOf = (year: number, month: string) => fin().allMonths.find(m => m.year === year && m.month === month)?.items ?? []
+  const allInvestItems = () => fin().allMonths.flatMap(m => (m.items ?? []).filter(i => i.id.startsWith('invest:')))
+
+  beforeEach(() => { useFinanceStore.setState({ allMonths: [] }) })
+
+  it('registerOperation with launchExpense creates the item in the right month', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50, fees: 1 }, { launchExpense: true })
+    if (!r.ok) throw new Error('fail')
+    const items = itemsOf(2025, 'Fev')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ id: `invest:${r.value.id}`, value: 101, source: 'invest', tag: 'investimentos' })
+  })
+
+  it('without the flag creates nothing; sell never creates', () => {
+    const id = newStock()
+    registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 })
+    registerOperation(id, { type: 'sell', date: '2025-02-02', quantity: 1, price: 50 }, { launchExpense: true })
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('createPosition with flag creates the item for the opening', () => {
+    const id = newStock({}, true)
+    expect(itemsOf(2025, 'Jan')).toHaveLength(1)
+    expect(itemsOf(2025, 'Jan')[0]).toMatchObject({ id: `invest:open:${id}`, value: 300, description: 'Compra PETR4' })
+    useFinanceStore.setState({ allMonths: [] })
+    newStock()
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('updateOperation changes value and moves month', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    if (!r.ok) throw new Error('fail')
+    expect(updateOperation(r.value.id, { date: '2025-02-20', quantity: 3, price: 50 }).ok).toBe(true)
+    expect(itemsOf(2025, 'Fev')[0].value).toBe(150)
+    expect(updateOperation(r.value.id, { date: '2025-04-05', quantity: 3, price: 50 }).ok).toBe(true)
+    expect(itemsOf(2025, 'Fev')).toHaveLength(0)
+    expect(itemsOf(2025, 'Abr')).toHaveLength(1)
+    expect(allInvestItems()).toHaveLength(1)
+  })
+
+  it('updateOperation does nothing when the item was deleted by the user (or never created)', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    if (!r.ok) throw new Error('fail')
+    fin().removeItem(2025, 'Fev', `invest:${r.value.id}`)
+    updateOperation(r.value.id, { date: '2025-02-02', quantity: 5, price: 50 })
+    expect(allInvestItems()).toHaveLength(0)
+    const r2 = registerOperation(id, { type: 'buy', date: '2025-03-01', quantity: 1, price: 10 })
+    if (!r2.ok) throw new Error('fail')
+    updateOperation(r2.value.id, { date: '2025-03-01', quantity: 2, price: 10 })
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('does not touch non-invest items', () => {
+    const id = newStock()
+    fin().upsertItem(2025, 'Fev', { id: 'manual-1', description: 'x', value: 5, category: 'variableCosts', isPaid: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    if (!r.ok) throw new Error('fail')
+    removeOperation(r.value.id)
+    expect(itemsOf(2025, 'Fev').map(i => i.id)).toEqual(['manual-1'])
+  })
+
+  it('removeOperation removes the linked item', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    if (!r.ok) throw new Error('fail')
+    expect(allInvestItems()).toHaveLength(1)
+    removeOperation(r.value.id)
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('deletePosition removes linked items of all its operations', () => {
+    const id = newStock({}, true)
+    registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    expect(allInvestItems()).toHaveLength(2)
+    deletePosition(id)
+    expect(allInvestItems()).toHaveLength(0)
   })
 })

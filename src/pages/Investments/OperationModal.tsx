@@ -90,6 +90,7 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
   const [showFees, setShowFees] = useState(!!editing?.fees)
   const [note, setNote] = useState(editing?.note ?? '')
   const [sellAll, setSellAll] = useState(false)
+  const [launchExpense, setLaunchExpense] = useState(true)
   const [touched, setTouched] = useState<Set<string>>(new Set())
   const [formError, setFormError] = useState<string | null>(null)
   const touch = (f: string) => setTouched(prev => (prev.has(f) ? prev : new Set(prev).add(f)))
@@ -229,6 +230,8 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
     else if (kind === 'withdraw') primary = valid && amountN ? `Registrar resgate de ${fmtFull(amountN)}` : 'Registrar resgate'
   }
 
+  const canLaunch = !editing && (mode === 'buy' || mode === 'deposit')
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!valid || !candidate) { setTouched(new Set(['date', 'qty', 'price', 'amount', 'pu', 'fees'])); return }
@@ -246,7 +249,7 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
       onDone({ text: 'Operação atualizada.' })
       return
     }
-    const res = registerOperation(position.id, { type: mode, ...fields })
+    const res = registerOperation(position.id, { type: mode, ...fields }, { launchExpense: canLaunch && launchExpense })
     if (!res.ok) { setFormError(res.error); return }
     const op = res.value
     const tk = position.ticker
@@ -494,6 +497,20 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
             className={`${INPUT_BASE} ${border(!!errors.note)}`}
           />
         </Field>
+
+        {canLaunch && (
+          <label htmlFor={`${uid}-launch`} className="flex items-start gap-3 min-h-[44px] py-1 cursor-pointer">
+            <input
+              id={`${uid}-launch`} type="checkbox" checked={launchExpense}
+              onChange={e => setLaunchExpense(e.target.checked)}
+              className="mt-1 w-5 h-5 shrink-0 cursor-pointer accent-[var(--color-primary)]"
+            />
+            <span className="text-[13px] text-[var(--color-text-primary)]">
+              Lançar nas despesas
+              <span className="block text-[12px] text-[var(--color-text-muted)]">Cria um lançamento pago em Investimentos no mês da compra.</span>
+            </span>
+          </label>
+        )}
 
         <div className="rounded-[10px] bg-[var(--color-surface-2)] px-3 py-2.5 text-[13px] text-[var(--color-text-primary)] min-h-[44px] flex items-center" aria-live="polite">
           <div>{previewNode}</div>

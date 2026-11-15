@@ -347,6 +347,9 @@ export default function InvestmentsPage() {
   const [dividendsOpen, setDividendsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  // null = automático (ligado só se a data da compra cair no mês corrente); boolean = escolha do usuário
+  const [launchChoice, setLaunchChoice] = useState<boolean | null>(null)
+  const launchExpense = launchChoice ?? (isValidISODate(form.buyDate) && form.buyDate.slice(0, 7) === todayISO().slice(0, 7))
   const [tesouroTitles, setTesouroTitles] = useState<TesouroTitle[]>([])
   const [tesouroPuLoading, setTesouroPuLoading] = useState(false)
   const [tesouroPuError, setTesouroPuError] = useState<string | null>(null)
@@ -641,6 +644,7 @@ export default function InvestmentsPage() {
     setShowForm(false)
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setLaunchChoice(null)
     lastQuoteKey.current = ''
     setQuoteLookup(IDLE_LOOKUP)
   }
@@ -656,7 +660,7 @@ export default function InvestmentsPage() {
     const res = registerOperation(target.id, {
       type: 'buy', date, quantity, price,
       note: form.notes.trim().slice(0, 200) || undefined,
-    })
+    }, { launchExpense })
     if (!res.ok) { setFormError(res.error); return false }
     const opId = res.value.id
     cancelForm()
@@ -720,7 +724,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else createPosition(data)
+      else createPosition(data, { launchExpense })
       cancelForm()
       return
     }
@@ -749,7 +753,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else createPosition(data)
+      else createPosition(data, { launchExpense })
       cancelForm()
       return
     }
@@ -788,7 +792,7 @@ export default function InvestmentsPage() {
     if (editingId) {
       updatePosition(editingId, data)
     } else {
-      createPosition(data)
+      createPosition(data, { launchExpense })
     }
 
     cancelForm()
@@ -1178,6 +1182,19 @@ export default function InvestmentsPage() {
                   </div>
                   )}
                 </>
+              )}
+              {!editingId && (
+                <label className="col-span-2 sm:col-span-3 flex items-start gap-3 min-h-[44px] py-1 cursor-pointer">
+                  <input
+                    type="checkbox" checked={launchExpense}
+                    onChange={(e) => setLaunchChoice(e.target.checked)}
+                    className="mt-1 w-5 h-5 shrink-0 cursor-pointer accent-[var(--color-primary)]"
+                  />
+                  <span className="text-[13px] text-[var(--color-text-primary)]">
+                    Lançar nas despesas
+                    <span className="block text-[12px] text-[var(--color-text-muted)]">Cria um lançamento pago em Investimentos no mês da compra.</span>
+                  </span>
+                </label>
               )}
               <Input
                 label="Banco / corretora (opcional)"
