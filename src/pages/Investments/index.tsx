@@ -60,7 +60,7 @@ const EMPTY_FORM: FormState = {
   ticker: '',
   quantity: '',
   avgPrice: '',
-  buyDate: new Date().toISOString().slice(0, 10),
+  buyDate: todayISO(),
   assetType: 'acao',
   notes: '',
   manualValue: '',
