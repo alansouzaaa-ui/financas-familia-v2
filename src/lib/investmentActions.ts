@@ -2,7 +2,7 @@ import { useInvestmentStore } from '@/stores/useInvestmentStore'
 import { useOperationsStore } from '@/stores/useOperationsStore'
 import { useTombstoneStore } from '@/stores/useTombstoneStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
-import { expenseFromOperation, expenseItemId } from '@/lib/investmentExpense'
+import { entryFromOperation, expenseItemId } from '@/lib/investmentExpense'
 import type { MonthAbbr } from '@/types/finance'
 import type { ClosedPosition, InvestmentOperation, InvestmentPosition } from '@/types/investment'
 import {
@@ -110,7 +110,7 @@ export function syncPositionState(positionId: string): void {
   }
 }
 
-export interface ExpenseOpts { launchExpense?: boolean }
+export interface EntryOpts { launchEntry?: boolean }
 
 /** Onde está o lançamento vinculado (invest:<opId>), em qualquer mês. */
 function findLinkedItem(opId: string): { year: number; month: MonthAbbr } | null {
@@ -119,36 +119,36 @@ function findLinkedItem(opId: string): { year: number; month: MonthAbbr } | null
   return m ? { year: m.year, month: m.month } : null
 }
 
-function launchExpenseFor(op: InvestmentOperation, pos: InvestmentPosition): void {
-  const e = expenseFromOperation(op, pos)
+function launchEntryFor(op: InvestmentOperation, pos: InvestmentPosition): void {
+  const e = entryFromOperation(op, pos)
   if (e) useFinanceStore.getState().upsertItem(e.ym.year, e.ym.month, e.item)
 }
 
 /** Só mexe em itens `invest:*`; se o usuário apagou o lançamento, não recria. */
-function syncLinkedExpense(op: InvestmentOperation, pos: InvestmentPosition): void {
+function syncLinkedEntry(op: InvestmentOperation, pos: InvestmentPosition): void {
   const at = findLinkedItem(op.id)
   if (!at) return
   const fin = useFinanceStore.getState()
-  const e = expenseFromOperation(op, pos)
+  const e = entryFromOperation(op, pos)
   if (!e) { fin.removeItem(at.year, at.month, expenseItemId(op.id)); return }
   if (at.year !== e.ym.year || at.month !== e.ym.month) fin.removeItem(at.year, at.month, expenseItemId(op.id))
   fin.upsertItem(e.ym.year, e.ym.month, e.item)
 }
 
-function removeLinkedExpense(opId: string): void {
+function removeLinkedEntry(opId: string): void {
   const at = findLinkedItem(opId)
   if (at) useFinanceStore.getState().removeItem(at.year, at.month, expenseItemId(opId))
 }
 
 /** Cria a posição E a abertura `open:<id>`: toda posição nova já nasce com livro. */
-export function createPosition(data: Omit<InvestmentPosition, 'id'>, opts?: ExpenseOpts): string {
+export function createPosition(data: Omit<InvestmentPosition, 'id'>, opts?: EntryOpts): string {
   const id = crypto.randomUUID()
   const pos: InvestmentPosition = { ...data, id }
   const inv = useInvestmentStore.getState()
   inv.setPositions([...inv.positions, pos])
   const opening = { ...openingFor(pos, id), createdAt: new Date().toISOString() }
   useOperationsStore.getState().addOperation(opening)
-  if (opts?.launchExpense) launchExpenseFor(opening, pos)
+  if (opts?.launchEntry) launchEntryFor(opening, pos)
   return id
 }
 
@@ -169,7 +169,7 @@ function applyFields(base: InvestmentOperation, f: OperationFields): InvestmentO
 }
 
 /** Registra compra/venda/aporte/resgate numa posição aberta. */
-export function registerOperation(positionId: string, draft: OperationDraft, opts?: ExpenseOpts): ActionResult<InvestmentOperation> {
+export function registerOperation(positionId: string, draft: OperationDraft, opts?: EntryOpts): ActionResult<InvestmentOperation> {
   const found = findPosition(positionId)
   if (!found || found.closed) return fail('Posição não encontrada.')
   const pos = found.pos
@@ -201,7 +201,7 @@ export function registerOperation(positionId: string, draft: OperationDraft, opt
     if (next != null) patchPosition(positionId, { manualValue: next })
   }
   syncPositionState(positionId)
-  if (opts?.launchExpense && (op.type === 'buy' || op.type === 'deposit')) launchExpenseFor(op, pos)
+  if (opts?.launchEntry) launchEntryFor(op, pos)
   return ok(op)
 }
 
@@ -235,7 +235,7 @@ export function updateOperation(operationId: string, fields: OperationFields): A
   })
   if (balance != null) patchPosition(old.positionId, { manualValue: balance })
   syncPositionState(old.positionId)
-  syncLinkedExpense(next, found.pos)
+  syncLinkedEntry(next, found.pos)
   return ok(undefined)
 }
 
@@ -257,7 +257,7 @@ export function removeOperation(operationId: string): ActionResult {
     }
   }
   useOperationsStore.getState().removeOperation(operationId)
-  removeLinkedExpense(operationId)
+  removeLinkedEntry(operationId)
   if (balance != null) patchPosition(old.positionId, { manualValue: balance })
   syncPositionState(old.positionId)
   return ok(undefined)
@@ -265,8 +265,8 @@ export function removeOperation(operationId: string): ActionResult {
 
 /** Exclui a posição (aberta ou encerrada) e todo o histórico dela, com tombstones. */
 export function deletePosition(positionId: string): void {
-  for (const o of opsOf(positionId)) removeLinkedExpense(o.id)
-  removeLinkedExpense(`open:${positionId}`)
+  for (const o of opsOf(positionId)) removeLinkedEntry(o.id)
+  removeLinkedEntry(`open:${positionId}`)
   useInvestmentStore.getState().removePosition(positionId)
   useTombstoneStore.getState().add([positionId])
 }

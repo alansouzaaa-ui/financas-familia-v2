@@ -660,7 +660,7 @@ export default function InvestmentsPage() {
     const res = registerOperation(target.id, {
       type: 'buy', date, quantity, price,
       note: form.notes.trim().slice(0, 200) || undefined,
-    }, { launchExpense })
+    }, { launchEntry: launchExpense })
     if (!res.ok) { setFormError(res.error); return false }
     const opId = res.value.id
     cancelForm()
@@ -724,7 +724,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else createPosition(data, { launchExpense })
+      else createPosition(data, { launchEntry: launchExpense })
       cancelForm()
       return
     }
@@ -753,7 +753,7 @@ export default function InvestmentsPage() {
         reservePillar: reservePillarValue,
       }
       if (editingId) updatePosition(editingId, data)
-      else createPosition(data, { launchExpense })
+      else createPosition(data, { launchEntry: launchExpense })
       cancelForm()
       return
     }
@@ -792,7 +792,7 @@ export default function InvestmentsPage() {
     if (editingId) {
       updatePosition(editingId, data)
     } else {
-      createPosition(data, { launchExpense })
+      createPosition(data, { launchEntry: launchExpense })
     }
 
     cancelForm()

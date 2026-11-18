@@ -12,8 +12,8 @@ const inv = () => useInvestmentStore.getState()
 const led = () => useOperationsStore.getState()
 const tomb = () => useTombstoneStore.getState().items.map(t => t.id)
 
-function newStock(over: Partial<Omit<InvestmentPosition, 'id'>> = {}, launchExpense = false): string {
-  return createPosition({ ticker: 'PETR4', quantity: 10, avgPrice: 30, buyDate: '2025-01-10', assetType: 'acao', ...over }, launchExpense ? { launchExpense: true } : undefined)
+function newStock(over: Partial<Omit<InvestmentPosition, 'id'>> = {}, launchEntry = false): string {
+  return createPosition({ ticker: 'PETR4', quantity: 10, avgPrice: 30, buyDate: '2025-01-10', assetType: 'acao', ...over }, launchEntry ? { launchEntry: true } : undefined)
 }
 function newSavings(over: Partial<Omit<InvestmentPosition, 'id'>> = {}): string {
   return createPosition({ ticker: 'Poupança', quantity: 1, avgPrice: 1000, manualValue: 1200, buyDate: '2025-01-10', assetType: 'poupanca', ...over })
@@ -252,19 +252,65 @@ describe('despesa vinculada (invest:<opId>)', () => {
 
   beforeEach(() => { useFinanceStore.setState({ allMonths: [] }) })
 
-  it('registerOperation with launchExpense creates the item in the right month', () => {
+  it('registerOperation with launchEntry creates the item in the right month', () => {
     const id = newStock()
-    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50, fees: 1 }, { launchExpense: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50, fees: 1 }, { launchEntry: true })
     if (!r.ok) throw new Error('fail')
     const items = itemsOf(2025, 'Fev')
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ id: `invest:${r.value.id}`, value: 101, source: 'invest', tag: 'investimentos' })
   })
 
-  it('without the flag creates nothing; sell never creates', () => {
+  it('without the flag creates nothing (buy or sell)', () => {
     const id = newStock()
     registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 })
-    registerOperation(id, { type: 'sell', date: '2025-02-02', quantity: 1, price: 50 }, { launchExpense: true })
+    registerOperation(id, { type: 'sell', date: '2025-02-02', quantity: 1, price: 50 })
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('registerOperation sell with flag creates a revenue item (net of fees) in the right month', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'sell', date: '2025-03-10', quantity: 2, price: 50, fees: 4 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    const items = itemsOf(2025, 'Mar')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ id: `invest:${r.value.id}`, value: 96, category: 'revenue', description: 'Venda PETR4', isPaid: true, source: 'invest' })
+  })
+
+  it('withdraw with flag creates a revenue item', () => {
+    const id = newSavings()
+    const r = registerOperation(id, { type: 'withdraw', date: '2025-03-10', amount: 100 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    expect(itemsOf(2025, 'Mar')[0]).toMatchObject({ value: 100, category: 'revenue', description: 'Resgate Poupança' })
+  })
+
+  it('updateOperation of a sell updates value and moves month', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'sell', date: '2025-03-10', quantity: 2, price: 50 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    expect(updateOperation(r.value.id, { date: '2025-03-12', quantity: 3, price: 50 }).ok).toBe(true)
+    expect(itemsOf(2025, 'Mar')[0].value).toBe(150)
+    expect(updateOperation(r.value.id, { date: '2025-05-02', quantity: 3, price: 50 }).ok).toBe(true)
+    expect(itemsOf(2025, 'Mar')).toHaveLength(0)
+    expect(itemsOf(2025, 'Mai')).toHaveLength(1)
+    expect(allInvestItems()).toHaveLength(1)
+  })
+
+  it('removeOperation removes the linked revenue item', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'sell', date: '2025-03-10', quantity: 2, price: 50 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    expect(allInvestItems()).toHaveLength(1)
+    removeOperation(r.value.id)
+    expect(allInvestItems()).toHaveLength(0)
+  })
+
+  it('deletePosition removes linked buy and sell items together', () => {
+    const id = newStock()
+    registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
+    registerOperation(id, { type: 'sell', date: '2025-03-10', quantity: 1, price: 50 }, { launchEntry: true })
+    expect(allInvestItems()).toHaveLength(2)
+    deletePosition(id)
     expect(allInvestItems()).toHaveLength(0)
   })
 
@@ -279,7 +325,7 @@ describe('despesa vinculada (invest:<opId>)', () => {
 
   it('updateOperation changes value and moves month', () => {
     const id = newStock()
-    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
     if (!r.ok) throw new Error('fail')
     expect(updateOperation(r.value.id, { date: '2025-02-20', quantity: 3, price: 50 }).ok).toBe(true)
     expect(itemsOf(2025, 'Fev')[0].value).toBe(150)
@@ -291,7 +337,7 @@ describe('despesa vinculada (invest:<opId>)', () => {
 
   it('updateOperation does nothing when the item was deleted by the user (or never created)', () => {
     const id = newStock()
-    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
     if (!r.ok) throw new Error('fail')
     fin().removeItem(2025, 'Fev', `invest:${r.value.id}`)
     updateOperation(r.value.id, { date: '2025-02-02', quantity: 5, price: 50 })
@@ -305,7 +351,7 @@ describe('despesa vinculada (invest:<opId>)', () => {
   it('does not touch non-invest items', () => {
     const id = newStock()
     fin().upsertItem(2025, 'Fev', { id: 'manual-1', description: 'x', value: 5, category: 'variableCosts', isPaid: true })
-    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
     if (!r.ok) throw new Error('fail')
     removeOperation(r.value.id)
     expect(itemsOf(2025, 'Fev').map(i => i.id)).toEqual(['manual-1'])
@@ -313,7 +359,7 @@ describe('despesa vinculada (invest:<opId>)', () => {
 
   it('removeOperation removes the linked item', () => {
     const id = newStock()
-    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
     if (!r.ok) throw new Error('fail')
     expect(allInvestItems()).toHaveLength(1)
     removeOperation(r.value.id)
@@ -322,7 +368,7 @@ describe('despesa vinculada (invest:<opId>)', () => {
 
   it('deletePosition removes linked items of all its operations', () => {
     const id = newStock({}, true)
-    registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchExpense: true })
+    registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
     expect(allInvestItems()).toHaveLength(2)
     deletePosition(id)
     expect(allInvestItems()).toHaveLength(0)

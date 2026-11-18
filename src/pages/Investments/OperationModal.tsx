@@ -230,7 +230,8 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
     else if (kind === 'withdraw') primary = valid && amountN ? `Registrar resgate de ${fmtFull(amountN)}` : 'Registrar resgate'
   }
 
-  const canLaunch = !editing && (mode === 'buy' || mode === 'deposit')
+  const isInflow = mode === 'sell' || mode === 'withdraw'
+  const canLaunch = !editing
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -249,7 +250,7 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
       onDone({ text: 'Operação atualizada.' })
       return
     }
-    const res = registerOperation(position.id, { type: mode, ...fields }, { launchExpense: canLaunch && launchExpense })
+    const res = registerOperation(position.id, { type: mode, ...fields }, { launchEntry: canLaunch && launchExpense })
     if (!res.ok) { setFormError(res.error); return }
     const op = res.value
     const tk = position.ticker
@@ -506,8 +507,10 @@ export default function OperationModal({ position, mode, editing, tesouroTitles,
               className="mt-1 w-5 h-5 shrink-0 cursor-pointer accent-[var(--color-primary)]"
             />
             <span className="text-[13px] text-[var(--color-text-primary)]">
-              Lançar nas despesas
-              <span className="block text-[12px] text-[var(--color-text-muted)]">Cria um lançamento pago em Investimentos no mês da compra.</span>
+              {isInflow ? 'Lançar nas receitas' : 'Lançar nas despesas'}
+              <span className="block text-[12px] text-[var(--color-text-muted)]">
+                {isInflow ? 'Cria um lançamento recebido em Receitas no mês da venda.' : 'Cria um lançamento pago em Investimentos no mês da compra.'}
+              </span>
             </span>
           </label>
         )}

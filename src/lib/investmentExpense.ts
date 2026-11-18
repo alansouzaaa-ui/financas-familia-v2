@@ -2,10 +2,10 @@ import { MONTHS, type MonthAbbr, type MonthItem } from '@/types/finance'
 import type { InvestmentOperation, InvestmentPosition } from '@/types/investment'
 import { isManualPosition, isValidISODate } from '@/lib/operations'
 
-/** Id do lançamento de despesa vinculado a uma operação de investimento. */
+/** Id do lançamento (despesa ou receita) vinculado a uma operação de investimento. */
 export const expenseItemId = (opId: string): string => 'invest:' + opId
 
-export interface InvestExpense {
+export interface InvestEntry {
   ym: { year: number; month: MonthAbbr }
   item: MonthItem
 }
@@ -14,14 +14,16 @@ const cents = (n: number) => Math.round(n * 100) / 100
 const num = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 
 /**
- * Despesa pago correspondente a uma compra/aporte/abertura. Venda e resgate não geram
- * despesa. Devolve null se o valor for <= 0 ou a data for inválida.
+ * Lançamento pago correspondente a uma operação: compra/aporte/abertura geram despesa;
+ * venda (líquida de taxas) e resgate geram receita. Devolve null se o valor for <= 0
+ * ou a data for inválida.
  */
-export function expenseFromOperation(op: InvestmentOperation, position: InvestmentPosition): InvestExpense | null {
+export function entryFromOperation(op: InvestmentOperation, position: InvestmentPosition): InvestEntry | null {
   if (!isValidISODate(op.date)) return null
   const manual = isManualPosition(position)
   let raw: number
-  let verb: 'Compra' | 'Aporte'
+  let verb: 'Compra' | 'Aporte' | 'Venda' | 'Resgate'
+  let category: 'variableCosts' | 'revenue' = 'variableCosts'
   if (op.type === 'buy') {
     if (!num(op.quantity) || !num(op.price)) return null
     raw = op.quantity * op.price + (num(op.fees) ? op.fees : 0)
@@ -35,6 +37,16 @@ export function expenseFromOperation(op: InvestmentOperation, position: Investme
     if (!num(op.quantity) || !num(op.price)) return null
     raw = op.quantity * op.price
     verb = manual ? 'Aporte' : 'Compra'
+  } else if (op.type === 'sell') {
+    if (!num(op.quantity) || !num(op.price)) return null
+    raw = op.quantity * op.price - (num(op.fees) ? op.fees : 0)
+    verb = 'Venda'
+    category = 'revenue'
+  } else if (op.type === 'withdraw') {
+    if (!num(op.amount)) return null
+    raw = op.amount
+    verb = 'Resgate'
+    category = 'revenue'
   } else return null
 
   const value = cents(raw)
@@ -48,7 +60,7 @@ export function expenseFromOperation(op: InvestmentOperation, position: Investme
       externalId: id,
       description: `${verb} ${position.ticker}`,
       value,
-      category: 'variableCosts',
+      category,
       tag: 'investimentos',
       isPaid: true,
       source: 'invest',
