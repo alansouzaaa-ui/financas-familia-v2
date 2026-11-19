@@ -119,9 +119,31 @@ function findLinkedItem(opId: string): { year: number; month: MonthAbbr } | null
   return m ? { year: m.year, month: m.month } : null
 }
 
-function launchEntryFor(op: InvestmentOperation, pos: InvestmentPosition): void {
+function upsertEntry(op: InvestmentOperation, pos: InvestmentPosition): void {
   const e = entryFromOperation(op, pos)
   if (e) useFinanceStore.getState().upsertItem(e.ym.year, e.ym.month, e.item)
+}
+
+/** Há lançamento vinculado (invest:<opId>) a esta operação, em qualquer mês? */
+export function hasLinkedEntry(opId: string): boolean {
+  return findLinkedItem(opId) !== null
+}
+
+/**
+ * Lança depois, a pedido do usuário, a despesa/receita de uma operação (inclusive de posição encerrada)
+ * registrada antes do recurso. Ação explícita: recria mesmo se o usuário apagou o lançamento antes
+ * (o upsert limpa o tombstone do id).
+ */
+export function launchEntryFor(opId: string): ActionResult<{ year: number; month: MonthAbbr }> {
+  const op = useOperationsStore.getState().operations.find(o => o.id === opId)
+  if (!op) return fail('Operação não encontrada.')
+  const found = findPosition(op.positionId)
+  if (!found) return fail('Posição não encontrada.')
+  if (hasLinkedEntry(opId)) return fail('Já lançado.')
+  const e = entryFromOperation(op, found.pos)
+  if (!e) return fail('Esta operação não gera lançamento.')
+  useFinanceStore.getState().upsertItem(e.ym.year, e.ym.month, e.item)
+  return ok(e.ym)
 }
 
 /** Só mexe em itens `invest:*`; se o usuário apagou o lançamento, não recria. */
@@ -148,7 +170,7 @@ export function createPosition(data: Omit<InvestmentPosition, 'id'>, opts?: Entr
   inv.setPositions([...inv.positions, pos])
   const opening = { ...openingFor(pos, id), createdAt: new Date().toISOString() }
   useOperationsStore.getState().addOperation(opening)
-  if (opts?.launchEntry) launchEntryFor(opening, pos)
+  if (opts?.launchEntry) upsertEntry(opening, pos)
   return id
 }
 
@@ -201,7 +223,7 @@ export function registerOperation(positionId: string, draft: OperationDraft, opt
     if (next != null) patchPosition(positionId, { manualValue: next })
   }
   syncPositionState(positionId)
-  if (opts?.launchEntry) launchEntryFor(op, pos)
+  if (opts?.launchEntry) upsertEntry(op, pos)
   return ok(op)
 }
 

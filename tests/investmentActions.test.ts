@@ -4,7 +4,7 @@ import { useOperationsStore } from '../src/stores/useOperationsStore'
 import { useTombstoneStore } from '../src/stores/useTombstoneStore'
 import { useFinanceStore } from '../src/stores/useFinanceStore'
 import {
-  createPosition, deletePosition, reconcileClosed, registerOperation, removeOperation, updateOperation,
+  createPosition, deletePosition, hasLinkedEntry, launchEntryFor, reconcileClosed, registerOperation, removeOperation, updateOperation,
 } from '../src/lib/investmentActions'
 import type { InvestmentPosition } from '../src/types/investment'
 
@@ -372,5 +372,74 @@ describe('despesa vinculada (invest:<opId>)', () => {
     expect(allInvestItems()).toHaveLength(2)
     deletePosition(id)
     expect(allInvestItems()).toHaveLength(0)
+  })
+})
+
+describe('launchEntryFor / hasLinkedEntry (lançar depois)', () => {
+  const fin = () => useFinanceStore.getState()
+  const itemsOf = (year: number, month: string) => fin().allMonths.find(m => m.year === year && m.month === month)?.items ?? []
+  beforeEach(() => { useFinanceStore.setState({ allMonths: [] }) })
+
+  it('launches a revenue for a sell registered without the flag (net of fees, right month)', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'sell', date: '2025-03-10', quantity: 2, price: 50, fees: 4 })
+    if (!r.ok) throw new Error('fail')
+    expect(hasLinkedEntry(r.value.id)).toBe(false)
+    const l = launchEntryFor(r.value.id)
+    expect(l).toEqual({ ok: true, value: { year: 2025, month: 'Mar' } })
+    expect(itemsOf(2025, 'Mar')[0]).toMatchObject({ id: `invest:${r.value.id}`, value: 96, category: 'revenue', description: 'Venda PETR4' })
+    expect(hasLinkedEntry(r.value.id)).toBe(true)
+  })
+
+  it('launches a revenue for a withdraw', () => {
+    const id = newSavings()
+    const r = registerOperation(id, { type: 'withdraw', date: '2025-03-10', amount: 100 })
+    if (!r.ok) throw new Error('fail')
+    expect(launchEntryFor(r.value.id).ok).toBe(true)
+    expect(itemsOf(2025, 'Mar')[0]).toMatchObject({ value: 100, category: 'revenue' })
+  })
+
+  it('launches an expense for a buy', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50, fees: 1 })
+    if (!r.ok) throw new Error('fail')
+    expect(launchEntryFor(r.value.id).ok).toBe(true)
+    expect(itemsOf(2025, 'Fev')[0]).toMatchObject({ value: 101, category: 'variableCosts' })
+  })
+
+  it('returns "Já lançado." when already linked', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    expect(launchEntryFor(r.value.id)).toEqual({ ok: false, error: 'Já lançado.' })
+  })
+
+  it('works for a sell that closed the position', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'sell', date: '2025-03-01', quantity: 10, price: 40 })
+    if (!r.ok) throw new Error('fail')
+    expect(inv().positions).toHaveLength(0)
+    expect(launchEntryFor(r.value.id).ok).toBe(true)
+    expect(itemsOf(2025, 'Mar')[0]).toMatchObject({ value: 400, category: 'revenue' })
+  })
+
+  it('recreates after the user deleted the linked item (tombstone forgotten)', () => {
+    const id = newStock()
+    const r = registerOperation(id, { type: 'buy', date: '2025-02-01', quantity: 2, price: 50 }, { launchEntry: true })
+    if (!r.ok) throw new Error('fail')
+    const itemId = `invest:${r.value.id}`
+    fin().removeItem(2025, 'Fev', itemId)
+    expect(tomb()).toContain(itemId)
+    expect(hasLinkedEntry(r.value.id)).toBe(false)
+    expect(launchEntryFor(r.value.id).ok).toBe(true)
+    expect(itemsOf(2025, 'Fev').map(i => i.id)).toContain(itemId)
+    expect(tomb()).not.toContain(itemId)
+  })
+
+  it('errors for unknown operation and for an operation without entry', () => {
+    expect(launchEntryFor('nope')).toEqual({ ok: false, error: 'Operação não encontrada.' })
+    const id = newStock()
+    led().setAll({ operations: led().operations.map(o => ({ ...o, date: 'invalida' })) })
+    expect(launchEntryFor(`open:${id}`)).toEqual({ ok: false, error: 'Esta operação não gera lançamento.' })
   })
 })

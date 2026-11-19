@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useInvestmentStore } from '@/stores/useInvestmentStore'
+import { useFinanceStore } from '@/stores/useFinanceStore'
+import { entryFromOperation, expenseItemId } from '@/lib/investmentExpense'
 import { useOperationsStore } from '@/stores/useOperationsStore'
 import {
   isManualPosition, manualBalance, operationAmount, operationResults, removalBlockReason, replayOperations,
   sortOperations, totalBought, UNKNOWN_DATE,
 } from '@/lib/operations'
-import { deletePosition, removeOperation } from '@/lib/investmentActions'
+import { deletePosition, launchEntryFor, removeOperation } from '@/lib/investmentActions'
 import { fmtDateBR, fmtFull, fmtQuantity, fmtSignedFull, fmtSignedPct } from '@/lib/formatters'
 import type { InvestmentOperation, OperationType } from '@/types/investment'
 import ModalShell from './ModalShell'
@@ -51,6 +53,13 @@ export default function HistoryModal({ positionId, onClose, onEditOperation, onT
   const positions = useInvestmentStore(s => s.positions)
   const closedPositions = useOperationsStore(s => s.closedPositions)
   const allOps = useOperationsStore(s => s.operations)
+  // Assinatura do store de finanças: re-renderiza quando um lançamento vinculado surge ou some.
+  const linkedIds = useFinanceStore(s => s.allMonths)
+  const linked = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of linkedIds) for (const i of m.items ?? []) if (i.id.startsWith('invest:')) set.add(i.id)
+    return set
+  }, [linkedIds])
 
   const open = positions.find(p => p.id === positionId)
   const closedEntry = closedPositions.find(c => c.position.id === positionId)
@@ -65,6 +74,7 @@ export default function HistoryModal({ positionId, onClose, onEditOperation, onT
   const [confirm, setConfirm] = useState<{ id: string; whole: boolean } | null>(null)
   const [blocked, setBlocked] = useState<{ id: string; msg: string } | null>(null)
   const [confirmPosition, setConfirmPosition] = useState(false)
+  const [launchMsg, setLaunchMsg] = useState<{ id: string; text: string; error: boolean } | null>(null)
 
   // Posição apagada (ex.: por outro dispositivo) enquanto o histórico está aberto.
   const gone = !pos
@@ -101,6 +111,13 @@ export default function HistoryModal({ positionId, onClose, onEditOperation, onT
     if (!res.ok) { setBlocked({ id: op.id, msg: res.error }); setConfirm(null); return }
     setConfirm(null)
     onToast(DELETED[shownType(op)])
+  }
+
+  function doLaunch(op: InvestmentOperation) {
+    const res = launchEntryFor(op.id)
+    setLaunchMsg(res.ok
+      ? { id: op.id, text: `Lançado em ${res.value.month}/${res.value.year}`, error: false }
+      : { id: op.id, text: res.error, error: true })
   }
 
   function renderLine(op: InvestmentOperation): ReactNode {
@@ -188,6 +205,10 @@ export default function HistoryModal({ positionId, onClose, onEditOperation, onT
             const res = results.get(op.id)
             const pct = res && res.soldCost > 0 ? (res.realized / res.soldCost) * 100 : null
             const isConfirm = confirm?.id === op.id
+            const isLinked = linked.has(expenseItemId(op.id))
+            const isRevenue = op.type === 'sell' || op.type === 'withdraw'
+            const canLaunch = !isLinked && entryFromOperation(op, pos) !== null
+            const lm = launchMsg?.id === op.id ? launchMsg : null
             const blockedMsg = blocked?.id === op.id ? blocked.msg : null
             return (
               <li key={op.id} className="px-1 py-3 flex gap-3">
@@ -212,6 +233,20 @@ export default function HistoryModal({ positionId, onClose, onEditOperation, onT
                       </span>
                     </div>
                   )}
+
+                  {isLinked && !lm?.error && (
+                    <div className="text-[12px] text-[var(--color-text-muted)] mt-1">{lm && !lm.error ? lm.text : 'Lançado'}</div>
+                  )}
+                  {canLaunch && (
+                    <button
+                      type="button"
+                      onClick={() => doLaunch(op)}
+                      className={`mt-1.5 min-h-[40px] px-3 rounded-[8px] text-[12.5px] font-medium border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors`}
+                    >
+                      {isRevenue ? 'Lançar receita' : 'Lançar despesa'}
+                    </button>
+                  )}
+                  {lm?.error && <p className="text-[12.5px] neg mt-1" role="alert">{lm.text}</p>}
 
                   {blockedMsg && (
                     <p className="text-[12.5px] neg mt-2" role="alert">{blockedMsg}</p>
